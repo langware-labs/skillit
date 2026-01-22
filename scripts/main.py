@@ -54,10 +54,7 @@ def main():
     skill_log(banner.center(60, "="))
     skill_log("Hook triggered: UserPromptSubmit")
 
-    # Safety check: prevent recursive activation
-    if is_within_cooldown():
-        skill_log(f"BLOCKED: Within {COOLDOWN_SECONDS}s cooldown period, skipping to prevent recursion")
-        sys.exit(0)
+
 
     # Read input from stdin
     try:
@@ -71,9 +68,13 @@ def main():
     skill_log(f"Prompt: {prompt}")
 
     handler, matched_keyword = find_matching_modifier(prompt)
-
     if handler:
         skill_log(f"Keyword matched: '{matched_keyword}', invoking handler {handler.__name__}")
+    # Safety check: prevent recursive activation
+    if is_within_cooldown():
+        skill_log(f"BLOCKED: Within {COOLDOWN_SECONDS}s cooldown period, skipping to prevent recursion")
+        sys.exit(0)
+    if handler:
         update_invocation_time()
         result = handler(prompt, data)
 
