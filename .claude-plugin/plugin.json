@@ -1,0 +1,8 @@
+{
+  "name": "skillit",
+  "description": "Auto learn from your claude code sessions",
+  "version": "0.0.1",
+  "author": {
+    "name": "shlomo"
+  }
+}
