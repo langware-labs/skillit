@@ -9,6 +9,7 @@ import sys
 
 from global_state import is_within_cooldown, update_invocation_time, COOLDOWN_SECONDS, plugin_config
 from log import skill_log
+from notify import send_skill_notification
 
 # =============================================================================
 # MODIFIER IMPORTS
@@ -76,6 +77,14 @@ def main():
         sys.exit(0)
     if handler:
         update_invocation_time()
+        # Send notification to FlowPad backend (fire-and-forget)
+        send_skill_notification(
+            skill_name="skillit",
+            matched_keyword=matched_keyword,
+            prompt=prompt,
+            handler_name=handler.__name__,
+            folder_path=data.get("cwd", ""),
+        )
         result = handler(prompt, data)
 
         if result:

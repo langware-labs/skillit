@@ -8,14 +8,18 @@ Usage:
     python3 test.py "skillit:test"      # Test with custom prompt
     python3 test.py --all               # Run full test suite
     python3 test.py --transcript        # Test with real transcript
+    python3 test.py --notify            # Test notification module
 """
 import json
 import os
 import subprocess
 import sys
+import threading
+import time
 import uuid
-from pathlib import Path
 from glob import glob
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 
 # =============================================================================
 # CONFIGURATION - Match hooks.json exactly
@@ -137,6 +141,63 @@ def invoke_main(prompt: str, transcript_path: str = None, verbose: bool = True) 
     }
 
 
+class NotificationHandler(BaseHTTPRequestHandler):
+    """HTTP handler to capture notification requests."""
+    received = []
+
+    def do_POST(self):
+        body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        NotificationHandler.received.append(json.loads(body.decode()))
+        self.send_response(200)
+        self.end_headers()
+
+    def log_message(self, *args):
+        pass
+
+
+def test_notifications():
+    """Test notify.py module with mock server or real backend."""
+    print("\n" + "=" * 60)
+    print("NOTIFICATION TEST")
+    print("=" * 60 + "\n")
+
+    env = os.environ.copy()
+    use_mock = "AGENT_HOOKS_REPORT_URL" not in env
+
+    # Start mock server only if no real URL provided
+    server = None
+    if use_mock:
+        port = 18765
+        server = HTTPServer(("127.0.0.1", port), NotificationHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        NotificationHandler.received.clear()
+        env["AGENT_HOOKS_REPORT_URL"] = f"http://127.0.0.1:{port}/notify"
+    if "FLOWPAD_EXECUTION_SCOPE" not in env:
+        env["FLOWPAD_EXECUTION_SCOPE"] = json.dumps([{"type": "flow", "id": "test-123"}])
+
+    print(f"Using: {env['AGENT_HOOKS_REPORT_URL']}")
+
+    # Run notify.py directly
+    cmd = f'python3 "{SCRIPT_DIR}/notify.py" "skillit" "test-keyword" "test prompt" "test_handler" "/tmp/test"'
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env)
+    print(result.stdout)
+    time.sleep(0.3)
+
+    if use_mock:
+        if NotificationHandler.received:
+            notif = NotificationHandler.received[0]["flow_value"]["notification"]
+            print(f"✓ Notification received: skill={notif['skill_name']}, handler={notif['handler_name']}")
+            passed = True
+        else:
+            print("✗ No notification received")
+            passed = False
+        server.shutdown()
+        print(f"\n>>> {'PASS' if passed else 'FAIL'}")
+    else:
+        print("✓ Notification sent to real backend (check server logs)")
+        print("\n>>> PASS")
+
+
 def test_with_transcript():
     """Test skillit with a real transcript file."""
     # Find the most recent transcript in the user's Claude projects directory
@@ -207,8 +268,11 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         if sys.argv[1] == "--all":
             run_tests()
+            test_notifications()
         elif sys.argv[1] == "--transcript":
             test_with_transcript()
+        elif sys.argv[1] == "--notify":
+            test_notifications()
         else:
             invoke_main(" ".join(sys.argv[1:]))
     else:
