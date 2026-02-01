@@ -23,6 +23,16 @@ from glob import glob
 
 SCRIPT_DIR = Path(__file__).parent.resolve()
 PLUGIN_DIR = SCRIPT_DIR.parent
+STATE_FILE = PLUGIN_DIR / "global_state.json"
+
+
+def reset_cooldown():
+    """Reset the cooldown state to allow the next test to run immediately."""
+    try:
+        with open(STATE_FILE, "w") as f:
+            json.dump({}, f)
+    except Exception:
+        pass
 
 # The exact command from hooks.json
 HOOK_COMMAND = 'python3 "$CLAUDE_PLUGIN_ROOT/scripts/main.py"'
@@ -47,7 +57,7 @@ def invoke_main(prompt: str, transcript_path: str = None, verbose: bool = True) 
 
     # Use provided transcript path or generate a fake one
     if not transcript_path:
-        transcript_path = f"/Users/shlom/.claude/projects/test/{session_id}.jsonl"
+        transcript_path = f"/tmp/skillit-test/{session_id}.jsonl"
 
     # Build stdin payload - exact format from Claude Code logs
     stdin_payload = {
@@ -129,8 +139,9 @@ def invoke_main(prompt: str, transcript_path: str = None, verbose: bool = True) 
 
 def test_with_transcript():
     """Test skillit with a real transcript file."""
-    # Find the most recent transcript
-    transcripts = glob("/Users/shlom/.claude/projects/-Users-shlom-Documents-dev-skillit/*.jsonl")
+    # Find the most recent transcript in the user's Claude projects directory
+    claude_projects = Path.home() / ".claude" / "projects"
+    transcripts = glob(str(claude_projects / "*" / "*.jsonl"))
     if not transcripts:
         print("No transcripts found!")
         return
@@ -162,6 +173,7 @@ def run_tests():
 
     results = []
     for prompt, expected_modifier, expected_text in tests:
+        reset_cooldown()  # Clear cooldown state before each test
         print(f"### Prompt: \"{prompt}\"")
         print(f"### Expected: {expected_modifier or 'no match'}\n")
 
