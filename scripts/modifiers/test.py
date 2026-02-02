@@ -22,6 +22,8 @@ def handle_test(prompt: str, data: dict) -> dict:
     invoke_claude(f"run the instructions at {instructions_path}")
 
     return {
+        "continue": False,
+        "stopReason": f"Opened new Claude session to run instructions from {instructions_path}",
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
             "additionalContext": f"skillit:test triggered - opened Claude to run instructions from {instructions_path}"

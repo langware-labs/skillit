@@ -36,6 +36,8 @@ def handle_analyze(prompt: str, data: dict) -> dict:
     invoke_claude(analysis_prompt, working_dir=cwd)
 
     return {
+        "continue": False,
+        "stopReason": f"Opened new Claude session to analyze transcript.\nInstructions: {instructions_path}\nTranscript: {transcript_path}",
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
             "additionalContext": f"Opened new Claude terminal.\nInstructions: {instructions_path}\nTranscript: {transcript_path}"

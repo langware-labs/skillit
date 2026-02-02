@@ -225,6 +225,7 @@ def run_tests():
     tests = [
         ("skillit fix bug", "fixing", "Opened new Claude terminal"),
         ("skillit:test", "test", "skillit:test triggered"),
+        ("skillit create test for showing current time", "create_test", "Creating test skill"),
         ("hello world", None, None),
     ]
 
