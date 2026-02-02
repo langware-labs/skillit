@@ -2,6 +2,8 @@
 
 You are analyzing a conversation transcript to identify failure patterns and create preventive prompts.
 
+First, read the shared instructions at `shared_skill_instructions.md` (same directory as this file)
+
 ## Input
 - **Transcript**: A conversation between user and AI assistant
 - **User Issue**: A complaint, request, or description of what went wrong OR an automation optimization opportunity we wish to achieve
@@ -10,8 +12,9 @@ You are analyzing a conversation transcript to identify failure patterns and cre
 Analyze the transcript to create an IF-THEN rule that would prevent the identified mistake.
 
 ## Analysis Steps
-Start with identifying all issues in the transcript and list them to the user. 
+Start with identifying all issues in the transcript and list them to the user.
 Then, only for the one that matching the user complaint do the following steps:
+
 ### 1. Understand the Issue
 - Read the user's complaint/request carefully
 - Identify what specifically went wrong or what behavior needs to change
@@ -39,8 +42,8 @@ Create a specific, detectable condition that indicates this scenario. Ask:
 - Specific and detectable (not vague)
 - Context-aware (include relevant details)
 - Actionable (the AI can recognize it)
-- Look at alcude code Hooks, they are to be used as the basis for the trigger identification and the context change capabilities of the AI.
-- 
+- Look at Claude Code Hooks, they are to be used as the basis for the trigger identification and the context change capabilities of the AI.
+
 **Examples**:
 - ✅ "User asks to create/modify installation scripts"
 - ✅ "User requests code that reads from external files"
@@ -105,6 +108,7 @@ KEY PATTERN:
   - PreToolUse  --> validation / blocking (runs BEFORE action)
   - PostToolUse --> cleanup / enforcement (runs AFTER action)
   - Matcher uses regex to target tools: Bash, Edit, Write, Read, Task, etc.
+
 ### 5. Design the Preventive Prompt
 Create instructions that would prevent this specific mistake. The prompt should:
 - Be direct and actionable
@@ -123,7 +127,10 @@ Create instructions that would prevent this specific mistake. The prompt should:
 - ✅ "Dynamically read configuration from source files instead of hardcoding values. Always use the single source of truth."
 - ✅ "Before running destructive commands, show the user exactly what will be deleted and ask for explicit confirmation."
 
-### 6. Format the Output
+### 6. Create the Skill
+Follow the **Skill Creation Workflow** in shared instructions (report started → create skill → report completed).
+
+### 7. Format the Output
 Provide your analysis in this exact format:
 
 ```
@@ -175,4 +182,4 @@ Provide your analysis in this exact format:
 
 **Expected Impact**: This rule ensures scripts remain portable and maintainable by using dynamic configuration instead of hardcoded values.
 
-**Hooks configruation & scripts** : the actual implementation of the triggers and actions described above is done via the claude code hooks and scripts that are part of the automation fix. 
+**Hooks configuration & scripts**: the actual implementation of the triggers and actions described above is done via the Claude Code hooks and scripts that are part of the automation fix.

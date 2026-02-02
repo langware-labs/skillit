@@ -8,11 +8,9 @@ from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from claude_utils import invoke_claude
+from claude_utils import invoke_skill_creation, PLUGIN_DIR
 from log import skill_log
 
-SCRIPT_DIR = Path(__file__).parent.resolve()
-PLUGIN_DIR = SCRIPT_DIR.parent.parent
 INSTRUCTIONS_FILE = PLUGIN_DIR / "create_test_instructions.md"
 
 
@@ -23,28 +21,17 @@ def handle_create_test(prompt: str, data: dict) -> dict:
     """
     transcript_path = data.get("transcript_path", "")
     cwd = data.get("cwd", "")
+    session_id = data.get("session_id", "")
 
     skill_log(f"create_test: Processing transcript at {transcript_path}")
 
-    instructions_path = str(INSTRUCTIONS_FILE)
-    skills_dir = Path(cwd) / ".claude" / "skills"
-
-    # Build the prompt for Claude to analyze transcript and create the skill
-    analysis_prompt = (
-        f"Run the instructions at {instructions_path} with:\n"
-        f"- transcript_path: {transcript_path}\n"
-        f"- skills_dir: {skills_dir}\n"
-        f"- cwd: {cwd}"
-    )
-
-    # Open new terminal with Claude to analyze and create the skill
-    invoke_claude(analysis_prompt, working_dir=cwd)
+    result = invoke_skill_creation(INSTRUCTIONS_FILE, transcript_path, cwd, session_id)
 
     return {
         "continue": False,
-        "stopReason": f"Creating test skill in new Claude session.\nSkills directory: {skills_dir}",
+        "stopReason": f"Creating skill in new Claude session.\nSkill session: {result.skill_session_id}\nSkills directory: {result.skills_dir}{result.ad}",
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
-            "additionalContext": f"Creating test skill.\nSkills directory: {skills_dir}"
+            "additionalContext": f"Creating skill.\nSkill session: {result.skill_session_id}\nSkills directory: {result.skills_dir}{result.ad}"
         }
     }

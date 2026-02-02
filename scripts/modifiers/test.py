@@ -7,25 +7,26 @@ from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from claude_utils import invoke_claude
+from claude_utils import invoke_skill_creation, PLUGIN_DIR
 
-SCRIPT_DIR = Path(__file__).parent.resolve()
-PLUGIN_DIR = SCRIPT_DIR.parent.parent
 INSTRUCTIONS_FILE = PLUGIN_DIR / "analyze_transcript.md"
 
 
 def handle_test(prompt: str, data: dict) -> dict:
     """
-    Open a terminal window running Claude Code with instructions from skillit.md.
+    Open a terminal window running Claude Code to analyze transcript and create a skill.
     """
-    instructions_path = str(INSTRUCTIONS_FILE)
-    invoke_claude(f"run the instructions at {instructions_path}")
+    transcript_path = data.get("transcript_path", "")
+    cwd = data.get("cwd", "")
+    session_id = data.get("session_id", "")
+
+    result = invoke_skill_creation(INSTRUCTIONS_FILE, transcript_path, cwd, session_id)
 
     return {
         "continue": False,
-        "stopReason": f"Opened new Claude session to run instructions from {instructions_path}",
+        "stopReason": f"Creating skill from transcript.\nSkill session: {result.skill_session_id}\nSkills directory: {result.skills_dir}{result.ad}",
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
-            "additionalContext": f"skillit:test triggered - opened Claude to run instructions from {instructions_path}"
+            "additionalContext": f"skillit:test triggered - creating skill.\nSkill session: {result.skill_session_id}\nSkills directory: {result.skills_dir}{result.ad}"
         }
     }
