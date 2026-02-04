@@ -18,7 +18,15 @@ python3 "<activation_rules_script>" started_generating_skill '{"skill_name": "<s
 ```
 
 ### Step 2: Create the skill file
-Create the skill at `<skills_dir>/<skill-name>/SKILL.md` using the SKILL.md format below.
+
+⚠️ **CRITICAL: Directory Structure**
+Skills MUST be created in a subdirectory, NOT as a flat file:
+- ✅ CORRECT: `<skills_dir>/<skill-name>/SKILL.md`
+- ❌ WRONG: `<skills_dir>/<skill-name>.md`
+
+First create the directory `<skills_dir>/<skill-name>/`, then create the file `SKILL.md` inside it.
+
+Use the SKILL.md format below.
 
 ### Step 3: Report skill creation completed
 ```bash
