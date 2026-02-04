@@ -19,6 +19,35 @@ A powerful Claude Code plugin that enhances your prompts with intelligent keywor
 
 ## Installation
 
+### Quick Install (from GitHub)
+
+```bash
+# Add the skillit marketplace
+claude plugin marketplace add langware-labs/skillit
+
+# Install the plugin
+claude plugin install skillit@flowpad-ai
+```
+
+### Verify Installation
+
+```bash
+claude plugin list
+```
+
+You should see `skillit` in the list of installed plugins.
+
+### Updating
+
+```bash
+claude plugin marketplace update flowpad-ai
+claude plugin update skillit@flowpad-ai
+```
+
+### Alternative: Local Development Install
+
+If you want to develop or modify the plugin:
+
 1. **Clone the repository**
    ```bash
    git clone https://github.com/langware-labs/skillit.git

@@ -3,6 +3,8 @@ Utility functions for building skill creation instructions.
 """
 from pathlib import Path
 
+from activation_rules import get_ad_if_needed
+
 # Path to the activation_rules.py script for callbacks
 SCRIPTS_DIR = Path(__file__).parent.resolve()
 PLUGIN_DIR = SCRIPTS_DIR.parent
@@ -50,4 +52,5 @@ Launch a Task subagent to analyze this conversation and create activation rules.
 ### After Task Completes
 The activation rules will be created at {skills_dir}/<skill-name>/SKILL.md
 You may use AskUserQuestion if clarification is needed.
+{get_ad_if_needed()}
 """
