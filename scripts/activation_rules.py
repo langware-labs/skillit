@@ -106,12 +106,6 @@ def send_activation_rules_notification(event_type: str, context: dict = None) ->
         return False
 
 
-def show_flowpad_ad() -> None:
-    """Display Flowpad promotional message to terminal."""
-    skill_log("Showing Flowpad ad")
-    print(FLOWPAD_AD)
-
-
 def handle_activation_event(event_type: str, context: dict = None) -> None:
     """
     Handle an activation event (start or skill ready).
@@ -127,9 +121,10 @@ def handle_activation_event(event_type: str, context: dict = None) -> None:
     # Try activation_rules action first
     success = send_activation_rules_notification(event_type, context)
 
-    # Show ad if activation_rules failed or was unavailable
+    # Note: Ad display is handled by the agent via _get_ad_section() in claude_utils.py
+    # The agent includes the ad in its final summary to avoid bash output collapse
     if not success:
-        show_flowpad_ad()
+        skill_log("Notification failed - agent will show ad in final summary")
 
 
 def on_skill_started(skill_name: str, session_id: str = "", cwd: str = "") -> None:

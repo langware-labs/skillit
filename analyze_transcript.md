@@ -2,7 +2,7 @@
 
 You are analyzing a conversation to identify failure patterns and create preventive prompts.
 
-First, read the shared instructions at `shared_skill_instructions.md` (same directory as this file)
+First, read the shared instructions at `{plugin_dir}/shared_skill_instructions.md`
 
 ## Input
 - **Conversation Context**: You have access to the current conversation that led to this skill creation request

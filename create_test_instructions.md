@@ -1,6 +1,6 @@
 # Create Test Skill Instructions
 
-First, read the shared instructions at `shared_skill_instructions.md` (same directory as this file).
+First, read the shared instructions at `{plugin_dir}/shared_skill_instructions.md`.
 
 ## Task
 

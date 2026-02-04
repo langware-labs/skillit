@@ -43,7 +43,7 @@ def reset_cooldown():
 HOOK_COMMAND = 'python3 "$CLAUDE_PLUGIN_ROOT/scripts/main.py"'
 
 
-def invoke_main(prompt: str, transcript_path: str = None, verbose: bool = True) -> dict:
+def invoke_main(prompt: str, verbose: bool = True) -> dict:
     """
     Invoke main.py exactly as Claude Code does.
 
@@ -60,14 +60,9 @@ def invoke_main(prompt: str, transcript_path: str = None, verbose: bool = True) 
     # Generate session info like Claude Code does
     session_id = str(uuid.uuid4())
 
-    # Use provided transcript path or generate a fake one
-    if not transcript_path:
-        transcript_path = f"/tmp/skillit-test/{session_id}.jsonl"
-
     # Build stdin payload - exact format from Claude Code logs
     stdin_payload = {
         "session_id": session_id,
-        "transcript_path": transcript_path,
         "cwd": str(PLUGIN_DIR),
         "permission_mode": "default",
         "hook_event_name": "UserPromptSubmit",
@@ -91,8 +86,6 @@ def invoke_main(prompt: str, transcript_path: str = None, verbose: bool = True) 
         print(f"  CLAUDE_PLUGIN_ROOT={PLUGIN_DIR}")
         print(f"  CLAUDE_PROJECT_DIR={PLUGIN_DIR}")
         print()
-        print(f"Transcript: {transcript_path}")
-        print()
         print("-" * 60)
 
     # Execute the EXACT command from hooks.json through shell
@@ -113,11 +106,13 @@ def invoke_main(prompt: str, transcript_path: str = None, verbose: bool = True) 
             print("Stdout:")
             try:
                 parsed = json.loads(result.stdout)
-                context = parsed.get("hookSpecificOutput", {}).get("additionalContext", "")
-                # Print context nicely formatted
-                print()
-                print(context)
-                print()
+                if isinstance(parsed, dict):
+                    context = parsed.get("hookSpecificOutput", {}).get("additionalContext", "")
+                    print()
+                    print(context)
+                    print()
+                else:
+                    print(f"  {result.stdout}")
             except json.JSONDecodeError:
                 print(f"  {result.stdout}")
         else:
@@ -218,66 +213,98 @@ def test_with_transcript():
     print(f"\nUsing: {transcript_path}")
     print(f"Size: {os.path.getsize(transcript_path)} bytes\n")
 
-    invoke_main("skillit why is it slow?", transcript_path=transcript_path)
+    # Read transcript content
+    with open(transcript_path, "r") as f:
+        transcript_content = f.read()
+
+    invoke_main(f"{transcript_content}\n/skillit why is it slow?")
 
 
 def test_activation_rules():
-    """Test activation rules module (activation_rules + ad fallback)."""
+    """Test that ad is shown when needed, not shown when not needed."""
     print("\n" + "=" * 60)
     print("ACTIVATION RULES TEST")
     print("=" * 60 + "\n")
 
     env = os.environ.copy()
-    use_mock = "AGENT_HOOKS_REPORT_URL" not in env
 
-    # Test 1: skill_ready without backend URL - should show ad
-    print("Test 1: skill_ready without backend URL (should show ad)")
+    # Test 1: Ad shown when AGENT_HOOKS_REPORT_URL is NOT set
+    print("Test 1: Ad shown when AGENT_HOOKS_REPORT_URL is NOT set")
     print("-" * 40)
 
-    cmd = f'python3 "{SCRIPT_DIR}/activation_rules.py" skill_ready \'{{"skill_name": "test-skill", "session_id": "test-session-123", "cwd": "{PLUGIN_DIR}"}}\''
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env)
-    print(result.stdout)
-    has_ad = "flowpad.ai" in result.stdout.lower()
-    print(f">>> {'PASS' if has_ad else 'FAIL'} - {'Ad shown' if has_ad else 'Ad NOT shown'}\n")
+    env_without_url = {k: v for k, v in env.items() if k != "AGENT_HOOKS_REPORT_URL"}
+    result = subprocess.run(
+        ["python3", "-c", """
+import os; os.environ.pop("AGENT_HOOKS_REPORT_URL", None)
+import sys; sys.path.insert(0, "%s")
+from activation_rules import get_ad_if_needed
+print("HAS_AD:" + str("flowpad.ai" in get_ad_if_needed().lower()))
+""" % SCRIPT_DIR],
+        capture_output=True, text=True, env=env_without_url
+    )
+    test1_passed = "HAS_AD:True" in result.stdout
+    print(f"{'✓' if test1_passed else '✗'} Ad returned when URL not set")
+    print(f">>> {'PASS' if test1_passed else 'FAIL'}\n")
 
-    # Test 2: With mock server - should call activation_rules
-    if use_mock:
-        print("Test 2: skill_ready with mock backend (should call activation_rules)")
-        print("-" * 40)
+    # Test 2: Ad NOT shown when AGENT_HOOKS_REPORT_URL IS set
+    print("Test 2: Ad NOT shown when AGENT_HOOKS_REPORT_URL IS set")
+    print("-" * 40)
 
-        port = 18766
-        server = HTTPServer(("127.0.0.1", port), NotificationHandler)
-        threading.Thread(target=server.serve_forever, daemon=True).start()
-        NotificationHandler.received.clear()
+    env_with_url = env.copy()
+    env_with_url["AGENT_HOOKS_REPORT_URL"] = "http://example.com"
+    result = subprocess.run(
+        ["python3", "-c", """
+import sys; sys.path.insert(0, "%s")
+from activation_rules import get_ad_if_needed
+print("AD_EMPTY:" + str(get_ad_if_needed() == ""))
+""" % SCRIPT_DIR],
+        capture_output=True, text=True, env=env_with_url
+    )
+    test2_passed = "AD_EMPTY:True" in result.stdout
+    print(f"{'✓' if test2_passed else '✗'} No ad returned when URL is set")
+    print(f">>> {'PASS' if test2_passed else 'FAIL'}\n")
 
-        env_with_url = env.copy()
-        env_with_url["AGENT_HOOKS_REPORT_URL"] = f"http://127.0.0.1:{port}/activation_rules"
+    # Test 3: Verify activation_rules notification is sent to mock server
+    print("Test 3: Notification sent to backend when URL is set")
+    print("-" * 40)
 
-        cmd = f'python3 "{SCRIPT_DIR}/activation_rules.py" skill_ready \'{{"skill_name": "test-skill", "session_id": "test-123"}}\''
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env_with_url)
-        time.sleep(0.3)
+    port = 18766
+    server = HTTPServer(("127.0.0.1", port), NotificationHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    NotificationHandler.received.clear()
 
-        if NotificationHandler.received:
-            event = NotificationHandler.received[0]["flow_value"]["event"]
-            print(f"✓ Activation rules notification received: type={event['type']}")
-            # Ad should NOT be shown when activation_rules succeeds
-            has_ad = "flowpad.ai" in result.stdout.lower()
-            print(f"✓ Ad {'NOT shown (correct)' if not has_ad else 'shown (incorrect)'}")
-            passed = event["type"] == "skill_ready" and not has_ad
-        else:
-            print("✗ No activation rules notification received")
-            passed = False
+    env_with_mock = env.copy()
+    env_with_mock["AGENT_HOOKS_REPORT_URL"] = f"http://127.0.0.1:{port}/activation_rules"
 
-        server.shutdown()
-        print(f"\n>>> {'PASS' if passed else 'FAIL'}\n")
+    cmd = f'python3 "{SCRIPT_DIR}/activation_rules.py" skill_ready \'{{"skill_name": "test-skill", "session_id": "test-123"}}\''
+    subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env_with_mock)
+    time.sleep(0.3)
+
+    if NotificationHandler.received:
+        event = NotificationHandler.received[0]["flow_value"]["event"]
+        test3_passed = event["type"] == "skill_ready"
+        print(f"{'✓' if test3_passed else '✗'} Notification received: type={event['type']}")
+    else:
+        print("✗ No notification received")
+        test3_passed = False
+
+    server.shutdown()
+    print(f">>> {'PASS' if test3_passed else 'FAIL'}\n")
+
+    # Summary
+    all_passed = test1_passed and test2_passed and test3_passed
+    print("=" * 60)
+    print(f"ACTIVATION RULES: {'ALL TESTS PASSED' if all_passed else 'SOME TESTS FAILED'}")
+    print("=" * 60)
 
 
 def run_tests():
     """Run test suite."""
+    # Test cases: (prompt, expected_modifier, expected_text_in_output)
     tests = [
-        ("skillit fix bug", "fixing", "Opened new Claude terminal"),
+        ("skillit fix bug", "analyzer", "Create Activation Rule Skill"),
         ("skillit:test", "test", "skillit:test triggered"),
-        ("skillit create test for showing current time", "create_test", "Creating test skill"),
+        ("skillit create test for showing current time", "create_test", "Create Activation Rule Skill"),
         ("hello world", None, None),
     ]
 
@@ -293,10 +320,11 @@ def run_tests():
 
         result = invoke_main(prompt, verbose=True)
 
-        context = result.get("response", {}).get("hookSpecificOutput", {}).get("additionalContext", "")
+        # Use stdout directly as the output to check
+        output = result.get("stdout", "")
 
         if expected_text:
-            passed = result["exit_code"] == 0 and expected_text in context
+            passed = result["exit_code"] == 0 and expected_text in output
         else:
             passed = result["exit_code"] == 0 and not result["stdout"].strip()
 

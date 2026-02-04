@@ -16,8 +16,8 @@ from notify import send_skill_notification
 # =============================================================================
 
 from modifiers.analyzer import handle_analyze
-from modifiers.test import handle_test
 from modifiers.create_test import handle_create_test
+from modifiers.test import handle_test
 
 # =============================================================================
 # KEYWORD MAPPINGS
@@ -25,7 +25,7 @@ from modifiers.create_test import handle_create_test
 # =============================================================================
 
 KEYWORD_MAPPINGS = [
-    ("skillit create test", handle_create_test),
+    ("skillit:create-test", handle_create_test),
     ("skillit:test", handle_test),
     ("skillit", handle_analyze),
 ]
