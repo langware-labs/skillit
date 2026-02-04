@@ -1,12 +1,18 @@
-# test_rule
+---
+name: test_rule
+description: Test rule for unit testing trigger execution
+---
 
-Test rule for unit testing trigger execution across all Claude hook types.
+## Issue
 
-## Rule Definition
+Validates that triggers execute correctly across all Claude hook event types.
 
-- **IF**: prompt or command contains 'test_keyword'
-- **THEN**: add context with test information, or block if dangerous
-- **Hook Events**: UserPromptSubmit, PreToolUse, PostToolUse, SessionStart, Stop, Notification, SubagentStop, PreCompact, PermissionRequest
-- **Actions**: add_context, block
-- **Source**: unit_test
-- **Created**: 2024-01-01
+## Triggers
+
+- Hook events: UserPromptSubmit, PreToolUse, PostToolUse, SessionStart, Stop, Notification, SubagentStop
+- Condition: prompt or command contains 'test_keyword'
+
+## Actions
+
+- `add_context`: Injects test information into context
+- `block`: Blocks dangerous commands containing 'test_keyword'

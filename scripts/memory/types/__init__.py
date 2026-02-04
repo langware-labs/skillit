@@ -1,7 +1,7 @@
 """Type definitions for memory module."""
 
-from .records import Skill, Rule, RuleResult, Note, HookResponse
-from .hooks import HookEvent, HookEventType, Memory
+from .records import Note
+from .hooks import HookEvent, HookEventType
 from .claude import (
     # Base types
     RawHookDataBase,
@@ -72,15 +72,10 @@ from .claude import (
 )
 
 __all__ = [
-    # Existing exports
-    "Skill",
-    "Rule",
-    "RuleResult",
+    # Core types
     "Note",
-    "HookResponse",
     "HookEvent",
     "HookEventType",
-    "Memory",
     # Base types
     "RawHookDataBase",
     # Tool input types

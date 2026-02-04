@@ -1,10 +1,8 @@
-"""Evaluation module for testing skills and replaying transcripts."""
+"""Evaluation module placeholder.
 
-from .eval import SkillEval, SkillEvalResult
-from .replay import TranscriptReplay
+This module previously exported SkillEval, SkillEvalResult, and TranscriptReplay
+for in-memory skill evaluation. These have been removed in favor of the
+file-based rule engine system.
+"""
 
-__all__ = [
-    "SkillEval",
-    "SkillEvalResult",
-    "TranscriptReplay",
-]
+__all__: list[str] = []

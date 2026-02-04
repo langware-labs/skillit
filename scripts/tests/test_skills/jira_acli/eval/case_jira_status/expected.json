@@ -1,5 +1,0 @@
-{
-  "hookSpecificOutput": {
-    "additionalContext": "**[jira_context]**\nUse acli to work with jira tickets. The acli command provides access to Jira operations."
-  }
-}

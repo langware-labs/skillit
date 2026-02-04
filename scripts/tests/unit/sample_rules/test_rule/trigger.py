@@ -4,11 +4,10 @@ This trigger activates when 'test_keyword' is found in the input.
 It demonstrates different action types based on hook event type.
 """
 
-import json
-import sys
+from memory.rule_engine.trigger_executor import Action
 
 
-def get_text_to_check(hooks_data: dict) -> str:
+def _get_text_to_check(hooks_data: dict) -> str:
     """Extract the relevant text to check based on hook event type."""
     hook_event = hooks_data.get("hookEvent", hooks_data.get("hook_event_name", ""))
 
@@ -29,58 +28,31 @@ def get_text_to_check(hooks_data: dict) -> str:
         return str(hooks_data)
 
 
-def build_result(hooks_data: dict, text_to_check: str) -> dict:
-    """Build the trigger result based on input analysis."""
-    hook_event = hooks_data.get("hookEvent", hooks_data.get("hook_event_name", ""))
+def evaluate(hooks_data: dict, transcript: list) -> Action | list[Action] | None:
+    """Evaluate hook data and return Action(s) if triggered.
 
-    if "test_keyword" not in text_to_check.lower():
-        return {"trigger": False}
+    Args:
+        hooks_data: Current hook event data.
+        transcript: Conversation history (unused in this test trigger).
+
+    Returns:
+        Action, list of Actions, or None if no trigger.
+    """
+    hook_event = hooks_data.get("hookEvent", hooks_data.get("hook_event_name", ""))
+    text = _get_text_to_check(hooks_data)
+
+    if "test_keyword" not in text.lower():
+        return None  # No trigger
 
     # Check for dangerous command pattern (for block action testing)
-    if hook_event == "PreToolUse" and "dangerous" in text_to_check.lower():
-        return {
-            "trigger": True,
-            "reason": f"Dangerous command detected in {hook_event}",
-            "entry_id": None,
-            "actions": [
-                {
-                    "type": "block",
-                    "reason": "Blocked dangerous command containing test_keyword",
-                }
-            ],
-        }
+    if hook_event == "PreToolUse" and "dangerous" in text.lower():
+        return Action(
+            type="block",
+            params={"reason": "Blocked dangerous command containing test_keyword"},
+        )
 
     # Default: add_context action
-    return {
-        "trigger": True,
-        "reason": f"Found test_keyword in {hook_event}",
-        "entry_id": None,
-        "actions": [
-            {
-                "type": "add_context",
-                "content": f"Test context triggered by {hook_event}: test_keyword found",
-            }
-        ],
-    }
-
-
-def main():
-    """Main entry point for trigger execution."""
-    try:
-        data = json.load(sys.stdin)
-    except json.JSONDecodeError:
-        result = {"trigger": False, "error": "Invalid JSON input"}
-        print(f"<trigger-result>{json.dumps(result)}</trigger-result>")
-        return
-
-    hooks_data = data.get("hooks_data", {})
-    # transcript = data.get("transcript", [])  # Available if needed
-
-    text_to_check = get_text_to_check(hooks_data)
-    result = build_result(hooks_data, text_to_check)
-
-    print(f"<trigger-result>{json.dumps(result)}</trigger-result>")
-
-
-if __name__ == "__main__":
-    main()
+    return Action(
+        type="add_context",
+        params={"content": f"Test context triggered by {hook_event}: test_keyword found"},
+    )

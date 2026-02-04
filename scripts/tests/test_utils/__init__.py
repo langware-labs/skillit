@@ -1,5 +1,5 @@
 """Test utilities package."""
 
-from .hook_data_factory import create_hook_data, hook_data_factory
+from .hook_environment import HookTestEnvironment, PromptResult
 
-__all__ = ["create_hook_data", "hook_data_factory"]
+__all__ = ["HookTestEnvironment", "PromptResult"]

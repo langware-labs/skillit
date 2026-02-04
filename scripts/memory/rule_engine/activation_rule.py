@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
-import re
-import subprocess
+import importlib.util
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -12,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from log import skill_log
-from .trigger_executor import TriggerResult, Action, _parse_trigger_output
+from .trigger_executor import TriggerResult, Action, _convert_actions_to_result
 
 
 @dataclass
@@ -159,6 +157,10 @@ class ActivationRule:
     def _parse_rule_md(cls, rule_md: Path, rule_name: str) -> ActivationRuleHeader:
         """Parse rule.md file into an ActivationRuleHeader.
 
+        Supports two formats:
+        1. YAML front matter (preferred): name/description in YAML, body has Issue/Triggers/Actions
+        2. Legacy markdown format with **IF**/**THEN** bullet points
+
         Args:
             rule_md: Path to the rule.md file.
             rule_name: Name of the rule (directory name).
@@ -167,7 +169,103 @@ class ActivationRule:
             Parsed ActivationRuleHeader.
         """
         content = rule_md.read_text(encoding="utf-8")
+        header = ActivationRuleHeader(name=rule_name)
 
+        # Check for YAML front matter
+        if content.startswith("---"):
+            return cls._parse_yaml_format(content, rule_name)
+
+        # Fall back to legacy format
+        return cls._parse_legacy_format(content, rule_name)
+
+    @classmethod
+    def _parse_yaml_format(cls, content: str, rule_name: str) -> ActivationRuleHeader:
+        """Parse rule.md with YAML front matter format."""
+        import yaml
+
+        header = ActivationRuleHeader(name=rule_name)
+
+        # Split front matter from body
+        parts = content.split("---", 2)
+        if len(parts) >= 3:
+            yaml_content = parts[1].strip()
+            body = parts[2].strip()
+
+            # Parse YAML
+            try:
+                meta = yaml.safe_load(yaml_content) or {}
+                header.name = meta.get("name", rule_name)
+                header.description = meta.get("description", "")
+            except yaml.YAMLError:
+                pass
+
+            # Parse markdown body sections
+            current_section: str | None = None
+            section_content: list[str] = []
+
+            for line in body.split("\n"):
+                line_lower = line.lower().strip()
+
+                if line_lower.startswith("## issue"):
+                    if current_section and section_content:
+                        cls._store_yaml_section(header, current_section, section_content)
+                    current_section = "issue"
+                    section_content = []
+                elif line_lower.startswith("## trigger"):
+                    if current_section and section_content:
+                        cls._store_yaml_section(header, current_section, section_content)
+                    current_section = "triggers"
+                    section_content = []
+                elif line_lower.startswith("## action"):
+                    if current_section and section_content:
+                        cls._store_yaml_section(header, current_section, section_content)
+                    current_section = "actions"
+                    section_content = []
+                elif line_lower.startswith("##"):
+                    if current_section and section_content:
+                        cls._store_yaml_section(header, current_section, section_content)
+                    current_section = None
+                    section_content = []
+                elif current_section:
+                    section_content.append(line)
+
+            if current_section and section_content:
+                cls._store_yaml_section(header, current_section, section_content)
+
+        return header
+
+    @classmethod
+    def _store_yaml_section(cls, header: ActivationRuleHeader, section: str, content: list[str]) -> None:
+        """Store parsed YAML format section into header."""
+        text = "\n".join(content).strip()
+
+        if section == "issue":
+            # Store issue as the IF condition
+            header.if_condition = text
+        elif section == "triggers":
+            # Parse hook events and conditions from triggers section
+            header.then_action = text
+            # Extract hook events if mentioned
+            for line in content:
+                line_lower = line.lower()
+                if "hook" in line_lower and ":" in line:
+                    events_part = line.split(":", 1)[1].strip()
+                    header.hook_events = [e.strip() for e in events_part.split(",") if e.strip()]
+        elif section == "actions":
+            # Extract action types from actions section
+            action_types = []
+            for line in content:
+                if "add_context" in line.lower():
+                    action_types.append("add_context")
+                if "block" in line.lower():
+                    action_types.append("block")
+                if "modify" in line.lower():
+                    action_types.append("modify_input")
+            header.actions = list(dict.fromkeys(action_types))  # dedupe preserving order
+
+    @classmethod
+    def _parse_legacy_format(cls, content: str, rule_name: str) -> ActivationRuleHeader:
+        """Parse legacy rule.md format with **IF**/**THEN** bullet points."""
         header = ActivationRuleHeader(name=rule_name)
         lines = content.split("\n")
         current_section: str | None = None
@@ -213,18 +311,15 @@ class ActivationRule:
                 content_after = line.split(":", 1)[1].strip() if ":" in line else ""
                 section_content = [content_after] if content_after else []
             elif line_lower.startswith("#"):
-                # New heading, store current section
                 if current_section and section_content:
                     cls._store_section(header, current_section, section_content)
                 current_section = None
                 section_content = []
-                # Check for description in heading
                 if "description" in line_lower:
                     current_section = "description"
             elif current_section:
                 section_content.append(line)
 
-        # Store final section
         if current_section and section_content:
             cls._store_section(header, current_section, section_content)
 
@@ -255,38 +350,42 @@ class ActivationRule:
     # -------------------------------------------------------------------------
 
     def to_md(self) -> str:
-        """Serialize the rule to markdown format.
+        """Serialize the rule to markdown format with YAML front matter.
 
         Returns:
             Markdown string representation of the rule.
         """
         hook_events_str = ", ".join(self._header.hook_events) if self._header.hook_events else ""
-        actions_str = ", ".join(self._header.actions) if self._header.actions else ""
+        actions_lines = []
+        for action in self._header.actions:
+            if action == "add_context":
+                actions_lines.append("- `add_context`: Injects guidance into Claude's context")
+            elif action == "block":
+                actions_lines.append("- `block`: Prevents the action with a reason")
+            elif action == "modify_input":
+                actions_lines.append("- `modify_input`: Changes tool input before execution")
+            else:
+                actions_lines.append(f"- `{action}`")
 
         lines = [
-            f"# {self._header.name}",
+            "---",
+            f"name: {self._header.name}",
+            f"description: {self._header.description}",
+            "---",
+            "",
+            "## Issue",
+            "",
+            self._header.if_condition or "No issue specified.",
+            "",
+            "## Triggers",
+            "",
+            f"- Hook events: {hook_events_str}" if hook_events_str else "- Hook events: All",
+            "",
+            "## Actions",
             "",
         ]
-
-        if self._header.description:
-            lines.extend([
-                "## Description",
-                "",
-                self._header.description,
-                "",
-            ])
-
-        lines.extend([
-            "## Rule Definition",
-            "",
-            f"- **IF**: {self._header.if_condition}",
-            f"- **THEN**: {self._header.then_action}",
-            f"- **Hook Events**: {hook_events_str}",
-            f"- **Actions**: {actions_str}",
-            f"- **Source**: {self._header.source}",
-            f"- **Created**: {self._header.created}",
-            "",
-        ])
+        lines.extend(actions_lines if actions_lines else ["- None specified"])
+        lines.append("")
 
         return "\n".join(lines)
 
@@ -314,12 +413,12 @@ class ActivationRule:
         transcript: list[dict[str, Any]] | None = None,
         timeout: float = 5.0,
     ) -> TriggerResult:
-        """Execute the rule's trigger.py script.
+        """Execute the rule's trigger.py module.
 
         Args:
             hooks_data: Current hook event data.
             transcript: Optional list of transcript entries.
-            timeout: Maximum execution time in seconds.
+            timeout: Maximum execution time in seconds (unused, kept for API compatibility).
 
         Returns:
             TriggerResult with parsed output or error information.
@@ -332,59 +431,41 @@ class ActivationRule:
                 error=f"trigger.py not found at {trigger_file}",
             )
 
-        # Prepare input data
-        input_data = {
-            "hooks_data": hooks_data,
-            "transcript": transcript or [],
-        }
-
         try:
-            # Run trigger.py as subprocess
-            result = subprocess.run(
-                [sys.executable, str(trigger_file)],
-                input=json.dumps(input_data),
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                cwd=str(self._path),
+            # Import trigger.py as a module
+            spec = importlib.util.spec_from_file_location(
+                f"trigger_{self.name}",
+                trigger_file,
             )
-
-            # Parse output
-            stdout = result.stdout
-            stderr = result.stderr
-
-            if stderr:
-                skill_log(f"[{self.name}] stderr: {stderr}")
-
-            # Check for non-zero exit (but not exit 2, which is a valid blocking signal)
-            if result.returncode != 0 and result.returncode != 2:
+            if spec is None or spec.loader is None:
                 return TriggerResult(
                     rule_name=self.name,
-                    error=f"trigger.py exited with code {result.returncode}: {stderr}",
+                    error=f"Could not load trigger.py from {trigger_file}",
                 )
 
-            # Handle exit code 2 as a blocking signal
-            if result.returncode == 2:
+            module = importlib.util.module_from_spec(spec)
+
+            # Add rule_path to sys.path temporarily for relative imports
+            original_path = sys.path.copy()
+            sys.path.insert(0, str(self._path))
+            try:
+                spec.loader.exec_module(module)
+            finally:
+                sys.path = original_path
+
+            # Check for evaluate() function
+            if not hasattr(module, "evaluate"):
                 return TriggerResult(
-                    trigger=True,
                     rule_name=self.name,
-                    reason=stderr or "Blocked by trigger (exit code 2)",
-                    actions=[Action(type="block", params={"reason": stderr or "Blocked by trigger"})],
+                    error=f"trigger.py missing evaluate() function",
                 )
 
-            # Parse <trigger-result> tags
-            return _parse_trigger_output(stdout, self.name)
+            # Call evaluate(hooks_data, transcript)
+            result = module.evaluate(hooks_data, transcript or [])
 
-        except subprocess.TimeoutExpired:
-            return TriggerResult(
-                rule_name=self.name,
-                error=f"trigger.py timed out after {timeout}s",
-            )
-        except json.JSONDecodeError as e:
-            return TriggerResult(
-                rule_name=self.name,
-                error=f"Invalid JSON in trigger.py output: {e}",
-            )
+            # Convert Action(s) to TriggerResult
+            return _convert_actions_to_result(result, self.name)
+
         except Exception as e:
             return TriggerResult(
                 rule_name=self.name,
