@@ -76,7 +76,8 @@ $Marketplace = @{
     plugins = $AllPlugins
 }
 
-$Marketplace | ConvertTo-Json -Depth 10 | Set-Content $MarketplaceFile -Encoding UTF8
+$JsonContent = $Marketplace | ConvertTo-Json -Depth 10
+[System.IO.File]::WriteAllText($MarketplaceFile, $JsonContent, [System.Text.UTF8Encoding]::new($false))
 Write-Host "Marketplace updated at: $MarketplaceFile"
 
 # Add marketplace if not already added
@@ -87,7 +88,12 @@ if ($MarketplaceList -match $MarketplaceName) {
     Write-Host "Marketplace '$MarketplaceName' already registered, updating..."
     claude plugin marketplace update $MarketplaceName 2>$null
 } else {
-    claude plugin marketplace add $ParentDir
+    Push-Location $ParentDir
+    try {
+        claude plugin marketplace add "./"
+    } finally {
+        Pop-Location
+    }
 }
 
 # Install the plugin at user level
