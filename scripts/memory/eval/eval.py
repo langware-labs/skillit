@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from .hooks import Memory
-from .records import HookResponse, Skill
+from ..types.hooks import Memory
+from ..types.records import HookResponse, Skill
 from .replay import TranscriptReplay
 
 
