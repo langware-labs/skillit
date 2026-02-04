@@ -19,6 +19,9 @@ fi
 # Uninstall plugin
 claude plugin uninstall "$PLUGIN_NAME@$MARKETPLACE_NAME" 2>/dev/null || true
 
+# Remove marketplace registration
+claude plugin marketplace remove "$MARKETPLACE_NAME" 2>/dev/null || true
+
 # Clean up cache
 rm -rf "$CACHE_DIR" 2>/dev/null || true
 

@@ -1,5 +1,10 @@
 # Skillit 🎯
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
+[![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet)](https://docs.anthropic.com/en/docs/claude-code)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/langware-labs/skillit/pulls)
+
 A powerful Claude Code plugin that enhances your prompts with intelligent keyword-based modifiers. Skillit automatically detects keywords in your prompts and augments them with specialized behaviors to improve Claude's responses.
 
 ## Features

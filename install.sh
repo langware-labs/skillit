@@ -16,13 +16,14 @@ if ! command -v claude &> /dev/null; then
     exit 1
 fi
 
-# Add marketplace and install
-if claude plugin marketplace list 2>/dev/null | grep -q "$MARKETPLACE_NAME"; then
-    claude plugin marketplace update "$MARKETPLACE_NAME" || true
-else
-    claude plugin marketplace add ./
-fi
+# Uninstall existing version first (for clean reinstall)
+claude plugin uninstall "$PLUGIN_NAME@$MARKETPLACE_NAME" 2>/dev/null || true
 
+# Remove and re-add marketplace to ensure it points to local directory
+claude plugin marketplace remove "$MARKETPLACE_NAME" 2>/dev/null || true
+claude plugin marketplace add ./
+
+# Install from local marketplace
 claude plugin install "$PLUGIN_NAME@$MARKETPLACE_NAME" --scope user
 
 # Clean up log file
