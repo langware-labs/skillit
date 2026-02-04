@@ -3,86 +3,43 @@
 import json
 import shutil
 import subprocess
-import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+
+# Re-export gen_rule and GeneratedRule from rule_generator
+from memory.rule_engine.rule_generator import GeneratedRule, gen_rule
+from memory.rule_engine.engine import RulesPackage
 
 TEMP_DIR = Path("/tmp/skillit_test")
 SKILLIT_ROOT = Path(__file__).resolve().parents[3]
 
 
 @dataclass
-class GeneratedRule:
-    """A generated rule with its path."""
-    rule_path: Path
-    name: str
+class SampleTranscript:
+    """Sample transcript with path and entries."""
 
+    path: Path
+    entries: list[dict] = field(default_factory=list)
 
-def gen_rule(
-    name: str,
-    trigger_keywords: list[str],
-    action_type: str,
-    action_content: str,
-) -> GeneratedRule:
-    """Generate a rule folder with trigger.py and rule.md.
+    @classmethod
+    def load(cls, transcript_path: Path) -> "SampleTranscript":
+        """Load transcript from a JSONL file."""
+        entries = []
+        if transcript_path.exists():
+            with open(transcript_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        entries.append(json.loads(line))
+        return cls(path=transcript_path, entries=entries)
 
-    Args:
-        name: Rule name (used for folder name)
-        trigger_keywords: Keywords that trigger the rule
-        action_type: Action type ("add_context", "block", etc.)
-        action_content: Content for the action (context text or reason)
+    def __iter__(self):
+        """Allow iteration over entries."""
+        return iter(self.entries)
 
-    Returns:
-        GeneratedRule with rule_path pointing to generated folder
-    """
-    rule_dir = Path(tempfile.mkdtemp(prefix=f"rule_{name}_"))
-
-    # Generate trigger.py
-    keywords_check = " or ".join(
-        f'_contains("{kw}", prompt)' for kw in trigger_keywords
-    )
-
-    trigger_code = f'''"""Generated trigger for {name}."""
-
-from memory.rule_engine.trigger_executor import Action
-
-
-def _contains(substring: str, text: str) -> bool:
-    if not text or not substring:
-        return False
-    return substring.lower() in text.lower()
-
-
-def evaluate(hooks_data: dict, transcript: list) -> Action | list[Action] | None:
-    prompt = hooks_data.get("prompt", "") or hooks_data.get("command", "")
-
-    if {keywords_check}:
-        return Action(
-            type="{action_type}",
-            params={{"content": """{action_content}"""}}
-        )
-
-    return None
-'''
-    (rule_dir / "trigger.py").write_text(trigger_code)
-
-    # Generate rule.md
-    rule_md = f'''---
-name: {name}
-description: Generated rule for testing
----
-
-## Triggers
-
-Keywords: {", ".join(trigger_keywords)}
-
-## Actions
-
-- `{action_type}`: {action_content[:50]}...
-'''
-    (rule_dir / "rule.md").write_text(rule_md)
-
-    return GeneratedRule(rule_path=rule_dir, name=name)
+    def __len__(self):
+        """Return number of entries."""
+        return len(self.entries)
 
 
 class PromptResult:
@@ -110,6 +67,18 @@ class HookTestEnvironment:
     def __init__(self):
         self.temp_dir = TEMP_DIR
         self._setup()
+
+    @property
+    def path(self) -> Path:
+        """Return the environment's root path."""
+        return self.temp_dir
+
+    @property
+    def project_rules(self) -> RulesPackage:
+        """Return the project rules package."""
+        rules_path = self.temp_dir / ".flow" / "skill_rules"
+        rules_path.mkdir(parents=True, exist_ok=True)
+        return RulesPackage(path=rules_path, source="project")
 
     def _setup(self):
         """Create temp folder with scripts and project hooks config."""
