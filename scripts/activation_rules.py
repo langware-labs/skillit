@@ -132,36 +132,36 @@ def handle_activation_event(event_type: str, context: dict = None) -> None:
         show_flowpad_ad()
 
 
-def on_skill_started(skill_name: str, skill_session_id: str = "", cwd: str = "") -> None:
+def on_skill_started(skill_name: str, session_id: str = "", cwd: str = "") -> None:
     """
     Called when a skill creation session starts.
     Reports the skill_name that will be created.
 
     Args:
         skill_name: Name of the skill being created
-        skill_session_id: Unique ID for this skill creation session
+        session_id: Unique ID for this skill creation session
         cwd: Working directory
     """
     context = {
         "skill_name": skill_name,
-        "skill_session_id": skill_session_id,
+        "session_id": session_id,
         "cwd": cwd,
     }
     handle_activation_event("started_generating_skill", context)
 
 
-def on_skill_ready(skill_name: str, skill_session_id: str = "", cwd: str = "") -> None:
+def on_skill_ready(skill_name: str, session_id: str = "", cwd: str = "") -> None:
     """
     Called when a spawned skill creation session completes.
 
     Args:
         skill_name: Name of the skill that was created
-        skill_session_id: Unique ID for this skill creation session
+        session_id: Unique ID for this skill creation session
         cwd: Working directory
     """
     context = {
         "skill_name": skill_name,
-        "skill_session_id": skill_session_id,
+        "session_id": session_id,
         "cwd": cwd,
     }
     handle_activation_event("skill_ready", context)
@@ -175,8 +175,8 @@ if __name__ == "__main__":
         print("Event types: started_generating_skill, skill_ready")
         print()
         print("Examples:")
-        print('  python activation_rules.py started_generating_skill \'{"skill_name": "my-skill", "skill_session_id": "abc-123"}\'')
-        print('  python activation_rules.py skill_ready \'{"skill_name": "my-skill", "skill_session_id": "abc-123"}\'')
+        print('  python activation_rules.py started_generating_skill \'{"skill_name": "my-skill", "session_id": "abc-123"}\'')
+        print('  python activation_rules.py skill_ready \'{"skill_name": "my-skill", "session_id": "abc-123"}\'')
         sys.exit(1)
 
     event_type = sys.argv[1]
@@ -191,13 +191,13 @@ if __name__ == "__main__":
     if event_type == "started_generating_skill":
         on_skill_started(
             skill_name=context.get("skill_name", ""),
-            skill_session_id=context.get("skill_session_id", ""),
+            session_id=context.get("session_id", ""),
             cwd=context.get("cwd", "")
         )
     elif event_type == "skill_ready":
         on_skill_ready(
             skill_name=context.get("skill_name", ""),
-            skill_session_id=context.get("skill_session_id", ""),
+            session_id=context.get("session_id", ""),
             cwd=context.get("cwd", "")
         )
     else:

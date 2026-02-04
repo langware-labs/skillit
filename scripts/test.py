@@ -234,7 +234,7 @@ def test_activation_rules():
     print("Test 1: skill_ready without backend URL (should show ad)")
     print("-" * 40)
 
-    cmd = f'python3 "{SCRIPT_DIR}/activation_rules.py" skill_ready \'{{"skill_name": "test-skill", "skill_session_id": "test-session-123", "cwd": "{PLUGIN_DIR}"}}\''
+    cmd = f'python3 "{SCRIPT_DIR}/activation_rules.py" skill_ready \'{{"skill_name": "test-skill", "session_id": "test-session-123", "cwd": "{PLUGIN_DIR}"}}\''
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env)
     print(result.stdout)
     has_ad = "flowpad.ai" in result.stdout.lower()
@@ -253,7 +253,7 @@ def test_activation_rules():
         env_with_url = env.copy()
         env_with_url["AGENT_HOOKS_REPORT_URL"] = f"http://127.0.0.1:{port}/activation_rules"
 
-        cmd = f'python3 "{SCRIPT_DIR}/activation_rules.py" skill_ready \'{{"skill_name": "test-skill", "skill_session_id": "test-123"}}\''
+        cmd = f'python3 "{SCRIPT_DIR}/activation_rules.py" skill_ready \'{{"skill_name": "test-skill", "session_id": "test-123"}}\''
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env_with_url)
         time.sleep(0.3)
 

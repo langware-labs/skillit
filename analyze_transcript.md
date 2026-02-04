@@ -1,11 +1,11 @@
 # Skillit Analysis Instructions
 
-You are analyzing a conversation transcript to identify failure patterns and create preventive prompts.
+You are analyzing a conversation to identify failure patterns and create preventive prompts.
 
 First, read the shared instructions at `shared_skill_instructions.md` (same directory as this file)
 
 ## Input
-- **Transcript**: A conversation between user and AI assistant
+- **Conversation Context**: You have access to the current conversation that led to this skill creation request
 - **User Issue**: A complaint, request, or description of what went wrong OR an automation optimization opportunity we wish to achieve
 
 ## Your Task

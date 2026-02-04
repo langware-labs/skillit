@@ -1,20 +1,20 @@
 # Shared Skill Creation Instructions
 
 ## Input Parameters
-- `transcript_path`: JSONL conversation transcript
 - `skills_dir`: Base directory for skills (`<cwd>/.claude/skills/`)
 - `activation_rules_script`: Path to the activation_rules.py script for reporting
-- `skill_session_id`: Unique ID for this skill creation session (use this in all reports)
-- `parent_session_id`: Session ID of the parent Claude session
 - `cwd`: Current working directory
+
+## Conversation Context
+You have access to the current conversation context. Analyze the conversation that led to this skill creation request to understand what needs to be addressed.
 
 ## Skill Creation Workflow (REQUIRED)
 
-After analyzing the transcript and determining a meaningful skill name, follow these steps IN ORDER:
+After analyzing the conversation and determining a meaningful skill name, follow these steps IN ORDER:
 
 ### Step 1: Report skill creation started
 ```bash
-python3 "<activation_rules_script>" started_generating_skill '{"skill_name": "<skill-name>", "skill_session_id": "<skill_session_id>", "cwd": "<cwd>"}'
+python3 "<activation_rules_script>" started_generating_skill '{"skill_name": "<skill-name>", "session_id": "${CLAUDE_SESSION_ID}", "cwd": "<cwd>"}'
 ```
 
 ### Step 2: Create the skill file
@@ -22,10 +22,8 @@ Create the skill at `<skills_dir>/<skill-name>/SKILL.md` using the SKILL.md form
 
 ### Step 3: Report skill creation completed
 ```bash
-python3 "<activation_rules_script>" skill_ready '{"skill_name": "<skill-name>", "skill_session_id": "<skill_session_id>", "cwd": "<cwd>"}'
+python3 "<activation_rules_script>" skill_ready '{"skill_name": "<skill-name>", "session_id": "${CLAUDE_SESSION_ID}", "cwd": "<cwd>"}'
 ```
-
-Use the exact `skill_session_id` value provided in the input parameters.
 
 ## Skill Name Rules
 - Use kebab-case (lowercase with hyphens)

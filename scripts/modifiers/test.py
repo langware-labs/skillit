@@ -1,32 +1,37 @@
 """
 Test Modifier
-Opens a persistent terminal window running Claude Code when 'skillit:test' is detected.
+Returns instructions for the current Claude session to launch a Task subagent
+that analyzes the conversation and creates activation rules. Triggered by 'skillit:test'.
 """
 import sys
 from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from claude_utils import invoke_skill_creation, PLUGIN_DIR
+from claude_utils import (  # noqa: E402
+    PLUGIN_DIR,
+    build_subagent_instructions,
+    get_skills_dir,
+)
 
 INSTRUCTIONS_FILE = PLUGIN_DIR / "analyze_transcript.md"
 
 
 def handle_test(prompt: str, data: dict) -> dict:
     """
-    Open a terminal window running Claude Code to analyze transcript and create a skill.
+    Return instructions for the current Claude session to launch a Task subagent
+    that analyzes the conversation and creates activation rules.
     """
-    transcript_path = data.get("transcript_path", "")
     cwd = data.get("cwd", "")
-    session_id = data.get("session_id", "")
+    skills_dir = get_skills_dir(cwd)
 
-    result = invoke_skill_creation(INSTRUCTIONS_FILE, transcript_path, cwd, session_id)
+    instructions = build_subagent_instructions(
+        instructions_file=INSTRUCTIONS_FILE,
+        skills_dir=skills_dir,
+        cwd=cwd,
+    )
 
     return {
-        "continue": False,
-        "stopReason": f"Creating skill from transcript.\nSkill session: {result.skill_session_id}\nSkills directory: {result.skills_dir}{result.ad}",
-        "hookSpecificOutput": {
-            "hookEventName": "UserPromptSubmit",
-            "additionalContext": f"skillit:test triggered - creating skill.\nSkill session: {result.skill_session_id}\nSkills directory: {result.skills_dir}{result.ad}"
-        }
+        "continue": True,
+        "systemMessage": instructions,
     }
