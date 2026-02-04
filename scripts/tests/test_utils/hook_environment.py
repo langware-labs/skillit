@@ -12,15 +12,20 @@ SKILLIT_ROOT = Path(__file__).resolve().parents[3]
 class PromptResult:
     """Result from running a prompt."""
 
-    def __init__(self, returncode: int, stdout: str):
+    def __init__(self, returncode: int, stdout: str, skill_log: str = ""):
         self.returncode = returncode
         self.stdout = stdout
+        self.skill_log = skill_log
 
     def response_contains(self, text: str) -> bool:
         return text.lower() in self.stdout.lower()
 
     def response_not_contains(self, text: str) -> bool:
         return text.lower() not in self.stdout.lower()
+
+    def hook_output_contains(self, text: str) -> bool:
+        """Check if the hook output (skill.log) contains the text."""
+        return text.lower() in self.skill_log.lower()
 
 
 class HookTestEnvironment:
@@ -75,6 +80,11 @@ class HookTestEnvironment:
 
     def prompt(self, text: str) -> PromptResult:
         """Run claude -p with the prompt, print output, return result."""
+        # Clear skill.log before running
+        skill_log_path = self.temp_dir / "skill.log"
+        if skill_log_path.exists():
+            skill_log_path.unlink()
+
         result = subprocess.run(
             ["claude", "-p", text],
             cwd=str(self.temp_dir),
@@ -82,7 +92,13 @@ class HookTestEnvironment:
             text=True,
         )
         print(result.stdout)
-        return PromptResult(result.returncode, result.stdout)
+
+        # Read skill.log
+        skill_log = ""
+        if skill_log_path.exists():
+            skill_log = skill_log_path.read_text()
+
+        return PromptResult(result.returncode, result.stdout, skill_log)
 
     def cleanup(self):
         """Remove temp folder."""
