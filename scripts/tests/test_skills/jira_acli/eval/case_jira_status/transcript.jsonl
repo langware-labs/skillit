@@ -1,0 +1,1 @@
+{"type": "user", "message": {"role": "user", "content": "how would you check my jira status?"}, "uuid": "test-uuid-1", "timestamp": "2026-02-04T12:00:00.000Z", "sessionId": "test-session", "cwd": "/test"}

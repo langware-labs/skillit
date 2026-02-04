@@ -21,6 +21,7 @@ from modifiers.analyzer import handle_analyze
 from modifiers.test import handle_test
 from memory.hooks import HookEvent, Memory
 from memory.records import HookResponse
+from memory.rule_engine import create_rule_engine
 
 # =============================================================================
 # KEYWORD MAPPINGS
@@ -106,13 +107,54 @@ def _maybe_emit_memory_response(response: HookResponse, data: dict) -> None:
     print(json.dumps(output))
 
 
+def _evaluate_file_rules(data: dict) -> dict:
+    """Evaluate file-based rules from .flow/skill_rules/.
+
+    Args:
+        data: The hook input data.
+
+    Returns:
+        Hook output dict from triggered rules, or empty dict if no triggers.
+    """
+    project_dir = data.get("cwd")
+    engine = create_rule_engine(project_dir=project_dir)
+
+    # Build hooks_data from input
+    hooks_data = {
+        "hookEvent": data.get("hookEvent") or data.get("hook_event") or "UserPromptSubmit",
+        "hookName": data.get("hookName") or data.get("hook_name") or "",
+        "prompt": data.get("prompt") or data.get("command") or "",
+        "tool_name": data.get("toolName") or data.get("tool_name"),
+        "tool_input": data.get("toolInput") or data.get("tool_input"),
+        "toolUseID": data.get("toolUseID") or data.get("tool_use_id"),
+        "parentToolUseID": data.get("parentToolUseID") or data.get("parent_tool_use_id"),
+        "timestamp": data.get("timestamp"),
+        "cwd": project_dir,
+    }
+
+    # Get transcript if available (for now, empty list)
+    # TODO: Load transcript from JSONL if needed
+    transcript: list = []
+
+    result = engine.evaluate_rules(hooks_data, transcript)
+
+    # Handle exit code if set
+    exit_code = result.pop("_exit_code", None)
+    if exit_code == 2:
+        skill_log(f"Rule requested exit code 2 (block)")
+
+    # Remove internal metadata for output
+    result.pop("_triggered_rules", None)
+    result.pop("_chain_requests", None)
+
+    return result
+
+
 def main():
     version = plugin_config.get("version", "unknown")
     banner = f" skillit v{version} "
     skill_log(banner.center(60, "="))
     skill_log("Hook triggered: UserPromptSubmit")
-
-
 
     # Read input from stdin
     try:
@@ -125,6 +167,12 @@ def main():
     prompt = data.get("prompt", "")
     skill_log(f"Prompt: {prompt}")
 
+    # Evaluate file-based rules from .flow/skill_rules/
+    file_rules_output = _evaluate_file_rules(data)
+    if file_rules_output:
+        skill_log(f"File rules triggered: {json.dumps(file_rules_output)}")
+
+    # Process in-memory test skills
     memory = Memory(skills=_load_test_skills())
     hook_event = _build_hook_event(data)
     memory_response = memory.process_hook(hook_event)
@@ -132,10 +180,12 @@ def main():
     handler, matched_keyword = find_matching_modifier(prompt)
     if handler:
         skill_log(f"Keyword matched: '{matched_keyword}', invoking handler {handler.__name__}")
+
     # Safety check: prevent recursive activation
     if is_within_cooldown():
         skill_log(f"BLOCKED: Within {COOLDOWN_SECONDS}s cooldown period, skipping to prevent recursion")
         sys.exit(0)
+
     if handler:
         update_invocation_time()
         # Send notification to FlowPad backend (fire-and-forget)
@@ -151,16 +201,72 @@ def main():
         if result:
             if memory_response.results or memory_response.notes:
                 result["memory"] = memory_response.to_dict()
+            # Merge file rules output
+            if file_rules_output:
+                result = _merge_hook_outputs(file_rules_output, result)
             skill_log(f"Handler result: {json.dumps(result)}")
             print(json.dumps(result))
         else:
             skill_log("Handler returned no result")
+            # Still emit file rules output if triggered
+            if file_rules_output:
+                print(json.dumps(file_rules_output))
     else:
         skill_log("No keyword matched, passing through unchanged")
-        _maybe_emit_memory_response(memory_response, data)
+        # Combine memory response and file rules output
+        if file_rules_output:
+            if memory_response.results or memory_response.notes:
+                file_rules_output["memory"] = memory_response.to_dict()
+            print(json.dumps(file_rules_output))
+        else:
+            _maybe_emit_memory_response(memory_response, data)
 
     skill_log("Hook completed")
     sys.exit(0)
+
+
+def _merge_hook_outputs(base: dict, overlay: dict) -> dict:
+    """Merge two hook output dicts, combining contexts and respecting blocks.
+
+    Args:
+        base: Base output dict (from file rules).
+        overlay: Overlay output dict (from handler).
+
+    Returns:
+        Merged output dict.
+    """
+    result = overlay.copy()
+
+    # Merge hookSpecificOutput
+    if "hookSpecificOutput" in base:
+        if "hookSpecificOutput" not in result:
+            result["hookSpecificOutput"] = {}
+
+        base_hso = base["hookSpecificOutput"]
+        result_hso = result["hookSpecificOutput"]
+
+        # Combine additionalContext
+        if "additionalContext" in base_hso:
+            if "additionalContext" in result_hso:
+                result_hso["additionalContext"] = (
+                    base_hso["additionalContext"] + "\n\n" + result_hso["additionalContext"]
+                )
+            else:
+                result_hso["additionalContext"] = base_hso["additionalContext"]
+
+        # Block takes priority
+        if base_hso.get("permissionDecision") == "deny":
+            result_hso["permissionDecision"] = "deny"
+            if "permissionDecisionReason" in base_hso:
+                result_hso["permissionDecisionReason"] = base_hso["permissionDecisionReason"]
+
+    # Decision block takes priority
+    if base.get("decision") == "block":
+        result["decision"] = "block"
+        if "reason" in base:
+            result["reason"] = base["reason"]
+
+    return result
 
 
 if __name__ == "__main__":
