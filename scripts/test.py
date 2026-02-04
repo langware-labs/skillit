@@ -9,7 +9,7 @@ Usage:
     python3 test.py --all               # Run full test suite
     python3 test.py --transcript        # Test with real transcript
     python3 test.py --notify            # Test notification module
-    python3 test.py --session           # Test session events module
+    python3 test.py --activation        # Test activation rules module
 """
 import json
 import os
@@ -221,38 +221,28 @@ def test_with_transcript():
     invoke_main("skillit why is it slow?", transcript_path=transcript_path)
 
 
-def test_session_events():
-    """Test session events module (listen + ad fallback)."""
+def test_activation_rules():
+    """Test activation rules module (activation_rules + ad fallback)."""
     print("\n" + "=" * 60)
-    print("SESSION EVENTS TEST")
+    print("ACTIVATION RULES TEST")
     print("=" * 60 + "\n")
 
     env = os.environ.copy()
     use_mock = "AGENT_HOOKS_REPORT_URL" not in env
 
-    # Test 1: Without backend URL - should show ad
-    print("Test 1: session_start without backend URL (should show ad)")
+    # Test 1: skill_ready without backend URL - should show ad
+    print("Test 1: skill_ready without backend URL (should show ad)")
     print("-" * 40)
 
-    cmd = f'python3 "{SCRIPT_DIR}/session_events.py" session_start'
+    cmd = f'python3 "{SCRIPT_DIR}/activation_rules.py" skill_ready \'{{"skill_name": "test-skill", "skill_session_id": "test-session-123", "cwd": "{PLUGIN_DIR}"}}\''
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env)
     print(result.stdout)
     has_ad = "flowpad.ai" in result.stdout.lower()
     print(f">>> {'PASS' if has_ad else 'FAIL'} - {'Ad shown' if has_ad else 'Ad NOT shown'}\n")
 
-    # Test 2: skill_ready event (JSON context)
-    print("Test 2: skill_ready without backend URL (should show ad)")
-    print("-" * 40)
-
-    cmd = f'python3 "{SCRIPT_DIR}/session_events.py" skill_ready \'{{"skill_name": "test-skill", "skill_session_id": "test-session-123", "cwd": "{PLUGIN_DIR}"}}\''
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env)
-    print(result.stdout)
-    has_ad = "flowpad.ai" in result.stdout.lower()
-    print(f">>> {'PASS' if has_ad else 'FAIL'} - {'Ad shown' if has_ad else 'Ad NOT shown'}\n")
-
-    # Test 3: With mock server - should call listen
+    # Test 2: With mock server - should call activation_rules
     if use_mock:
-        print("Test 3: session_start with mock backend (should call listen)")
+        print("Test 2: skill_ready with mock backend (should call activation_rules)")
         print("-" * 40)
 
         port = 18766
@@ -261,21 +251,21 @@ def test_session_events():
         NotificationHandler.received.clear()
 
         env_with_url = env.copy()
-        env_with_url["AGENT_HOOKS_REPORT_URL"] = f"http://127.0.0.1:{port}/listen"
+        env_with_url["AGENT_HOOKS_REPORT_URL"] = f"http://127.0.0.1:{port}/activation_rules"
 
-        cmd = f'python3 "{SCRIPT_DIR}/session_events.py" session_start'
+        cmd = f'python3 "{SCRIPT_DIR}/activation_rules.py" skill_ready \'{{"skill_name": "test-skill", "skill_session_id": "test-123"}}\''
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=env_with_url)
         time.sleep(0.3)
 
         if NotificationHandler.received:
             event = NotificationHandler.received[0]["flow_value"]["event"]
-            print(f"✓ Listen notification received: type={event['type']}")
-            # Ad should NOT be shown when listen succeeds
+            print(f"✓ Activation rules notification received: type={event['type']}")
+            # Ad should NOT be shown when activation_rules succeeds
             has_ad = "flowpad.ai" in result.stdout.lower()
             print(f"✓ Ad {'NOT shown (correct)' if not has_ad else 'shown (incorrect)'}")
-            passed = event["type"] == "session_start" and not has_ad
+            passed = event["type"] == "skill_ready" and not has_ad
         else:
-            print("✗ No listen notification received")
+            print("✗ No activation rules notification received")
             passed = False
 
         server.shutdown()
@@ -332,13 +322,13 @@ if __name__ == "__main__":
         if sys.argv[1] == "--all":
             run_tests()
             test_notifications()
-            test_session_events()
+            test_activation_rules()
         elif sys.argv[1] == "--transcript":
             test_with_transcript()
         elif sys.argv[1] == "--notify":
             test_notifications()
-        elif sys.argv[1] == "--session":
-            test_session_events()
+        elif sys.argv[1] == "--activation":
+            test_activation_rules()
         else:
             invoke_main(" ".join(sys.argv[1:]))
     else:

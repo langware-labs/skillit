@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Skillit - Session Events Module
-Handles session start and skill ready events.
+Skillit - Activation Rules Module
+Sends activation rule events to FlowPad backend.
 
 Actions:
-1. Try to call "listen" action on backend
-2. If listen fails/unavailable, show Flowpad ad
+1. Try to call "activation_rules" action on backend
+2. If activation_rules fails/unavailable, show Flowpad ad
 """
 
 import json
@@ -16,7 +16,7 @@ import urllib.request
 
 from log import skill_log
 
-# Flowpad ad text (shown when listen action fails)
+# Flowpad ad text (shown when activation_rules action fails)
 FLOWPAD_AD = """
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
@@ -29,21 +29,21 @@ FLOWPAD_AD = """
 """
 
 
-def is_listen_available() -> bool:
-    """Check if the listen backend is available (env var is set)."""
+def is_activation_rules_available() -> bool:
+    """Check if the activation_rules backend is available (env var is set)."""
     return bool(os.environ.get("AGENT_HOOKS_REPORT_URL"))
 
 
 def get_ad_if_needed() -> str:
-    """Return the ad text if listen is not available, empty string otherwise."""
-    if is_listen_available():
+    """Return the ad text if activation_rules is not available, empty string otherwise."""
+    if is_activation_rules_available():
         return ""
     return FLOWPAD_AD
 
 
-def send_listen_notification(event_type: str, context: dict = None) -> bool:
+def send_activation_rules_notification(event_type: str, context: dict = None) -> bool:
     """
-    Send "listen" event notification to FlowPad backend.
+    Send "activation_rules" event notification to FlowPad backend.
 
     Args:
         event_type: Type of event ("session_start" or "skill_ready")
@@ -56,7 +56,7 @@ def send_listen_notification(event_type: str, context: dict = None) -> bool:
     execution_scope = os.environ.get("FLOWPAD_EXECUTION_SCOPE")
 
     if not report_url:
-        skill_log("Listen notification skipped: AGENT_HOOKS_REPORT_URL not set")
+        skill_log("Activation rules notification skipped: AGENT_HOOKS_REPORT_URL not set")
         return False
 
     # Parse execution_scope (defaults to empty array if not set)
@@ -65,9 +65,9 @@ def send_listen_notification(event_type: str, context: dict = None) -> bool:
     except json.JSONDecodeError:
         scope_list = []
 
-    # Build listen notification payload
+    # Build activation_rules notification payload
     flow_value = {
-        "webhook_type": "listen",
+        "webhook_type": "activation_rules",
         "execution_scope": scope_list,
         "event": {
             "type": event_type,
@@ -88,21 +88,21 @@ def send_listen_notification(event_type: str, context: dict = None) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=10) as response:
             if response.status == 200:
-                skill_log(f"Listen notification sent: event={event_type}")
+                skill_log(f"Activation rules notification sent: event={event_type}")
                 return True
             else:
                 body = response.read().decode("utf-8")
-                skill_log(f"Listen notification failed - HTTP {response.status}: {body}")
+                skill_log(f"Activation rules notification failed - HTTP {response.status}: {body}")
                 return False
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8")
-        skill_log(f"Listen notification failed - HTTP {e.code}: {body}")
+        skill_log(f"Activation rules notification failed - HTTP {e.code}: {body}")
         return False
     except urllib.error.URLError as e:
-        skill_log(f"Listen notification failed - URL error: {e.reason}")
+        skill_log(f"Activation rules notification failed - URL error: {e.reason}")
         return False
     except Exception as e:
-        skill_log(f"Listen notification failed - Exception: {e}")
+        skill_log(f"Activation rules notification failed - Exception: {e}")
         return False
 
 
@@ -112,38 +112,24 @@ def show_flowpad_ad() -> None:
     print(FLOWPAD_AD)
 
 
-def handle_session_event(event_type: str, context: dict = None) -> None:
+def handle_activation_event(event_type: str, context: dict = None) -> None:
     """
-    Handle a session event (start or skill ready).
+    Handle an activation event (start or skill ready).
 
-    Priority: Try listen action first, show ad if it fails.
+    Priority: Try activation_rules action first, show ad if it fails.
 
     Args:
         event_type: "session_start" or "skill_ready"
         context: Optional context data
     """
-    skill_log(f"Handling session event: {event_type}")
+    skill_log(f"Handling activation event: {event_type}")
 
-    # Try listen action first
-    listen_success = send_listen_notification(event_type, context)
+    # Try activation_rules action first
+    success = send_activation_rules_notification(event_type, context)
 
-    # Show ad if listen failed or was unavailable
-    if not listen_success:
+    # Show ad if activation_rules failed or was unavailable
+    if not success:
         show_flowpad_ad()
-
-
-def on_session_start(data: dict) -> None:
-    """
-    Called when a Claude Code session starts.
-
-    Args:
-        data: Session data from SessionStart hook (session_id, cwd, etc.)
-    """
-    context = {
-        "session_id": data.get("session_id", ""),
-        "cwd": data.get("cwd", ""),
-    }
-    handle_session_event("session_start", context)
 
 
 def on_skill_started(skill_name: str, skill_session_id: str = "", cwd: str = "") -> None:
@@ -161,7 +147,7 @@ def on_skill_started(skill_name: str, skill_session_id: str = "", cwd: str = "")
         "skill_session_id": skill_session_id,
         "cwd": cwd,
     }
-    handle_session_event("started_generating_skill", context)
+    handle_activation_event("started_generating_skill", context)
 
 
 def on_skill_ready(skill_name: str, skill_session_id: str = "", cwd: str = "") -> None:
@@ -178,20 +164,19 @@ def on_skill_ready(skill_name: str, skill_session_id: str = "", cwd: str = "") -
         "skill_session_id": skill_session_id,
         "cwd": cwd,
     }
-    handle_session_event("skill_ready", context)
+    handle_activation_event("skill_ready", context)
 
 
 if __name__ == "__main__":
     # CLI interface for testing/direct invocation
     if len(sys.argv) < 2:
-        print("Usage: python session_events.py <event_type> [context_json]")
+        print("Usage: python activation_rules.py <event_type> [context_json]")
         print()
-        print("Event types: session_start, started_generating_skill, skill_ready")
+        print("Event types: started_generating_skill, skill_ready")
         print()
         print("Examples:")
-        print('  python session_events.py session_start')
-        print('  python session_events.py started_generating_skill \'{"skill_name": "my-skill", "skill_session_id": "abc-123"}\'')
-        print('  python session_events.py skill_ready \'{"skill_name": "my-skill", "skill_session_id": "abc-123"}\'')
+        print('  python activation_rules.py started_generating_skill \'{"skill_name": "my-skill", "skill_session_id": "abc-123"}\'')
+        print('  python activation_rules.py skill_ready \'{"skill_name": "my-skill", "skill_session_id": "abc-123"}\'')
         sys.exit(1)
 
     event_type = sys.argv[1]
@@ -216,4 +201,5 @@ if __name__ == "__main__":
             cwd=context.get("cwd", "")
         )
     else:
-        handle_session_event(event_type, context)
+        print(f"Unknown event type: {event_type}")
+        sys.exit(1)
