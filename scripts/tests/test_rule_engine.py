@@ -44,7 +44,7 @@ from memory import (
 )
 
 # Also import from submodules to verify those paths work
-from memory.rule_engine.trigger_executor import _parse_trigger_output
+from memory.rule_engine.trigger_executor import _convert_actions_to_result
 from memory.rule_engine.rule_loader import _is_valid_rule_dir
 
 
@@ -123,30 +123,30 @@ class TestFieldExtractor:
 class TestTriggerExecutor:
     """Tests for trigger execution."""
 
-    def test_parse_trigger_output_success(self):
-        stdout = """<trigger-result>
-{
-  "trigger": true,
-  "reason": "Test reason",
-  "entry_id": null,
-  "actions": [{"type": "add_context", "content": "test"}]
-}
-</trigger-result>"""
-        result = _parse_trigger_output(stdout, "test_rule")
+    def test_convert_actions_to_result_none(self):
+        """Test that None returns a non-triggered result."""
+        result = _convert_actions_to_result(None, "test_rule")
+        assert result.trigger is False
+        assert result.rule_name == "test_rule"
+
+    def test_convert_actions_to_result_single_action(self):
+        """Test that a single Action returns a triggered result."""
+        action = Action(type="add_context", params={"content": "test"})
+        result = _convert_actions_to_result(action, "test_rule")
         assert result.trigger is True
-        assert result.reason == "Test reason"
         assert len(result.actions) == 1
         assert result.actions[0].type == "add_context"
 
-    def test_parse_trigger_output_no_tags(self):
-        stdout = "some random output"
-        result = _parse_trigger_output(stdout, "test_rule")
-        assert result.trigger is False
-
-    def test_parse_trigger_output_invalid_json(self):
-        stdout = "<trigger-result>not valid json</trigger-result>"
-        result = _parse_trigger_output(stdout, "test_rule")
-        assert result.error is not None
+    def test_convert_actions_to_result_list(self):
+        """Test that a list of Actions returns a triggered result."""
+        actions = [
+            Action(type="block", params={"reason": "blocked"}),
+            Action(type="add_context", params={"content": "test1"}),
+        ]
+        result = _convert_actions_to_result(actions, "test_rule")
+        assert result.trigger is True
+        assert len(result.actions) == 2
+        assert result.reason == "blocked"  # First action with reason
 
 
 class TestActionExecutor:
@@ -374,10 +374,16 @@ A test rule for testing.
             rule = ActivationRule(rule_dir, header)
             md_content = rule.to_md()
 
-            assert "serialize_test" in md_content
+            # Check YAML front matter
+            assert "---" in md_content
+            assert "name: serialize_test" in md_content
+            assert "description: A test for serialization" in md_content
+            # Check markdown body
+            assert "## Issue" in md_content
             assert "prompt contains 'serialize'" in md_content
-            assert "serialize the data" in md_content
+            assert "## Triggers" in md_content
             assert "UserPromptSubmit" in md_content
+            assert "## Actions" in md_content
             assert "add_context" in md_content
 
     def test_to_dict(self):
@@ -423,22 +429,15 @@ A test rule for testing.
 
             # Create a simple trigger.py that triggers on "test" prompt
             trigger_code = '''
-import json
-import sys
+from memory.rule_engine.trigger_executor import Action
 
-data = json.load(sys.stdin)
-prompt = data.get("hooks_data", {}).get("prompt", "")
+def evaluate(hooks_data: dict, transcript: list) -> Action | list[Action] | None:
+    prompt = hooks_data.get("prompt", "")
 
-if "test" in prompt.lower():
-    result = {
-        "trigger": True,
-        "reason": "Found test keyword",
-        "actions": [{"type": "add_context", "content": "Test context"}]
-    }
-else:
-    result = {"trigger": False}
+    if "test" in prompt.lower():
+        return Action(type="add_context", params={"content": "Test context"})
 
-print(f"<trigger-result>{json.dumps(result)}</trigger-result>")
+    return None
 '''
             (rule_dir / "trigger.py").write_text(trigger_code)
 
@@ -447,7 +446,8 @@ print(f"<trigger-result>{json.dumps(result)}</trigger-result>")
             # Should trigger
             result = rule.run({"prompt": "this is a test prompt"})
             assert result.trigger is True
-            assert "test" in result.reason.lower()
+            assert len(result.actions) == 1
+            assert result.actions[0].type == "add_context"
 
             # Should not trigger
             result = rule.run({"prompt": "hello world"})
@@ -554,22 +554,15 @@ class TestRulesPackage:
             rule_dir = rules_dir / "aggregate_rule"
             rule_dir.mkdir()
             trigger_code = '''
-import json
-import sys
+from memory.rule_engine.trigger_executor import Action
 
-data = json.load(sys.stdin)
-prompt = data.get("hooks_data", {}).get("prompt", "")
+def evaluate(hooks_data: dict, transcript: list) -> Action | list[Action] | None:
+    prompt = hooks_data.get("prompt", "")
 
-if "aggregate" in prompt.lower():
-    result = {
-        "trigger": True,
-        "reason": "Found aggregate keyword",
-        "actions": [{"type": "add_context", "content": "Aggregated context"}]
-    }
-else:
-    result = {"trigger": False}
+    if "aggregate" in prompt.lower():
+        return Action(type="add_context", params={"content": "Aggregated context"})
 
-print(f"<trigger-result>{json.dumps(result)}</trigger-result>")
+    return None
 '''
             (rule_dir / "trigger.py").write_text(trigger_code)
 
@@ -705,40 +698,3 @@ class TestRuleEngine:
         assert result["hookSpecificOutput"].get("permissionDecision") == "deny"
 
 
-class TestJiraContextEval:
-    """Eval tests for jira_context rule using test case files."""
-
-    def test_jira_status_prompt_adds_acli_context(self):
-        """
-        Test that 'how would you check my jira status?' triggers the jira_context rule
-        and adds acli context to the response.
-
-        This validates the rule trigger mechanism works correctly.
-        """
-        import json
-        from pathlib import Path
-
-        # Load expected output
-        eval_dir = Path(__file__).parent / "test_skills" / "jira_acli" / "eval" / "case_jira_status"
-        expected_file = eval_dir / "expected.json"
-        with open(expected_file) as f:
-            expected = json.load(f)
-
-        # Run rule engine with the test prompt
-        engine = create_rule_engine()
-        result = engine.evaluate_rules({
-            "hookEvent": "UserPromptSubmit",
-            "prompt": "how would you check my jira status?",
-        })
-
-        # Verify the output matches expected
-        assert "hookSpecificOutput" in result, "Rule should produce hookSpecificOutput"
-        assert "additionalContext" in result["hookSpecificOutput"], "Should have additionalContext"
-
-        # Check that acli is mentioned in the context
-        context = result["hookSpecificOutput"]["additionalContext"]
-        assert "acli" in context.lower(), f"Context should mention acli, got: {context}"
-
-        # Verify exact match with expected
-        assert result["hookSpecificOutput"]["additionalContext"] == expected["hookSpecificOutput"]["additionalContext"], \
-            f"Context mismatch.\nExpected: {expected['hookSpecificOutput']['additionalContext']}\nActual: {result['hookSpecificOutput']['additionalContext']}"

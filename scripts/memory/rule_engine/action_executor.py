@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from log import skill_log
+from ..types.hooks import HookEventType
 from .trigger_executor import Action, TriggerResult
 
 
@@ -23,13 +24,13 @@ class ActionResult:
 class ActionExecutor:
     """Executes actions and builds hook JSON output."""
 
-    def __init__(self, hook_event: str):
+    def __init__(self, hook_event: str | HookEventType):
         """Initialize the executor.
 
         Args:
-            hook_event: The current hook event type (UserPromptSubmit, PreToolUse, etc.).
+            hook_event: The current hook event type.
         """
-        self.hook_event = hook_event
+        self.hook_event = str(hook_event)
 
     def add_context(self, content: str) -> ActionResult:
         """Add context for Claude to see.
