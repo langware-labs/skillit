@@ -1,5 +1,5 @@
 """Test utilities package."""
 
-from .hook_environment import HookTestEnvironment, PromptResult
+from .hook_environment import GeneratedRule, HookTestEnvironment, PromptResult, gen_rule
 
-__all__ = ["HookTestEnvironment", "PromptResult"]
+__all__ = ["GeneratedRule", "HookTestEnvironment", "PromptResult", "gen_rule"]
