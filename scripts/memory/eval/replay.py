@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
-from .hooks import HookEvent
+from ..types.hooks import HookEvent
 
 
 @dataclass

@@ -1,51 +1,19 @@
-"""Memory module for skill rules and transcript replay."""
+"""Rule engine module for file-based rules."""
 
-# Types (from types/)
-from .types import (
-    HookEvent,
-    HookResponse,
-    Memory,
-    Note,
-    Rule,
-    RuleResult,
-    Skill,
-)
-
-# Eval (from eval/)
-from .eval import (
-    SkillEval,
-    SkillEvalResult,
-    TranscriptReplay,
-)
-
-# Rule engine (from rule_engine/)
-from .rule_engine import (
-    # Core classes
-    ActivationRule,
-    ActivationRuleHeader,
-    RulesPackage,
-    RuleEngine,
-    # Trigger/Action system
-    Action,
-    TriggerResult,
-    ActionExecutor,
-    ActionResult,
-    execute_actions,
-    format_hook_output,
-    # Factory functions
-    create_rule_engine,
-    evaluate_hooks_with_rules,
-    # Rule loader
+from .activation_rule import ActivationRule, ActivationRuleHeader
+from .engine import RulesPackage, RuleEngine, create_rule_engine, evaluate_hooks_with_rules
+from .trigger_executor import Action, TriggerResult, execute_trigger, execute_all_triggers
+from .action_executor import ActionExecutor, ActionResult, execute_actions, format_hook_output
+from .rule_loader import (
     discover_rules,
     ensure_rules_dir,
     get_rules_dir,
     get_user_rules_dir,
     get_project_rules_dir,
     load_rule_metadata,
-    # Index manager
-    IndexManager,
-    get_index_manager,
-    # Field extractor
+)
+from .index_manager import IndexManager, get_index_manager
+from .field_extractor import (
     extract_field,
     get_tool_info,
     get_hook_event,
@@ -53,7 +21,8 @@ from .rule_engine import (
     is_tool_match,
     get_bash_command,
     get_file_operation,
-    # Regex utilities
+)
+from .regex_utils import (
     compile_regex,
     regex_match,
     regex_match_ignorecase,
@@ -66,19 +35,7 @@ from .rule_engine import (
 )
 
 __all__ = [
-    # Core records (types/)
-    "HookEvent",
-    "HookResponse",
-    "Memory",
-    "Note",
-    "Rule",
-    "RuleResult",
-    "Skill",
-    # Eval (eval/)
-    "SkillEval",
-    "SkillEvalResult",
-    "TranscriptReplay",
-    # Rule engine classes (rule_engine/)
+    # Core classes
     "ActivationRule",
     "ActivationRuleHeader",
     "RulesPackage",
@@ -88,6 +45,8 @@ __all__ = [
     "TriggerResult",
     "ActionExecutor",
     "ActionResult",
+    "execute_trigger",
+    "execute_all_triggers",
     "execute_actions",
     "format_hook_output",
     # Factory functions

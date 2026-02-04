@@ -6,43 +6,46 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from memory.rule_loader import (
+# Import from top-level memory module for backward compatibility
+from memory import (
+    # Rule loader
     discover_rules,
     get_user_rules_dir,
     get_project_rules_dir,
     ensure_rules_dir,
     load_rule_metadata,
-    _is_valid_rule_dir,
-)
-from memory.trigger_executor import (
-    execute_trigger,
-    _parse_trigger_output,
+    # Trigger executor
     TriggerResult,
     Action,
-)
-from memory.action_executor import (
+    # Action executor
     ActionExecutor,
     execute_actions,
     format_hook_output,
-)
-from memory.rule_engine import (
+    # Rule engine
     RuleEngine,
     create_rule_engine,
     evaluate_hooks_with_rules,
-)
-from memory.regex_utils import (
+    # New classes
+    ActivationRule,
+    ActivationRuleHeader,
+    RulesPackage,
+    # Regex utils
     contains,
     regex_match,
     word_boundary_match,
     matches_any,
-)
-from memory.field_extractor import (
+    # Field extractor
     get_user_prompt,
     get_bash_command,
     get_tool_info,
     get_hook_event,
+    # Index manager
+    IndexManager,
 )
-from memory.index_manager import IndexManager
+
+# Also import from submodules to verify those paths work
+from memory.rule_engine.trigger_executor import _parse_trigger_output
+from memory.rule_engine.rule_loader import _is_valid_rule_dir
 
 
 class TestRegexUtils:
@@ -295,8 +298,368 @@ class TestIndexManager:
             assert not_similar is None
 
 
+class TestActivationRule:
+    """Tests for the ActivationRule class."""
+
+    def test_from_md_loads_header(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rule_dir = Path(tmpdir) / "test_rule"
+            rule_dir.mkdir()
+
+            # Create rule.md
+            rule_md = rule_dir / "rule.md"
+            rule_md.write_text("""# test_rule
+
+## Description
+
+A test rule for testing.
+
+## Rule Definition
+
+- **IF**: prompt contains 'test'
+- **THEN**: add context with test info
+- **Hook Events**: UserPromptSubmit, PreToolUse
+- **Actions**: add_context
+- **Source**: user
+- **Created**: 2024-01-01
+""")
+
+            # Create trigger.py (required for validity)
+            trigger_py = rule_dir / "trigger.py"
+            trigger_py.write_text("# empty trigger")
+
+            rule = ActivationRule.from_md(rule_dir)
+
+            assert rule.name == "test_rule"
+            assert rule.if_condition == "prompt contains 'test'"
+            assert rule.then_action == "add context with test info"
+            assert rule.hook_events == ["UserPromptSubmit", "PreToolUse"]
+            assert rule.actions == ["add_context"]
+            assert rule.source == "user"
+            assert rule.created == "2024-01-01"
+
+    def test_properties_get_set(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rule_dir = Path(tmpdir) / "test_rule"
+            rule_dir.mkdir()
+            (rule_dir / "trigger.py").write_text("# empty")
+
+            rule = ActivationRule.from_md(rule_dir)
+
+            rule.if_condition = "new condition"
+            assert rule.if_condition == "new condition"
+
+            rule.then_action = "new action"
+            assert rule.then_action == "new action"
+
+            rule.hook_events = ["PostToolUse"]
+            assert rule.hook_events == ["PostToolUse"]
+
+    def test_to_md_serialization(self):
+        header = ActivationRuleHeader(
+            name="serialize_test",
+            if_condition="prompt contains 'serialize'",
+            then_action="serialize the data",
+            hook_events=["UserPromptSubmit"],
+            actions=["add_context"],
+            source="test",
+            description="A test for serialization",
+            created="2024-01-15",
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rule_dir = Path(tmpdir) / "serialize_test"
+            rule_dir.mkdir()
+            (rule_dir / "trigger.py").write_text("# empty")
+
+            rule = ActivationRule(rule_dir, header)
+            md_content = rule.to_md()
+
+            assert "serialize_test" in md_content
+            assert "prompt contains 'serialize'" in md_content
+            assert "serialize the data" in md_content
+            assert "UserPromptSubmit" in md_content
+            assert "add_context" in md_content
+
+    def test_to_dict(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rule_dir = Path(tmpdir) / "dict_test"
+            rule_dir.mkdir()
+            (rule_dir / "trigger.py").write_text("# empty")
+
+            header = ActivationRuleHeader(
+                name="dict_test",
+                if_condition="test condition",
+                then_action="test action",
+            )
+            rule = ActivationRule(rule_dir, header)
+            d = rule.to_dict()
+
+            assert d["name"] == "dict_test"
+            assert d["if_condition"] == "test condition"
+            assert d["then_action"] == "test action"
+            assert "path" in d
+
+    def test_is_valid(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Valid rule (has trigger.py)
+            valid_dir = Path(tmpdir) / "valid_rule"
+            valid_dir.mkdir()
+            (valid_dir / "trigger.py").write_text("# trigger")
+
+            valid_rule = ActivationRule.from_md(valid_dir)
+            assert valid_rule.is_valid()
+
+            # Invalid rule (no trigger.py)
+            invalid_dir = Path(tmpdir) / "invalid_rule"
+            invalid_dir.mkdir()
+
+            invalid_rule = ActivationRule.from_md(invalid_dir)
+            assert not invalid_rule.is_valid()
+
+    def test_run_executes_trigger(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rule_dir = Path(tmpdir) / "run_test"
+            rule_dir.mkdir()
+
+            # Create a simple trigger.py that triggers on "test" prompt
+            trigger_code = '''
+import json
+import sys
+
+data = json.load(sys.stdin)
+prompt = data.get("hooks_data", {}).get("prompt", "")
+
+if "test" in prompt.lower():
+    result = {
+        "trigger": True,
+        "reason": "Found test keyword",
+        "actions": [{"type": "add_context", "content": "Test context"}]
+    }
+else:
+    result = {"trigger": False}
+
+print(f"<trigger-result>{json.dumps(result)}</trigger-result>")
+'''
+            (rule_dir / "trigger.py").write_text(trigger_code)
+
+            rule = ActivationRule.from_md(rule_dir)
+
+            # Should trigger
+            result = rule.run({"prompt": "this is a test prompt"})
+            assert result.trigger is True
+            assert "test" in result.reason.lower()
+
+            # Should not trigger
+            result = rule.run({"prompt": "hello world"})
+            assert result.trigger is False
+
+
+class TestRulesPackage:
+    """Tests for the RulesPackage class."""
+
+    def test_from_folder_loads_rules(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rules_dir = Path(tmpdir)
+
+            # Create two rules
+            for rule_name in ["rule_a", "rule_b"]:
+                rule_dir = rules_dir / rule_name
+                rule_dir.mkdir()
+                (rule_dir / "trigger.py").write_text("# empty trigger")
+                (rule_dir / "rule.md").write_text(f"# {rule_name}\n\n- **IF**: test\n")
+
+            package = RulesPackage.from_folder(rules_dir, source="test")
+
+            assert len(package) == 2
+            assert "rule_a" in package
+            assert "rule_b" in package
+            assert package.source == "test"
+
+    def test_from_multiple_folders_overrides(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            user_dir = Path(tmpdir) / "user"
+            project_dir = Path(tmpdir) / "project"
+            user_dir.mkdir()
+            project_dir.mkdir()
+
+            # Create user rule
+            user_rule = user_dir / "shared_rule"
+            user_rule.mkdir()
+            (user_rule / "trigger.py").write_text("# user trigger")
+            (user_rule / "rule.md").write_text("# shared_rule\n\n- **IF**: user version\n")
+
+            # Create project rule with same name (should override)
+            project_rule = project_dir / "shared_rule"
+            project_rule.mkdir()
+            (project_rule / "trigger.py").write_text("# project trigger")
+            (project_rule / "rule.md").write_text("# shared_rule\n\n- **IF**: project version\n")
+
+            package = RulesPackage.from_multiple_folders(user_dir, project_dir)
+
+            assert len(package) == 1
+            rule = package.get("shared_rule")
+            assert rule is not None
+            assert rule.source == "project"
+            assert "project version" in rule.if_condition
+
+    def test_add_remove_rule(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rules_dir = Path(tmpdir)
+            rule_dir = rules_dir / "new_rule"
+            rule_dir.mkdir()
+            (rule_dir / "trigger.py").write_text("# empty")
+
+            package = RulesPackage(path=rules_dir, source="test", rules=[])
+
+            # Add rule
+            new_rule = ActivationRule.from_md(rule_dir)
+            package.add_rule(new_rule)
+            assert "new_rule" in package
+            assert len(package) == 1
+
+            # Remove rule
+            removed = package.remove_rule("new_rule")
+            assert removed is True
+            assert "new_rule" not in package
+            assert len(package) == 0
+
+            # Remove non-existent
+            removed = package.remove_rule("nonexistent")
+            assert removed is False
+
+    def test_update_rule(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rules_dir = Path(tmpdir)
+            rule_dir = rules_dir / "update_test"
+            rule_dir.mkdir()
+            (rule_dir / "trigger.py").write_text("# empty")
+
+            rule = ActivationRule.from_md(rule_dir)
+            package = RulesPackage(path=rules_dir, source="test", rules=[rule])
+
+            # Update
+            updated = package.update_rule("update_test", if_condition="updated condition")
+            assert updated is True
+            assert package.get("update_test").if_condition == "updated condition"
+
+            # Update non-existent
+            updated = package.update_rule("nonexistent", if_condition="test")
+            assert updated is False
+
+    def test_run_aggregates_results(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rules_dir = Path(tmpdir)
+
+            # Create a rule that triggers on "aggregate"
+            rule_dir = rules_dir / "aggregate_rule"
+            rule_dir.mkdir()
+            trigger_code = '''
+import json
+import sys
+
+data = json.load(sys.stdin)
+prompt = data.get("hooks_data", {}).get("prompt", "")
+
+if "aggregate" in prompt.lower():
+    result = {
+        "trigger": True,
+        "reason": "Found aggregate keyword",
+        "actions": [{"type": "add_context", "content": "Aggregated context"}]
+    }
+else:
+    result = {"trigger": False}
+
+print(f"<trigger-result>{json.dumps(result)}</trigger-result>")
+'''
+            (rule_dir / "trigger.py").write_text(trigger_code)
+
+            package = RulesPackage.from_folder(rules_dir)
+
+            # Should trigger
+            result = package.run({"hookEvent": "UserPromptSubmit", "prompt": "test aggregate"})
+            assert "hookSpecificOutput" in result
+            assert "additionalContext" in result["hookSpecificOutput"]
+            assert "Aggregated" in result["hookSpecificOutput"]["additionalContext"]
+
+            # Should not trigger
+            result = package.run({"hookEvent": "UserPromptSubmit", "prompt": "no match"})
+            assert result == {}
+
+    def test_to_folder_creates_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir) / "src"
+            dst_dir = Path(tmpdir) / "dst"
+            src_dir.mkdir()
+
+            # Create a rule
+            rule_dir = src_dir / "save_test"
+            rule_dir.mkdir()
+            (rule_dir / "trigger.py").write_text("# trigger")
+
+            header = ActivationRuleHeader(
+                name="save_test",
+                if_condition="save condition",
+                then_action="save action",
+                hook_events=["UserPromptSubmit"],
+                actions=["add_context"],
+            )
+            rule = ActivationRule(rule_dir, header)
+            package = RulesPackage(path=src_dir, source="test", rules=[rule])
+
+            # Save to new folder
+            package.to_folder(dst_dir)
+
+            # Check files were created
+            assert (dst_dir / "save_test" / "rule.md").exists()
+            assert (dst_dir / "index.md").exists()
+
+            # Check content
+            rule_md_content = (dst_dir / "save_test" / "rule.md").read_text()
+            assert "save_test" in rule_md_content
+            assert "save condition" in rule_md_content
+
+    def test_find_similar(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rules_dir = Path(tmpdir)
+            rule_dir = rules_dir / "jira_helper"
+            rule_dir.mkdir()
+            (rule_dir / "trigger.py").write_text("# empty")
+
+            header = ActivationRuleHeader(
+                name="jira_helper",
+                if_condition="prompt contains jira ticket",
+            )
+            rule = ActivationRule(rule_dir, header)
+            package = RulesPackage(path=rules_dir, rules=[rule])
+
+            # Should find similar
+            similar = package.find_similar("jira ticket help", threshold=0.3)
+            assert similar == "jira_helper"
+
+            # Should not find similar
+            similar = package.find_similar("completely unrelated", threshold=0.7)
+            assert similar is None
+
+    def test_get_summary(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            rules_dir = Path(tmpdir)
+            rule_dir = rules_dir / "summary_test"
+            rule_dir.mkdir()
+            (rule_dir / "trigger.py").write_text("# empty")
+
+            rule = ActivationRule.from_md(rule_dir)
+            rule.source = "test_source"
+            package = RulesPackage(path=rules_dir, rules=[rule])
+
+            summary = package.get_summary()
+            assert len(summary) == 1
+            assert summary[0]["name"] == "summary_test"
+            assert summary[0]["source"] == "test_source"
+            assert "path" in summary[0]
+
+
 class TestRuleEngine:
-    """Tests for the main rule engine."""
+    """Tests for the main rule engine (backward compatibility)."""
 
     def test_create_rule_engine(self):
         engine = create_rule_engine()
