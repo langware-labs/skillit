@@ -9,7 +9,6 @@ import re
 import sys
 from pathlib import Path
 
-from global_state import is_within_cooldown, update_invocation_time, COOLDOWN_SECONDS, plugin_config
 from log import skill_log
 from notify import send_skill_notification
 
@@ -149,9 +148,7 @@ def _evaluate_file_rules(data: dict) -> dict:
 
 
 def main():
-    version = plugin_config.get("version", "unknown")
-    banner = f" skillit v{version} "
-    skill_log(banner.center(60, "="))
+    skill_log(" skillit ".center(60, "="))
     skill_log("Hook triggered: UserPromptSubmit")
 
     # Read input from stdin
@@ -178,14 +175,6 @@ def main():
     handler, matched_keyword = find_matching_modifier(prompt)
     if handler:
         skill_log(f"Keyword matched: '{matched_keyword}', invoking handler {handler.__name__}")
-
-    # Safety check: prevent recursive activation
-    if is_within_cooldown():
-        skill_log(f"BLOCKED: Within {COOLDOWN_SECONDS}s cooldown period, skipping to prevent recursion")
-        sys.exit(0)
-
-    if handler:
-        update_invocation_time()
         # Send notification to FlowPad backend (fire-and-forget)
         send_skill_notification(
             skill_name="skillit",

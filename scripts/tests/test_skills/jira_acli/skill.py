@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from scripts.memory.records import Rule, Skill
+from memory.types import Rule, Skill
 
 
 def _extract_prompt(text: str) -> str:

@@ -3,7 +3,8 @@
     {
       "rule_name": "user_prompt_jira_or_ticket",
       "skill_name": "jira_acli",
-      "output": "use acli to work with jira"
+      "output": "use acli to work with jira",
+      "metadata": {}
     }
   ]
 }

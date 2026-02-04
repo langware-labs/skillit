@@ -24,10 +24,27 @@ def _load_expected(path: Path) -> dict:
 
 
 def _iter_eval_cases(skill_dir: Path):
+    """Return eval cases that have both transcript.jsonl and expected.json with 'results' key."""
     eval_dir = skill_dir / "eval"
     if not eval_dir.exists():
         return []
-    return [p for p in eval_dir.iterdir() if p.is_dir()]
+    cases = []
+    for p in eval_dir.iterdir():
+        if not p.is_dir():
+            continue
+        transcript = p / "transcript.jsonl"
+        expected = p / "expected.json"
+        if not transcript.exists() or not expected.exists():
+            continue
+        # Only include cases that expect in-memory skill format (results key)
+        try:
+            with open(expected, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if "results" in data:
+                cases.append(p)
+        except (json.JSONDecodeError, OSError):
+            continue
+    return cases
 
 
 def run_eval(skill_folder_name: str) -> None:

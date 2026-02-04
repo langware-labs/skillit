@@ -3,6 +3,7 @@
 # Types (from types/)
 from .types import (
     HookEvent,
+    HookEventType,
     HookResponse,
     Memory,
     Note,
@@ -68,6 +69,7 @@ from .rule_engine import (
 __all__ = [
     # Core records (types/)
     "HookEvent",
+    "HookEventType",
     "HookResponse",
     "Memory",
     "Note",

@@ -1,7 +1,7 @@
 """Type definitions for memory module."""
 
 from .records import Skill, Rule, RuleResult, Note, HookResponse
-from .hooks import HookEvent, Memory
+from .hooks import HookEvent, HookEventType, Memory
 
 __all__ = [
     "Skill",
@@ -10,5 +10,6 @@ __all__ = [
     "Note",
     "HookResponse",
     "HookEvent",
+    "HookEventType",
     "Memory",
 ]
