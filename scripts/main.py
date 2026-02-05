@@ -102,32 +102,31 @@ def _evaluate_file_rules(data: dict) -> dict:
 def _emit_hook_output(output: dict) -> None:
     """Emit hook output to stdout in the format Claude Code expects.
 
-    For UserPromptSubmit hooks, additionalContext must be plain text stdout
-    (not JSON) for Claude to see it. Blocking decisions use JSON or exit codes.
+    For UserPromptSubmit hooks, outputs JSON with hookSpecificOutput.
+    Plain additionalContext is emitted as non-JSON text so Claude adds
+    it directly to its context.
 
     Args:
         output: Hook output dict from rule engine or handler.
     """
     hso = output.get("hookSpecificOutput", {})
-    additional_context = hso.pop("additionalContext", None)
+    additional_context = hso.get("additionalContext")
     is_blocking = (
         output.get("decision") == "block"
         or hso.get("permissionDecision") == "deny"
     )
 
     if is_blocking:
-        # Blocking: output full JSON (additionalContext won't apply)
-        if additional_context:
-            hso["additionalContext"] = additional_context
+        # Blocking: output full JSON
+        skill_log(f"Emitting block output: {json.dumps(output)[:200]}...")
         print(json.dumps(output))
     elif additional_context:
-        # Context only: output as plain text (Claude reads this as context)
-        skill_log(f"Emitting plain text context: {additional_context[:100]}...")
+        # Context injection: output as plain text (Claude adds stdout as context)
+        skill_log(f"Emitting context ({len(additional_context)} chars): {additional_context[:100]}...")
         print(additional_context)
-    else:
-        # Other non-blocking output (e.g., allow, modify_input)
-        if hso:
-            output["hookSpecificOutput"] = hso
+    elif output:
+        # Other structured output (allow, modify_input, etc.)
+        skill_log(f"Emitting JSON output: {json.dumps(output)[:200]}...")
         print(json.dumps(output))
 
 

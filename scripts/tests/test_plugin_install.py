@@ -83,15 +83,22 @@ def test_activation_dump():
 
 
 def test_secret_word_install():
-    """Bumping the patch version and reinstalling should update the cache."""
+    """Loading secret_word rule should inject 443216 when prompt contains '42'."""
     env = HookTestEnvironment()
     print(f"env path: {env.path}")
     env.install_plugin()
-    no_secret_result:PromptResult = env.launch_claude('is 42', False)
-    print(f"hook main.py log after no secret word: {SkillitPluginManager.print_log()}")
+
+    # Without the rule loaded, 443216 should NOT appear
+    no_secret_result: PromptResult = env.launch_claude('what is 42', False)
+    log_before = SkillitPluginManager.print_log()
+    print(f"hook log (no rule): {log_before}")
     assert '443216' not in no_secret_result.stdout
+
     SkillitPluginManager.clear_log()
+
+    # Load the secret_word rule and re-prompt
     env.load_rule("secret_word")
-    secret_result: PromptResult = env.launch_claude('skillit, is 42', False)
-    print(f"hook main.py log after secret word rule suppose to be activated: {SkillitPluginManager.print_log()}")
+    secret_result: PromptResult = env.launch_claude('what is 42', False)
+    log_after = SkillitPluginManager.print_log()
+    print(f"hook log (with rule): {log_after}")
     assert '443216' in secret_result.stdout

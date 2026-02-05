@@ -63,12 +63,14 @@ class SkillitPluginManager:
             LOG_FILE.unlink()
 
     @staticmethod
-    def print_log() -> None:
-        """Print the skill log contents to stdout."""
+    def print_log() -> str:
+        """Return the skill log contents (also prints to stdout)."""
         if LOG_FILE.exists():
-            print(LOG_FILE.read_text(), end="")
-        else:
-            print(f"No log file at {LOG_FILE}")
+            text = LOG_FILE.read_text()
+            print(text, end="")
+            return text
+        print(f"No log file at {LOG_FILE}")
+        return ""
 
     def build(self) -> None:
         """Render all templates in templates/ into agents/ with current plugin context."""
