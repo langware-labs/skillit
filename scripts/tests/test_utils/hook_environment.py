@@ -1,9 +1,11 @@
 """Simple test environment for hook testing."""
 
 import json
+import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -11,7 +13,7 @@ from pathlib import Path
 from memory.rule_engine.rule_generator import GeneratedRule, gen_rule
 from memory.rule_engine.engine import RulesPackage, RuleEngine
 
-TEMP_DIR = Path("/tmp/skillit_test")
+TEMP_DIR = Path(tempfile.gettempdir()) / "skillit_test"
 SKILLIT_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -171,8 +173,12 @@ class HookTestEnvironment:
             ["claude", "plugin", "marketplace", "remove", marketplace_name],
             capture_output=True,
         )
+        # Use relative path with ./ prefix for cross-platform compatibility
+        # The marketplace add command expects: owner/repo, https://..., or ./path
+        rel_path = os.path.relpath(SKILLIT_ROOT, os.getcwd())
+        local_path = f"./{rel_path.replace(os.sep, '/')}"
         subprocess.run(
-            ["claude", "plugin", "marketplace", "add", str(SKILLIT_ROOT)],
+            ["claude", "plugin", "marketplace", "add", local_path],
             check=True,
         )
 
@@ -185,20 +191,22 @@ class HookTestEnvironment:
 
         # Write explicit hooks into settings.json so they fire during claude -p
         plugin_root = self._plugin_cache_dir()
+        # Use forward slashes for cross-platform JSON compatibility
+        plugin_root_str = plugin_root.as_posix()
         hooks_json_path = plugin_root / "hooks" / "hooks.json"
         if hooks_json_path.exists():
             hooks_config = json.loads(hooks_json_path.read_text())
             # Resolve plugin root placeholders to the actual cache path
             raw = json.dumps(hooks_config["hooks"])
-            raw = raw.replace("%CLAUDE_PLUGIN_ROOT%", str(plugin_root))
-            raw = raw.replace("$CLAUDE_PLUGIN_ROOT", str(plugin_root))
+            raw = raw.replace("%CLAUDE_PLUGIN_ROOT%", plugin_root_str)
+            raw = raw.replace("$CLAUDE_PLUGIN_ROOT", plugin_root_str)
             resolved_hooks = json.loads(raw)
         else:
             resolved_hooks = {
                 "UserPromptSubmit": [{
                     "hooks": [{
                         "type": "command",
-                        "command": f"python3 {plugin_root / 'scripts' / 'main.py'}"
+                        "command": f"python {plugin_root_str}/scripts/main.py"
                     }]
                 }]
             }
