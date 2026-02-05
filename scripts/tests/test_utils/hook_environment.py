@@ -125,6 +125,20 @@ class PromptResult:
         return text.lower() in self.skill_log.lower()
 
 
+class _TeeIO(io.StringIO):
+    """StringIO that also forwards writes to a second stream (e.g. the real stdout)."""
+
+    def __init__(self, terminal: io.TextIOBase | None = None):
+        super().__init__()
+        self._terminal = terminal
+
+    def write(self, s: str) -> int:
+        if self._terminal:
+            self._terminal.write(s)
+            self._terminal.flush()
+        return super().write(s)
+
+
 class HookTestEnvironment:
     """Self-contained test environment with project-level hooks."""
 
@@ -470,7 +484,7 @@ class HookTestEnvironment:
         old_cwd = os.getcwd()
         saved_env: dict[str, str | None] = {}
 
-        stdout_buf = io.StringIO()
+        stdout_buf = _TeeIO(sys.stdout)
         exit_code = 0
 
         try:

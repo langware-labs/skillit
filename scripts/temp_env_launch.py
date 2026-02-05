@@ -40,6 +40,8 @@ def full_env_launch_claude(prompt: str | None = None, terminal: bool = True):
 def run_last_activation():
     """Install plugin, load rules, and run the last activation."""
     env = HookTestEnvironment(clean=False)
+    env.install_plugin()
+    env.load_all_user_rules()
     env.run_last_activation()
 
 if __name__ == "__main__":

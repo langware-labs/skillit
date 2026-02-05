@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+from conf import LOG_FILE, SKILLIT_HOME
 from template_render import render
 
 SKILLIT_ROOT = Path(__file__).resolve().parents[1]
@@ -54,6 +55,20 @@ class SkillitPluginManager:
         new_version = f"{major + 1}.0.0"
         self._write_version(new_version)
         return new_version
+
+    @staticmethod
+    def clear_log() -> None:
+        """Delete the skill log file if it exists."""
+        if LOG_FILE.exists():
+            LOG_FILE.unlink()
+
+    @staticmethod
+    def print_log() -> None:
+        """Print the skill log contents to stdout."""
+        if LOG_FILE.exists():
+            print(LOG_FILE.read_text(), end="")
+        else:
+            print(f"No log file at {LOG_FILE}")
 
     def build(self) -> None:
         """Render all templates in templates/ into agents/ with current plugin context."""

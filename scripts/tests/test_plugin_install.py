@@ -88,8 +88,10 @@ def test_secret_word_install():
     print(f"env path: {env.path}")
     env.install_plugin()
     no_secret_result:PromptResult = env.launch_claude('is 42', False)
-
+    print(f"hook main.py log after no secret word: {SkillitPluginManager.print_log()}")
     assert '443216' not in no_secret_result.stdout
+    SkillitPluginManager.clear_log()
     env.load_rule("secret_word")
     secret_result: PromptResult = env.launch_claude('skillit, is 42', False)
+    print(f"hook main.py log after secret word rule suppose to be activated: {SkillitPluginManager.print_log()}")
     assert '443216' in secret_result.stdout
