@@ -3,6 +3,7 @@
 import json
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -12,6 +13,58 @@ from memory.rule_engine.engine import RulesPackage, RuleEngine
 
 TEMP_DIR = Path("/tmp/skillit_test")
 SKILLIT_ROOT = Path(__file__).resolve().parents[3]
+
+
+def open_terminal(cwd: str | Path, command: str | None = None) -> None:
+    """Open a visible terminal window at the given directory.
+
+    Args:
+        cwd: Directory to open the terminal in.
+        command: Optional command to run in the new terminal.
+    """
+    cwd = str(cwd)
+
+    if sys.platform == "darwin":
+        if command:
+            script = (
+                'tell application "Terminal"\n'
+                f'    do script "cd {cwd} && {command}"\n'
+                '    activate\n'
+                'end tell'
+            )
+        else:
+            script = (
+                'tell application "Terminal"\n'
+                f'    do script "cd {cwd}"\n'
+                '    activate\n'
+                'end tell'
+            )
+        subprocess.run(["osascript", "-e", script])
+    elif sys.platform == "win32":
+        if command:
+            subprocess.Popen(["cmd", "/c", "start", "cmd", "/K", f"cd /d {cwd} && {command}"])
+        else:
+            subprocess.Popen(["cmd", "/c", "start", "cmd", "/K", f"cd /d {cwd}"])
+    else:
+        shell_cmd = f"cd {cwd} && {command}; exec $SHELL" if command else f"cd {cwd} && $SHELL"
+        for term in ["gnome-terminal", "konsole", "xfce4-terminal", "xterm"]:
+            try:
+                if term == "gnome-terminal":
+                    if command:
+                        subprocess.Popen([term, "--working-directory", cwd, "--", "bash", "-c", shell_cmd])
+                    else:
+                        subprocess.Popen([term, "--working-directory", cwd])
+                elif term == "konsole":
+                    if command:
+                        subprocess.Popen([term, "--workdir", cwd, "-e", "bash", "-c", shell_cmd])
+                    else:
+                        subprocess.Popen([term, "--workdir", cwd])
+                else:
+                    subprocess.Popen([term, "-e", f"cd {cwd} && $SHELL"])
+                return
+            except FileNotFoundError:
+                continue
+        raise RuntimeError("No supported terminal emulator found")
 
 
 @dataclass
@@ -92,6 +145,17 @@ class HookTestEnvironment:
 
         self.temp_dir.mkdir(parents=True)
 
+    @staticmethod
+    def _read_plugin_meta() -> tuple[str, str, str]:
+        """Read plugin name, marketplace name, and version from source."""
+        plugin_meta = json.loads(
+            (SKILLIT_ROOT / ".claude-plugin" / "plugin.json").read_text()
+        )
+        marketplace_meta = json.loads(
+            (SKILLIT_ROOT / ".claude-plugin" / "marketplace.json").read_text()
+        )
+        return plugin_meta["name"], marketplace_meta["name"], plugin_meta["version"]
+
     def install_plugin(self) -> None:
         """Install the skillit plugin at project scope into this environment.
 
@@ -99,14 +163,7 @@ class HookTestEnvironment:
         then installs the plugin with ``--scope project`` so hooks are written
         into the environment's ``.claude/settings.json``.
         """
-        plugin_meta = json.loads(
-            (SKILLIT_ROOT / ".claude-plugin" / "plugin.json").read_text()
-        )
-        marketplace_meta = json.loads(
-            (SKILLIT_ROOT / ".claude-plugin" / "marketplace.json").read_text()
-        )
-        plugin_name = plugin_meta["name"]
-        marketplace_name = marketplace_meta["name"]
+        plugin_name, marketplace_name, _ = self._read_plugin_meta()
         plugin_ref = f"{plugin_name}@{marketplace_name}"
 
         # Ensure marketplace points at the local repo
@@ -125,6 +182,18 @@ class HookTestEnvironment:
             cwd=str(self.temp_dir),
             check=True,
         )
+
+    def installed_plugin_version(self) -> str | None:
+        """Return the version of the plugin installed in the cache, or None."""
+        plugin_name, marketplace_name, version = self._read_plugin_meta()
+        cached_plugin_json = (
+            Path.home() / ".claude" / "plugins" / "cache"
+            / marketplace_name / plugin_name / version
+            / ".claude-plugin" / "plugin.json"
+        )
+        if not cached_plugin_json.exists():
+            return None
+        return json.loads(cached_plugin_json.read_text()).get("version")
 
     def load_system_prompt(self, file_path: str | Path) -> None:
         """Copy file content into the env's CLAUDE.md.
@@ -171,9 +240,13 @@ class HookTestEnvironment:
             if rule_dir.is_dir() and (rule_dir / "trigger.py").exists():
                 shutil.copytree(rule_dir, rules_dir / rule_dir.name)
 
-    def prompt(self, text: str) -> PromptResult:
-        """Run claude -p with the prompt, print output, return result."""
-        # Clear skill.log before running
+    def prompt(self, text: str, verbose: bool = False) -> PromptResult:
+        """Run claude -p with the prompt and return the result.
+
+        Args:
+            text: The prompt to send.
+            verbose: Print stdout to the console when True.
+        """
         skill_log_path = self.temp_dir / "skill.log"
         if skill_log_path.exists():
             skill_log_path.unlink()
@@ -184,14 +257,50 @@ class HookTestEnvironment:
             capture_output=True,
             text=True,
         )
-        print(result.stdout)
+        if verbose:
+            print(result.stdout)
 
-        # Read skill.log
         skill_log = ""
         if skill_log_path.exists():
             skill_log = skill_log_path.read_text()
 
         return PromptResult(result.returncode, result.stdout, skill_log)
+
+    # ------------------------------------------------------------------
+    # Launch helpers
+    # ------------------------------------------------------------------
+
+    def open_terminal(self, command: str | None = None) -> None:
+        """Open a new terminal window in this environment.
+
+        Args:
+            command: Optional command to run in the terminal.
+        """
+        open_terminal(self.temp_dir, command=command)
+
+    def launch_claude(
+        self,
+        prompt: str | None = None,
+        terminal: bool = True,
+    ) -> PromptResult | None:
+        """Launch claude in this environment.
+
+        Args:
+            prompt: When provided, run non-interactively with ``claude -p``
+                    and return the result.  When *None*, open an interactive
+                    session.
+            terminal: Open a new terminal window.  When *False* with a
+                      *prompt*, run in-process and return stdout only
+                      (useful for tests).
+        """
+        if prompt and not terminal:
+            return self.prompt(prompt)
+
+        if prompt:
+            self.open_terminal(command=f"claude -p '{prompt}'")
+        else:
+            self.open_terminal(command="claude --dangerously-skip-permissions")
+        return None
 
     def cleanup(self):
         """Remove temp folder."""
