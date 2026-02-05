@@ -212,7 +212,7 @@ class HookTestEnvironment:
         if self.temp_dir.exists() and self._clean:
             shutil.rmtree(self.temp_dir)
 
-        self.temp_dir.mkdir(parents=True)
+        self.temp_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def _read_plugin_meta() -> tuple[str, str, str]:
@@ -339,40 +339,68 @@ class HookTestEnvironment:
         rules_dir.mkdir(parents=True, exist_ok=True)
         for rule_dir in user_rules.iterdir():
             if rule_dir.is_dir() and (rule_dir / "trigger.py").exists():
-                shutil.copytree(rule_dir, rules_dir / rule_dir.name)
+                shutil.copytree(rule_dir, rules_dir / rule_dir.name, dirs_exist_ok=True)
 
     def _plugin_skill_log_path(self) -> Path | None:
         """Return the path to skill.log."""
         from conf import LOG_FILE
         return LOG_FILE
 
-    def prompt(self, text: str, verbose: bool = False) -> PromptResult:
+    def prompt(self, text: str, verbose: bool = True, timeout: int = 120) -> PromptResult:
         """Run claude -p with the prompt and return the result.
 
         Args:
             text: The prompt to send.
-            verbose: Print stdout to the console when True.
+            verbose: Stream stdout to the console as it arrives (default True).
+            timeout: Maximum seconds to wait for claude to finish (default 120).
         """
+        import time
+
         # Clear skill.log in the plugin cache before running
         log_path = self._plugin_skill_log_path()
         if log_path and log_path.exists():
             log_path.unlink()
 
-        result = subprocess.run(
-            ["claude", "-p", text],
+        proc = subprocess.Popen(
+            ["claude", "-p", text, "--dangerously-skip-permissions"],
             cwd=str(self.temp_dir),
-            capture_output=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             env=self._build_env(),
         )
-        if verbose:
-            print(result.stdout)
+
+        stdout_parts: list[str] = []
+        deadline = time.monotonic() + timeout
+
+        try:
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    proc.kill()
+                    proc.wait()
+                    return PromptResult(1, "".join(stdout_parts), skill_log="[timed out]")
+
+                line = proc.stdout.readline()
+                if not line and proc.poll() is not None:
+                    break
+                if line:
+                    stdout_parts.append(line)
+                    if verbose:
+                        print(line, end="", flush=True)
+        except Exception:
+            proc.kill()
+            proc.wait()
+            raise
+
+        returncode = proc.returncode
 
         skill_log = ""
         if log_path and log_path.exists():
             skill_log = log_path.read_text()
 
-        return PromptResult(result.returncode, result.stdout, skill_log)
+        return PromptResult(returncode, "".join(stdout_parts), skill_log)
 
     # ------------------------------------------------------------------
     # Launch helpers
@@ -405,7 +433,7 @@ class HookTestEnvironment:
             return self.prompt(prompt)
 
         if prompt:
-            self.open_terminal(command=f"claude -p '{prompt}'")
+            self.open_terminal(command=f"claude --dangerously-skip-permissions -p '{prompt}'")
         else:
             self.open_terminal(command="claude --dangerously-skip-permissions")
         return None
@@ -430,6 +458,7 @@ class HookTestEnvironment:
                 f"No dump file found at {dump}. "
                 "Run a prompt with dump_activations=True first."
             )
+        print(f"Re-running last activation from dump: {dump}")
 
         lines = [line for line in dump.read_text().splitlines() if line.strip()]
         if not lines:

@@ -43,4 +43,5 @@ def run_last_activation():
     env.run_last_activation()
 
 if __name__ == "__main__":
-    print(full_env_launch_claude("List my jira tickets", terminal=False))
+    # print(full_env_launch_claude("List my jira tickets", terminal=False))
+    run_last_activation()
