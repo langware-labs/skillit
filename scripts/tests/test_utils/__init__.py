@@ -5,7 +5,7 @@ from .hook_environment import (
     HookTestEnvironment,
     PromptResult,
     RulesPackage,
-    SampleTranscript,
+    ClaudeTranscript,
     gen_rule,
 )
 
@@ -14,6 +14,6 @@ __all__ = [
     "HookTestEnvironment",
     "PromptResult",
     "RulesPackage",
-    "SampleTranscript",
+    "ClaudeTranscript",
     "gen_rule",
 ]

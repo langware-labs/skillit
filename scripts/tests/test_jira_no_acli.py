@@ -3,7 +3,9 @@
 from pathlib import Path
 
 from memory.rule_engine.rule_generator import gen_rule
-from tests.test_utils import SampleTranscript
+
+from memory import RuleEngine, ActivationRule
+from tests.test_utils import ClaudeTranscript
 
 
 # Path to sample transcript
@@ -28,7 +30,7 @@ def test_jira_with_acli(isolated_hook_env):
 def test_jira_with_acli_gen_rule(isolated_hook_env):
     """Jira prompt should inject acli context when generated rule is loaded."""
     # Load transcript from resources as a dataclass
-    transcript = SampleTranscript.load(TRANSCRIPT_PATH)
+    transcript = ClaudeTranscript.load(TRANSCRIPT_PATH)
 
     # Hook data structure using real paths from the environment
     # Uses camelCase format consistent with main.py
@@ -39,17 +41,14 @@ def test_jira_with_acli_gen_rule(isolated_hook_env):
         "cwd": str(isolated_hook_env.path),
         "transcript_path": str(transcript.path),
     }
-
-    # Generate rule directly into project_rules directory
-    generated_rule = gen_rule(
+    rule: ActivationRule =RuleEngine.gen_rule(
         hooks_data=hooks_data,
-        transcript=transcript.entries,
+        transcript=transcript,
         name="jira_context_gen",
-        output_dir=isolated_hook_env.project_rules.path,
-        action_type="add_context",
-        action_content="Use acli to work with jira tickets.",
     )
-
+    rule_engine:RuleEngine = isolated_hook_env.rule_engine
+    # Generate rule directly into project_rules directory
+    rule_engine.load_rule(rule)
     # Rule is generated directly in project_rules, no need to load separately
     result = isolated_hook_env.prompt("how do can i list mi jira tickets")
     assert result.returncode == 0

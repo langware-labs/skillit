@@ -525,6 +525,67 @@ class RuleEngine:
         package = self._get_package()
         return package.get_summary()
 
+    @classmethod
+    def gen_rule(
+        cls,
+        hooks_data: dict[str, Any],
+        transcript: Any,
+        name: str,
+    ) -> "ActivationRule":
+        """Generate a rule from hook data and transcript.
+
+        Args:
+            hooks_data: Current hook event data.
+            transcript: Transcript data.
+            name: Name for the generated rule.
+
+        Returns:
+            ActivationRule ready to be loaded.
+        """
+        from .rule_generator import gen_rule as _gen_rule
+        return _gen_rule(hooks_data, transcript, name)
+
+    def load_rule(self, rule: "ActivationRule") -> None:
+        """Load a rule into this engine's package.
+
+        Copies the rule to the project rules directory and adds it to the package.
+
+        Args:
+            rule: ActivationRule to load.
+        """
+        import shutil
+
+        package = self._get_package()
+
+        # Determine target directory - always construct the path, don't rely on get_project_rules_dir
+        # which returns None if the directory doesn't exist yet
+        if self.project_dir:
+            rules_base = Path(self.project_dir) / ".flow" / "skill_rules"
+        else:
+            rules_base = get_user_rules_dir()
+
+        target_dir = rules_base / rule.name
+
+        # Ensure parent directory exists
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
+
+        # Copy rule files
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+        shutil.copytree(rule.path, target_dir)
+
+        # Reload rule from new location and add to package
+        new_rule = ActivationRule.from_md(target_dir)
+        new_rule.source = "project" if self.project_dir else "user"
+
+        # Add to package (or replace if exists)
+        if rule.name in package:
+            package.remove_rule(rule.name)
+        package.add_rule(new_rule)
+
+        # Invalidate cache
+        self._rules_cache = None
+
 
 def create_rule_engine(project_dir: str | None = None) -> RuleEngine:
     """Create a rule engine instance.

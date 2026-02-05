@@ -40,13 +40,14 @@ def find_matching_modifier(prompt: str):
     Returns (handler_function, matched_keyword) or (None, None).
 
     Matches keywords that are:
-    - Standalone (not inside file paths like /path/to/skillit/file.txt)
+    - The first word in the prompt (leading whitespace ignored)
     - Optionally prefixed with / as a command (e.g., /skillit create test)
+    - Not inside file paths like /path/to/skillit/file.txt
     """
     for keyword, handler in KEYWORD_MAPPINGS:
-        # Match keyword at start (with optional /), or preceded by whitespace
-        # But not inside a path (where it would have / on both sides)
-        pattern = r'(?:^/?|(?<=[/\s]))' + re.escape(keyword) + r'(?![/\\])'
+        # Match keyword only at the start of the prompt (ignoring leading whitespace),
+        # optionally prefixed with /
+        pattern = r'^\s*/?'+ re.escape(keyword) + r'(?![/\\])'
         if re.search(pattern, prompt, re.IGNORECASE):
             return handler, keyword
 

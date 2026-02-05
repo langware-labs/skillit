@@ -8,21 +8,21 @@ from pathlib import Path
 
 # Re-export gen_rule and GeneratedRule from rule_generator
 from memory.rule_engine.rule_generator import GeneratedRule, gen_rule
-from memory.rule_engine.engine import RulesPackage
+from memory.rule_engine.engine import RulesPackage, RuleEngine
 
 TEMP_DIR = Path("/tmp/skillit_test")
 SKILLIT_ROOT = Path(__file__).resolve().parents[3]
 
 
 @dataclass
-class SampleTranscript:
+class ClaudeTranscript:
     """Sample transcript with path and entries."""
 
     path: Path
     entries: list[dict] = field(default_factory=list)
 
     @classmethod
-    def load(cls, transcript_path: Path) -> "SampleTranscript":
+    def load(cls, transcript_path: Path) -> "ClaudeTranscript":
         """Load transcript from a JSONL file."""
         entries = []
         if transcript_path.exists():
@@ -80,39 +80,76 @@ class HookTestEnvironment:
         rules_path.mkdir(parents=True, exist_ok=True)
         return RulesPackage(path=rules_path, source="project")
 
+    @property
+    def rule_engine(self) -> RuleEngine:
+        """Return RuleEngine for this environment."""
+        return RuleEngine(project_dir=str(self.temp_dir))
+
     def _setup(self):
-        """Create temp folder with scripts and project hooks config."""
+        """Create a clean temp folder."""
         if self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
 
         self.temp_dir.mkdir(parents=True)
 
-        # Copy scripts
-        shutil.copytree(
-            SKILLIT_ROOT / "scripts",
-            self.temp_dir / "scripts",
-            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache"),
+    def install_plugin(self) -> None:
+        """Install the skillit plugin at project scope into this environment.
+
+        Ensures the marketplace is registered (pointing at the local repo),
+        then installs the plugin with ``--scope project`` so hooks are written
+        into the environment's ``.claude/settings.json``.
+        """
+        plugin_meta = json.loads(
+            (SKILLIT_ROOT / ".claude-plugin" / "plugin.json").read_text()
+        )
+        marketplace_meta = json.loads(
+            (SKILLIT_ROOT / ".claude-plugin" / "marketplace.json").read_text()
+        )
+        plugin_name = plugin_meta["name"]
+        marketplace_name = marketplace_meta["name"]
+        plugin_ref = f"{plugin_name}@{marketplace_name}"
+
+        # Ensure marketplace points at the local repo
+        subprocess.run(
+            ["claude", "plugin", "marketplace", "remove", marketplace_name],
+            capture_output=True,
+        )
+        subprocess.run(
+            ["claude", "plugin", "marketplace", "add", str(SKILLIT_ROOT)],
+            check=True,
         )
 
-        # Create .claude/settings.json with project-level hooks
-        claude_dir = self.temp_dir / ".claude"
-        claude_dir.mkdir()
+        # Install at project scope (writes into <temp_dir>/.claude/settings.json)
+        subprocess.run(
+            ["claude", "plugin", "install", plugin_ref, "--scope", "project"],
+            cwd=str(self.temp_dir),
+            check=True,
+        )
 
-        settings = {
-            "hooks": {
-                "UserPromptSubmit": [
-                    {
-                        "hooks": [
-                            {
-                                "type": "command",
-                                "command": "python3 ./scripts/main.py"
-                            }
-                        ]
-                    }
-                ]
-            }
-        }
-        (claude_dir / "settings.json").write_text(json.dumps(settings, indent=2))
+    def load_system_prompt(self, file_path: str | Path) -> None:
+        """Copy file content into the env's CLAUDE.md.
+
+        Args:
+            file_path: Path to the file whose content becomes CLAUDE.md.
+        """
+        src = Path(file_path).expanduser()
+        if not src.exists():
+            raise FileNotFoundError(f"System prompt file not found: {src}")
+        shutil.copy2(src, self.temp_dir / "CLAUDE.md")
+
+    def load_agent(self, agent_name: str) -> None:
+        """Copy an agent .md file into the env's .claude/agents/ folder.
+
+        Args:
+            agent_name: Name of the agent (without .md extension) from the agents/ dir.
+        """
+        agent_src = SKILLIT_ROOT / "agents" / f"{agent_name}.md"
+        if not agent_src.exists():
+            raise FileNotFoundError(f"Agent not found: {agent_src}")
+
+        agents_dir = self.temp_dir / ".claude" / "agents"
+        agents_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(agent_src, agents_dir / f"{agent_name}.md")
 
     def load_rule(self, rule_path: str) -> None:
         """Copy a rule into the env's .flow/skill_rules folder."""
@@ -122,6 +159,17 @@ class HookTestEnvironment:
 
         rule_name = rule_src.name
         shutil.copytree(rule_src, rules_dir / rule_name)
+
+    def load_all_user_rules(self) -> None:
+        """Copy all rules from ~/.flow/skill_rules/ into the env."""
+        user_rules = Path.home() / ".flow" / "skill_rules"
+        if not user_rules.exists():
+            return
+        rules_dir = self.temp_dir / ".flow" / "skill_rules"
+        rules_dir.mkdir(parents=True, exist_ok=True)
+        for rule_dir in user_rules.iterdir():
+            if rule_dir.is_dir() and (rule_dir / "trigger.py").exists():
+                shutil.copytree(rule_dir, rules_dir / rule_dir.name)
 
     def prompt(self, text: str) -> PromptResult:
         """Run claude -p with the prompt, print output, return result."""
