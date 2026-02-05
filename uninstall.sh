@@ -1,55 +1,28 @@
 #!/bin/bash
-# ============================================================================
 # Skillit Plugin Uninstaller
-# Dynamically removes the plugin from Claude Code
-# ============================================================================
-
 set -e
 
-PLUGIN_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLUGIN_JSON="$PLUGIN_DIR/.claude-plugin/plugin.json"
+cd "$(dirname "$0")"
 
-# Check if plugin.json exists
-if [[ ! -f "$PLUGIN_JSON" ]]; then
-    echo "Error: plugin.json not found at $PLUGIN_JSON"
-    exit 1
-fi
-
-# Extract plugin name dynamically
-PLUGIN_NAME=$(python3 -c "import json; print(json.load(open('$PLUGIN_JSON')).get('name', ''))")
-
-if [[ -z "$PLUGIN_NAME" ]]; then
-    echo "Error: Plugin name not found in plugin.json"
-    exit 1
-fi
-
-MARKETPLACE_NAME="local-dev"
+PLUGIN_NAME=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['name'])")
+MARKETPLACE_NAME=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['name'])")
 CACHE_DIR="$HOME/.claude/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME"
 
-echo "Uninstalling plugin: $PLUGIN_NAME"
-echo ""
+echo "Uninstalling $PLUGIN_NAME@$MARKETPLACE_NAME..."
 
 # Check if claude CLI is available
 if ! command -v claude &> /dev/null; then
-    echo "Error: Claude Code CLI not found in PATH."
+    echo "Error: Claude Code CLI not found."
     exit 1
 fi
 
-# Uninstall via CLI (removes from installed_plugins.json)
-if claude plugin uninstall "$PLUGIN_NAME@$MARKETPLACE_NAME" 2>/dev/null; then
-    echo "Plugin uninstalled from Claude Code."
-fi
+# Uninstall plugin
+claude plugin uninstall "$PLUGIN_NAME@$MARKETPLACE_NAME" 2>/dev/null || true
 
-# Clean up the cache directory (CLI bug: doesn't clean cache for local-dev marketplaces)
-if [ -d "$CACHE_DIR" ]; then
-    rm -rf "$CACHE_DIR"
-    echo "Plugin cache removed."
-fi
+# Remove marketplace registration
+claude plugin marketplace remove "$MARKETPLACE_NAME" 2>/dev/null || true
 
-echo ""
-echo "============================================"
-echo "Uninstallation complete!"
-echo "============================================"
-echo ""
-echo "To reinstall: ./install.sh"
-echo ""
+# Clean up cache
+rm -rf "$CACHE_DIR" 2>/dev/null || true
+
+echo "Done! To reinstall: ./install.sh"

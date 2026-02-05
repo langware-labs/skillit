@@ -15,6 +15,7 @@ from notify import send_skill_notification
 # =============================================================================
 
 from modifiers.analyzer import handle_analyze
+from modifiers.create_test import handle_create_test
 from modifiers.test import handle_test
 from memory import create_rule_engine
 
@@ -24,6 +25,7 @@ from memory import create_rule_engine
 # =============================================================================
 
 KEYWORD_MAPPINGS = [
+    ("skillit:create-test", handle_create_test),
     ("skillit:test", handle_test),
     ("skillit", handle_analyze),
 ]
@@ -37,12 +39,14 @@ def find_matching_modifier(prompt: str):
     Find the first matching modifier for the prompt.
     Returns (handler_function, matched_keyword) or (None, None).
 
-    Uses word boundary matching to avoid triggering on keywords
-    that appear inside file paths (e.g., /path/to/skillit/file.txt).
+    Matches keywords that are:
+    - Standalone (not inside file paths like /path/to/skillit/file.txt)
+    - Optionally prefixed with / as a command (e.g., /skillit create test)
     """
     for keyword, handler in KEYWORD_MAPPINGS:
-        # Use word boundaries to match standalone keywords, not path components
-        pattern = r'(?<![/\\])' + re.escape(keyword) + r'(?![/\\])'
+        # Match keyword at start (with optional /), or preceded by whitespace
+        # But not inside a path (where it would have / on both sides)
+        pattern = r'(?:^/?|(?<=[/\s]))' + re.escape(keyword) + r'(?![/\\])'
         if re.search(pattern, prompt, re.IGNORECASE):
             return handler, keyword
 

@@ -3,6 +3,7 @@
   "description": "Auto learn from your claude code sessions",
   "version": "0.0.1",
   "author": {
-    "name": "shlomo"
+    "name": "flowpad.ai",
+    "email": "contact@flowpad.ai"
   }
 }

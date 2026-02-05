@@ -1,5 +1,10 @@
 # Skillit 🎯
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
+[![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet)](https://docs.anthropic.com/en/docs/claude-code)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/langware-labs/skillit/pulls)
+
 A powerful Claude Code plugin that enhances your prompts with intelligent keyword-based modifiers. Skillit automatically detects keywords in your prompts and augments them with specialized behaviors to improve Claude's responses.
 
 ## Features
@@ -18,6 +23,35 @@ A powerful Claude Code plugin that enhances your prompts with intelligent keywor
 - Git (for cloning the repository)
 
 ## Installation
+
+### Quick Install (from GitHub)
+
+```bash
+# Add the skillit marketplace
+claude plugin marketplace add langware-labs/skillit
+
+# Install the plugin
+claude plugin install skillit@flowpad-ai
+```
+
+### Verify Installation
+
+```bash
+claude plugin list
+```
+
+You should see `skillit` in the list of installed plugins.
+
+### Updating
+
+```bash
+claude plugin marketplace update flowpad-ai
+claude plugin update skillit@flowpad-ai
+```
+
+### Alternative: Local Development Install
+
+If you want to develop or modify the plugin:
 
 1. **Clone the repository**
    ```bash

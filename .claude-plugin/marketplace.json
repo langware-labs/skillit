@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "flowpad-ai",
+  "description": "flowpad.ai plugins",
+  "owner": {
+    "name": "flowpad.ai",
+    "email": "contact@flowpad.ai"
+  },
+  "plugins": [
+    {
+      "name": "skillit",
+      "description": "Auto learn from your Claude Code sessions",
+      "source": "./",
+      "version": "0.0.1"
+    }
+  ]
+}
