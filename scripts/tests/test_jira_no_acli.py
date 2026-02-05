@@ -46,6 +46,7 @@ def test_jira_with_acli_gen_rule(isolated_hook_env):
         transcript=transcript,
         name="jira_context_gen",
     )
+    rule.deploy_to_user()
     print(f"Generated Rule {rule.name} : {rule.path}\n")
     rule_engine:RuleEngine = isolated_hook_env.rule_engine
     # Generate rule directly into project_rules directory

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import shutil
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -471,6 +472,62 @@ class ActivationRule:
                 rule_name=self.name,
                 error=f"Error executing trigger.py: {e}",
             )
+
+    def deploy_to_user(self) -> "ActivationRule":
+        """Deploy this rule to the user rules directory (~/.flow/skill_rules/).
+
+        Overwrites if a rule with the same name already exists.
+
+        Returns:
+            New ActivationRule loaded from the deployed location.
+        """
+        from .rule_loader import ensure_rules_dir
+
+        rules_dir = ensure_rules_dir()
+        deployed = self._deploy(rules_dir, source="user")
+        print(f"Hook {self.name} was deployed to user @ {rules_dir / self.name}")
+        return deployed
+
+    def deploy_to_project(self, project_dir: str) -> "ActivationRule":
+        """Deploy this rule to a project's rules directory (<project>/.flow/skill_rules/).
+
+        Overwrites if a rule with the same name already exists.
+
+        Args:
+            project_dir: Path to the project directory.
+
+        Returns:
+            New ActivationRule loaded from the deployed location.
+        """
+        from .rule_loader import ensure_rules_dir
+
+        return self._deploy(
+            ensure_rules_dir(project_dir=project_dir, create_project=True),
+            source="project",
+        )
+
+    def _deploy(self, rules_dir: Path, source: str) -> "ActivationRule":
+        """Deploy this rule to a target rules directory.
+
+        Args:
+            rules_dir: Target rules directory.
+            source: Source label ('user' or 'project').
+
+        Returns:
+            New ActivationRule loaded from the deployed location.
+        """
+        target_dir = rules_dir / self.name
+
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+
+        shutil.copytree(self._path, target_dir)
+
+        deployed = ActivationRule.from_md(target_dir)
+        deployed.source = source
+
+        skill_log(f"Deployed rule '{self.name}' to {rules_dir} (source={source})")
+        return deployed
 
     def is_valid(self) -> bool:
         """Check if the rule has a valid trigger.py file.

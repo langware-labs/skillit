@@ -183,14 +183,44 @@ class HookTestEnvironment:
             check=True,
         )
 
-    def installed_plugin_version(self) -> str | None:
-        """Return the version of the plugin installed in the cache, or None."""
+        # Write explicit hooks into settings.json so they fire during claude -p
+        plugin_root = self._plugin_cache_dir()
+        hooks_json_path = plugin_root / "hooks" / "hooks.json"
+        if hooks_json_path.exists():
+            hooks_config = json.loads(hooks_json_path.read_text())
+            # Resolve plugin root placeholders to the actual cache path
+            raw = json.dumps(hooks_config["hooks"])
+            raw = raw.replace("%CLAUDE_PLUGIN_ROOT%", str(plugin_root))
+            raw = raw.replace("$CLAUDE_PLUGIN_ROOT", str(plugin_root))
+            resolved_hooks = json.loads(raw)
+        else:
+            resolved_hooks = {
+                "UserPromptSubmit": [{
+                    "hooks": [{
+                        "type": "command",
+                        "command": f"python3 {plugin_root / 'scripts' / 'main.py'}"
+                    }]
+                }]
+            }
+
+        settings_path = self.temp_dir / ".claude" / "settings.json"
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        settings = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+        settings["hooks"] = resolved_hooks
+        settings_path.write_text(json.dumps(settings, indent=2))
+
+    def _plugin_cache_dir(self) -> Path:
+        """Return the plugin cache directory."""
         plugin_name, marketplace_name, version = self._read_plugin_meta()
-        cached_plugin_json = (
+        return (
             Path.home() / ".claude" / "plugins" / "cache"
             / marketplace_name / plugin_name / version
-            / ".claude-plugin" / "plugin.json"
         )
+
+    def installed_plugin_version(self) -> str | None:
+        """Return the version of the plugin installed in the cache, or None."""
+        cache_dir = self._plugin_cache_dir()
+        cached_plugin_json = cache_dir / ".claude-plugin" / "plugin.json"
         if not cached_plugin_json.exists():
             return None
         return json.loads(cached_plugin_json.read_text()).get("version")
@@ -240,6 +270,13 @@ class HookTestEnvironment:
             if rule_dir.is_dir() and (rule_dir / "trigger.py").exists():
                 shutil.copytree(rule_dir, rules_dir / rule_dir.name)
 
+    def _plugin_skill_log_path(self) -> Path | None:
+        """Return the path to skill.log inside the installed plugin cache."""
+        try:
+            return self._plugin_cache_dir() / "skill.log"
+        except (FileNotFoundError, KeyError, json.JSONDecodeError):
+            return None
+
     def prompt(self, text: str, verbose: bool = False) -> PromptResult:
         """Run claude -p with the prompt and return the result.
 
@@ -247,9 +284,10 @@ class HookTestEnvironment:
             text: The prompt to send.
             verbose: Print stdout to the console when True.
         """
-        skill_log_path = self.temp_dir / "skill.log"
-        if skill_log_path.exists():
-            skill_log_path.unlink()
+        # Clear skill.log in the plugin cache before running
+        log_path = self._plugin_skill_log_path()
+        if log_path and log_path.exists():
+            log_path.unlink()
 
         result = subprocess.run(
             ["claude", "-p", text],
@@ -261,8 +299,8 @@ class HookTestEnvironment:
             print(result.stdout)
 
         skill_log = ""
-        if skill_log_path.exists():
-            skill_log = skill_log_path.read_text()
+        if log_path and log_path.exists():
+            skill_log = log_path.read_text()
 
         return PromptResult(result.returncode, result.stdout, skill_log)
 
