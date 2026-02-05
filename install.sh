@@ -2,13 +2,16 @@
 # Skillit Plugin Installer
 set -e
 
+USE_SYMLINK=$( [ "$1" = "--symlink" ] || [ "$1" = "-s" ] && echo true || echo false )
+
 cd "$(dirname "$0")"
+SOURCE_DIR="$(pwd)"
 
 PLUGIN_NAME=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['name'])")
 PLUGIN_VERSION=$(python3 -c "import json; print(json.load(open('.claude-plugin/plugin.json'))['version'])")
 MARKETPLACE_NAME=$(python3 -c "import json; print(json.load(open('.claude-plugin/marketplace.json'))['name'])")
 
-echo "Installing $PLUGIN_NAME@$MARKETPLACE_NAME v$PLUGIN_VERSION..."
+echo "Installing $PLUGIN_NAME@$MARKETPLACE_NAME v$PLUGIN_VERSION$( [ "$USE_SYMLINK" = true ] && echo " (symlink)" )..."
 
 # Check if claude CLI is available
 if ! command -v claude &> /dev/null; then
@@ -26,8 +29,15 @@ claude plugin marketplace add ./
 # Install from local marketplace
 claude plugin install "$PLUGIN_NAME@$MARKETPLACE_NAME" --scope user
 
-# Clean up log file
-LOG_FILE="$HOME/.claude/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME/$PLUGIN_VERSION/skill.log"
-rm -f "$LOG_FILE" 2>/dev/null || true
+CACHE_DIR="$HOME/.claude/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME/$PLUGIN_VERSION"
+
+# Replace cache copy with symlink if requested, otherwise clean up log file
+if [ "$USE_SYMLINK" = true ] && [ -d "$CACHE_DIR" ]; then
+    rm -rf "$CACHE_DIR"
+    ln -s "$SOURCE_DIR" "$CACHE_DIR"
+    echo "Created symlink: $CACHE_DIR -> $SOURCE_DIR"
+elif [ "$USE_SYMLINK" = false ]; then
+    rm -f "$CACHE_DIR/skill.log" 2>/dev/null || true
+fi
 
 echo "Done! Test with: claude -p \"$PLUGIN_NAME test\""

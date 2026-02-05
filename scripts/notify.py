@@ -15,7 +15,12 @@ import urllib.request
 from dataclasses import asdict, dataclass
 from typing import Optional
 
-from flowpad_discovery import FlowpadStatus, discover_flowpad
+from flowpad_discovery import (
+    FlowpadStatus,
+    discover_flowpad,
+    is_webhook_rate_limited,
+    record_webhook_failure,
+)
 from log import skill_log
 
 
@@ -30,21 +35,48 @@ class SkillNotification:
     folder_path: str  # Working directory where skill output is generated
 
 
-def _send_request(url: str, data: bytes, headers: dict, skill_name: str) -> None:
-    """Send HTTP request in background thread (fire-and-forget)."""
+def _send_request(url: str, data: bytes, headers: dict, log_context: str) -> None:
+    """Send HTTP request in background thread (fire-and-forget).
+
+    Args:
+        url: The URL to POST to.
+        data: The request body bytes.
+        headers: HTTP headers dict.
+        log_context: Context string for logging (e.g., "skill=my_skill" or "event=session_start").
+    """
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=10) as response:
             if response.status == 200:
-                skill_log(f"Notification sent: skill={skill_name}")
+                skill_log(f"Notification sent: {log_context}")
             else:
                 body = response.read().decode("utf-8")
                 skill_log(f"HTTP {response.status}: {body}")
+                record_webhook_failure()
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8")
         skill_log(f"HTTP {e.code}: {body}")
+        record_webhook_failure()
     except Exception as e:
         skill_log(f"Request failed: {e}")
+        record_webhook_failure()
+
+
+def send_fire_and_forget(url: str, data: bytes, headers: dict, log_context: str) -> None:
+    """Send HTTP POST request in a fire-and-forget daemon thread.
+
+    Args:
+        url: The URL to POST to.
+        data: The request body bytes.
+        headers: HTTP headers dict.
+        log_context: Context string for logging.
+    """
+    thread = threading.Thread(
+        target=_send_request,
+        args=(url, data, headers, log_context),
+        daemon=True,
+    )
+    thread.start()
 
 
 def get_report_url() -> Optional[str]:
@@ -78,6 +110,10 @@ def send_skill_notification(
     Returns:
         True if notification was queued, False if Flowpad not running
     """
+    if is_webhook_rate_limited():
+        skill_log("Notification skipped: rate-limited due to repeated failures")
+        return False
+
     report_url = get_report_url()
     execution_scope = os.environ.get("FLOWPAD_EXECUTION_SCOPE")
 
@@ -115,13 +151,7 @@ def send_skill_notification(
     data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
 
-    # Fire-and-forget: send in daemon thread
-    thread = threading.Thread(
-        target=_send_request,
-        args=(report_url, data, headers, skill_name),
-        daemon=True,
-    )
-    thread.start()
+    send_fire_and_forget(report_url, data, headers, f"skill={skill_name}")
 
     return True
 

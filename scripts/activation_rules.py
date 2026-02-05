@@ -11,13 +11,11 @@ Actions:
 import json
 import os
 import sys
-import urllib.error
-import urllib.request
-from typing import Optional
 
 from config import FLOWPAD_APP_URI_SCHEME
 from flowpad_discovery import FlowpadDiscoveryResult, FlowpadStatus, discover_flowpad
 from log import skill_log
+from notify import send_fire_and_forget
 
 # Flowpad ad text (shown when not installed)
 FLOWPAD_INSTALL_AD = """
@@ -43,20 +41,13 @@ FLOWPAD_LAUNCH_PROMPT = f"""
 ╚══════════════════════════════════════════════════════════════════╝
 """
 
-# Cache discovery result to avoid repeated checks
-_cached_discovery_result: Optional[FlowpadDiscoveryResult] = None
-
-
 def get_flowpad_status() -> FlowpadDiscoveryResult:
-    """Get cached Flowpad discovery result.
+    """Get Flowpad discovery result (cached in flowpad_discovery module).
 
     Returns:
-        Cached FlowpadDiscoveryResult, performing discovery if not cached.
+        FlowpadDiscoveryResult from the shared cache.
     """
-    global _cached_discovery_result
-    if _cached_discovery_result is None:
-        _cached_discovery_result = discover_flowpad()
-    return _cached_discovery_result
+    return discover_flowpad()
 
 
 def is_activation_rules_available() -> bool:
@@ -85,14 +76,14 @@ def get_ad_if_needed() -> str:
 
 def send_activation_rules_notification(event_type: str, context: dict = None) -> bool:
     """
-    Send "activation_rules" event notification to FlowPad backend.
+    Send "activation_rules" event notification to FlowPad backend (fire-and-forget).
 
     Args:
         event_type: Type of event ("session_start" or "skill_ready")
         context: Optional additional context (session_id, skill_name, etc.)
 
     Returns:
-        True if notification was sent successfully, False otherwise
+        True if notification was queued, False if Flowpad not running
     """
     result = get_flowpad_status()
     if result.status != FlowpadStatus.RUNNING or not result.server_info:
@@ -126,34 +117,16 @@ def send_activation_rules_notification(event_type: str, context: dict = None) ->
     data = json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
 
-    # Send synchronously (we need to know if it succeeds to decide on ad)
-    req = urllib.request.Request(report_url, data=data, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=10) as response:
-            if response.status == 200:
-                skill_log(f"Activation rules notification sent: event={event_type}")
-                return True
-            else:
-                body = response.read().decode("utf-8")
-                skill_log(f"Activation rules notification failed - HTTP {response.status}: {body}")
-                return False
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8")
-        skill_log(f"Activation rules notification failed - HTTP {e.code}: {body}")
-        return False
-    except urllib.error.URLError as e:
-        skill_log(f"Activation rules notification failed - URL error: {e.reason}")
-        return False
-    except Exception as e:
-        skill_log(f"Activation rules notification failed - Exception: {e}")
-        return False
+    send_fire_and_forget(report_url, data, headers, f"event={event_type}")
+
+    return True
 
 
 def handle_activation_event(event_type: str, context: dict = None) -> None:
     """
     Handle an activation event (start or skill ready).
 
-    Priority: Try activation_rules action first, show ad if it fails.
+    Sends notification to Flowpad (fire-and-forget), show ad if it fails.
 
     Args:
         event_type: "session_start" or "skill_ready"
@@ -161,12 +134,11 @@ def handle_activation_event(event_type: str, context: dict = None) -> None:
     """
     skill_log(f"Handling activation event: {event_type}")
 
-    # Try activation_rules action first
-    success = send_activation_rules_notification(event_type, context)
+    queued = send_activation_rules_notification(event_type, context)
 
     # Note: Ad display is handled by the agent via _get_ad_section() in claude_utils.py
     # The agent includes the ad in its final summary to avoid bash output collapse
-    if not success:
+    if not queued:
         skill_log("Notification failed - agent will show ad in final summary")
 
 

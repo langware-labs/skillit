@@ -1,5 +1,6 @@
 # Skillit 🎯
 
+[![Version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Flangware-labs%2Fskillit%2Fmain%2F.claude-plugin%2Fplugin.json&query=%24.version&label=version&color=blue)](https://github.com/langware-labs/skillit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet)](https://docs.anthropic.com/en/docs/claude-code)
@@ -42,7 +43,14 @@ claude plugin list
 
 You should see `skillit` in the list of installed plugins.
 
-### Updating
+### Auto-Update
+
+- `claude /plugin` to open the plugin manager
+- Navigate to `Marketplaces`
+- Select `flowpad-ai` marketplace
+- Choose `Enable auto-update`
+
+### Manual Update
 
 ```bash
 claude plugin marketplace update flowpad-ai

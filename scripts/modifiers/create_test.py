@@ -21,7 +21,7 @@ INSTRUCTIONS_FILE = PLUGIN_DIR / "create_test_instructions.md"
 
 def handle_create_test(prompt: str, data: dict) -> dict:
     """
-    Handle the 'skillit create test' keyword.
+    Handle the 'skillit:create-test' keyword.
     Returns instructions for the current Claude session to launch a Task subagent
     that analyzes the conversation and creates activation rules.
     """
