@@ -13,7 +13,9 @@ import threading
 import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
+from typing import Optional
 
+from flowpad_discovery import FlowpadStatus, discover_flowpad
 from log import skill_log
 
 
@@ -45,6 +47,18 @@ def _send_request(url: str, data: bytes, headers: dict, skill_name: str) -> None
         skill_log(f"Request failed: {e}")
 
 
+def get_report_url() -> Optional[str]:
+    """Discover Flowpad server and return webhook URL.
+
+    Returns:
+        Webhook URL if Flowpad is running, None otherwise.
+    """
+    result = discover_flowpad()
+    if result.status == FlowpadStatus.RUNNING and result.server_info:
+        return result.server_info.url
+    return None
+
+
 def send_skill_notification(
     skill_name: str,
     matched_keyword: str,
@@ -62,13 +76,13 @@ def send_skill_notification(
         folder_path: Working directory where skill output is generated
 
     Returns:
-        True if notification was queued, False if env vars missing
+        True if notification was queued, False if Flowpad not running
     """
-    report_url = os.environ.get("AGENT_HOOKS_REPORT_URL")
+    report_url = get_report_url()
     execution_scope = os.environ.get("FLOWPAD_EXECUTION_SCOPE")
 
     if not report_url:
-        skill_log("Notification skipped: AGENT_HOOKS_REPORT_URL not set")
+        skill_log("Notification skipped: Flowpad not running")
         return False
 
     # Parse execution_scope (defaults to empty array if not set)

@@ -13,11 +13,14 @@ import os
 import sys
 import urllib.error
 import urllib.request
+from typing import Optional
 
+from config import FLOWPAD_APP_URI_SCHEME
+from flowpad_discovery import FlowpadDiscoveryResult, FlowpadStatus, discover_flowpad
 from log import skill_log
 
-# Flowpad ad text (shown when activation_rules action fails)
-FLOWPAD_AD = """
+# Flowpad ad text (shown when not installed)
+FLOWPAD_INSTALL_AD = """
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
 ║   📱  Try Flowpad - Your AI Workflow Companion                   ║
@@ -28,17 +31,56 @@ FLOWPAD_AD = """
 ╚══════════════════════════════════════════════════════════════════╝
 """
 
+# Flowpad launch prompt (shown when installed but not running)
+# Uses OSC 8 hyperlink escape sequence for clickable terminal link
+FLOWPAD_LAUNCH_PROMPT = f"""
+╔══════════════════════════════════════════════════════════════════╗
+║                                                                  ║
+║   📱  Flowpad is installed but not running                       ║
+║                                                                  ║
+║   Launch \x1b]8;;{FLOWPAD_APP_URI_SCHEME}://\x1b\\Flowpad\x1b]8;;\x1b\\                                                  ║
+║                                                                  ║
+╚══════════════════════════════════════════════════════════════════╝
+"""
+
+# Cache discovery result to avoid repeated checks
+_cached_discovery_result: Optional[FlowpadDiscoveryResult] = None
+
+
+def get_flowpad_status() -> FlowpadDiscoveryResult:
+    """Get cached Flowpad discovery result.
+
+    Returns:
+        Cached FlowpadDiscoveryResult, performing discovery if not cached.
+    """
+    global _cached_discovery_result
+    if _cached_discovery_result is None:
+        _cached_discovery_result = discover_flowpad()
+    return _cached_discovery_result
+
 
 def is_activation_rules_available() -> bool:
-    """Check if the activation_rules backend is available (env var is set)."""
-    return bool(os.environ.get("AGENT_HOOKS_REPORT_URL"))
+    """Check if the activation_rules backend is available (Flowpad running)."""
+    return get_flowpad_status().status == FlowpadStatus.RUNNING
 
 
 def get_ad_if_needed() -> str:
-    """Return the ad text if activation_rules is not available, empty string otherwise."""
-    if is_activation_rules_available():
+    """Return appropriate message based on Flowpad status.
+
+    Returns:
+        - Empty string if Flowpad is running
+        - Launch prompt if installed but not running
+        - Install ad if not installed
+    """
+    result = get_flowpad_status()
+
+    if result.status == FlowpadStatus.RUNNING:
         return ""
-    return FLOWPAD_AD
+
+    if result.status == FlowpadStatus.INSTALLED_NOT_RUNNING:
+        return FLOWPAD_LAUNCH_PROMPT
+
+    return FLOWPAD_INSTALL_AD
 
 
 def send_activation_rules_notification(event_type: str, context: dict = None) -> bool:
@@ -52,12 +94,13 @@ def send_activation_rules_notification(event_type: str, context: dict = None) ->
     Returns:
         True if notification was sent successfully, False otherwise
     """
-    report_url = os.environ.get("AGENT_HOOKS_REPORT_URL")
-    execution_scope = os.environ.get("FLOWPAD_EXECUTION_SCOPE")
-
-    if not report_url:
-        skill_log("Activation rules notification skipped: AGENT_HOOKS_REPORT_URL not set")
+    result = get_flowpad_status()
+    if result.status != FlowpadStatus.RUNNING or not result.server_info:
+        skill_log("Activation rules notification skipped: Flowpad not running")
         return False
+
+    report_url = result.server_info.url
+    execution_scope = os.environ.get("FLOWPAD_EXECUTION_SCOPE")
 
     # Parse execution_scope (defaults to empty array if not set)
     try:
