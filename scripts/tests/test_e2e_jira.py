@@ -38,21 +38,25 @@ class TestJiraContextIntegration:
         # main.py should succeed
         assert result.returncode == 0, f"main.py failed: {result.stderr}"
 
-        # Parse the JSON output
-        if result.stdout.strip():
-            output = json.loads(result.stdout)
+        # Parse output — may be plain text (context-only) or JSON (blocking/structured)
+        stdout = result.stdout.strip()
+        if stdout:
+            try:
+                output = json.loads(stdout)
+                # JSON path: check hookSpecificOutput.additionalContext
+                assert "hookSpecificOutput" in output, (
+                    f"Expected hookSpecificOutput in output, got: {output}"
+                )
+                assert "additionalContext" in output["hookSpecificOutput"], (
+                    f"Expected additionalContext, got: {output['hookSpecificOutput']}"
+                )
+                context = output["hookSpecificOutput"]["additionalContext"].lower()
+            except json.JSONDecodeError:
+                # Plain text path: stdout IS the context
+                context = stdout.lower()
 
-            # Should have hookSpecificOutput with additionalContext containing acli
-            assert "hookSpecificOutput" in output, (
-                f"Expected hookSpecificOutput in output, got: {output}"
-            )
-            assert "additionalContext" in output["hookSpecificOutput"], (
-                f"Expected additionalContext, got: {output['hookSpecificOutput']}"
-            )
-
-            context = output["hookSpecificOutput"]["additionalContext"].lower()
             assert "acli" in context, (
-                f"Expected 'acli' in additionalContext, got: {context}"
+                f"Expected 'acli' in context, got: {context}"
             )
         else:
             pytest.fail(f"No output from main.py. stderr: {result.stderr}")
@@ -77,11 +81,17 @@ class TestJiraContextIntegration:
         assert result.returncode == 0, f"main.py failed: {result.stderr}"
 
         # For non-jira prompts, either no output or output without acli context
-        if result.stdout.strip():
-            output = json.loads(result.stdout)
-            if "hookSpecificOutput" in output:
-                context = output["hookSpecificOutput"].get("additionalContext", "")
-                # jira_context should not have triggered
-                assert "jira_context" not in context.lower() or "acli" not in context.lower(), (
-                    f"Unexpected jira context for non-jira prompt: {context}"
-                )
+        stdout = result.stdout.strip()
+        if stdout:
+            try:
+                output = json.loads(stdout)
+                if "hookSpecificOutput" in output:
+                    context = output["hookSpecificOutput"].get("additionalContext", "")
+                else:
+                    context = ""
+            except json.JSONDecodeError:
+                context = stdout
+
+            assert "jira_context" not in context.lower() or "acli" not in context.lower(), (
+                f"Unexpected jira context for non-jira prompt: {context}"
+            )

@@ -11,7 +11,7 @@ from conf import SCRIPT_DIR, LOG_FILE, SKILLIT_HOME
 # =============================================================================
 
 LOG = True  # Set to False to disable logging
-LOG_TO_STDOUT = True
+LOG_TO_STDERR = True  # Use stderr so logs don't pollute hook stdout
 first_line = True
 # =============================================================================
 # LOGGING
@@ -29,7 +29,8 @@ def skill_log(message: str) -> None:
         skill_log("Script started folder: " + str(SCRIPT_DIR))
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_line = f"[{timestamp}] {message}\n"
-    if LOG_TO_STDOUT:
-        print(log_line, end="")
+    if LOG_TO_STDERR:
+        import sys
+        sys.stderr.write(log_line)
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(log_line)

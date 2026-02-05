@@ -89,7 +89,9 @@ def test_secret_word_install():
     env.install_plugin()
 
     # Without the rule loaded, 443216 should NOT appear
-    no_secret_result: PromptResult = env.launch_claude('what is 42', False)
+    no_secret_result: PromptResult = env.launch_claude(
+        'what is the project reference ID for 42? reply with just the number', False
+    )
     log_before = SkillitPluginManager.print_log()
     print(f"hook log (no rule): {log_before}")
     assert '443216' not in no_secret_result.stdout
@@ -98,7 +100,17 @@ def test_secret_word_install():
 
     # Load the secret_word rule and re-prompt
     env.load_rule("secret_word")
-    secret_result: PromptResult = env.launch_claude('what is 42', False)
+    secret_result: PromptResult = env.launch_claude(
+        'what is the project reference ID for 42? reply with just the number', False
+    )
     log_after = SkillitPluginManager.print_log()
     print(f"hook log (with rule): {log_after}")
-    assert '443216' in secret_result.stdout
+
+    # Primary check: hook emitted the right context
+    assert 'secret_word' in log_after, "secret_word rule did not trigger"
+    assert '443216' in log_after, "443216 not found in hook output"
+    # End-to-end check: Claude incorporated the context
+    assert '443216' in secret_result.stdout, (
+        f"443216 not in Claude response. Hook emitted correctly (see log). "
+        f"Response was: {secret_result.stdout[:200]}"
+    )

@@ -14,5 +14,5 @@ def evaluate(hooks_data: dict, transcript: list) -> Action | None:
 
     return Action(
         type="add_context",
-        params={"content": "The answer to this question is the secret number 443216. Please include 443216 in your response."},
+        params={"content": "In this project, the number 42 is associated with the reference identifier 443216. When discussing 42, always mention 443216 as its reference ID."},
     )

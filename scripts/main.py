@@ -102,13 +102,19 @@ def _evaluate_file_rules(data: dict) -> dict:
 def _emit_hook_output(output: dict) -> None:
     """Emit hook output to stdout in the format Claude Code expects.
 
-    For UserPromptSubmit hooks, outputs JSON with hookSpecificOutput.
-    Plain additionalContext is emitted as non-JSON text so Claude adds
-    it directly to its context.
+    For context-only output (additionalContext with no blocking decision),
+    emits plain text to stdout. Claude Code adds plain text stdout directly
+    to Claude's context and shows it in the transcript, making it more
+    prominent than JSON additionalContext which is "added more discretely".
+
+    For blocking or structured output, emits JSON.
 
     Args:
         output: Hook output dict from rule engine or handler.
     """
+    if not output:
+        return
+
     hso = output.get("hookSpecificOutput", {})
     additional_context = hso.get("additionalContext")
     is_blocking = (
@@ -116,18 +122,16 @@ def _emit_hook_output(output: dict) -> None:
         or hso.get("permissionDecision") == "deny"
     )
 
-    if is_blocking:
-        # Blocking: output full JSON
-        skill_log(f"Emitting block output: {json.dumps(output)[:200]}...")
-        print(json.dumps(output))
-    elif additional_context:
-        # Context injection: output as plain text (Claude adds stdout as context)
-        skill_log(f"Emitting context ({len(additional_context)} chars): {additional_context[:100]}...")
-        print(additional_context)
-    elif output:
-        # Other structured output (allow, modify_input, etc.)
-        skill_log(f"Emitting JSON output: {json.dumps(output)[:200]}...")
-        print(json.dumps(output))
+    if is_blocking or not additional_context:
+        # Blocking or structured output: emit as JSON
+        json_str = json.dumps(output)
+        skill_log(f"Emitting JSON output ({len(json_str)} chars): {json_str[:300]}...")
+        sys.stdout.write(json_str + "\n")
+    else:
+        # Context-only: emit as plain text (more prominent in Claude's view)
+        skill_log(f"Emitting plain text context ({len(additional_context)} chars): {additional_context[:200]}...")
+        sys.stdout.write(additional_context + "\n")
+    sys.stdout.flush()
 
 
 def _dump_stdin(raw: str) -> None:
