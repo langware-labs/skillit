@@ -29,19 +29,18 @@ def full_env_launch():
     env.open_terminal()
 
 
-def full_env_launch_claude(prompt: str | None = None):
-    """Install plugin, load rules, and launch claude.
-
-    Args:
-        prompt: Optional prompt to run non-interactively with ``claude -p``.
-                When omitted, opens an interactive claude session.
-    """
+def full_env_launch_claude(prompt: str | None = None, terminal: bool = True):
     env = HookTestEnvironment()
     env.install_plugin()
     env.load_all_user_rules()
     print(f"Environment set up at: {env.path}")
-    env.launch_claude(prompt=prompt)
+    env.launch_claude(prompt,terminal)
+    return env
 
+def run_last_activation():
+    """Install plugin, load rules, and run the last activation."""
+    env = HookTestEnvironment(clean=False)
+    env.run_last_activation()
 
 if __name__ == "__main__":
-    full_env_launch()
+    print(full_env_launch_claude("List my jira tickets", terminal=False))

@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 
 from log import skill_log
 from notify import send_skill_notification
@@ -130,6 +131,22 @@ def _emit_hook_output(output: dict) -> None:
         print(json.dumps(output))
 
 
+def _dump_stdin(raw: str) -> None:
+    """Write raw stdin content to the path specified by SKILLIT_DUMP_STDIN."""
+    dump_path = os.environ.get("SKILLIT_DUMP_STDIN")
+    if not dump_path:
+        return
+    try:
+        path = Path(dump_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(raw)
+            f.write("\n")
+        skill_log(f"Dumped stdin to {dump_path}")
+    except Exception as e:
+        skill_log(f"ERROR: Failed to dump stdin: {e}")
+
+
 def main():
     skill_log(" skillit ".center(60, "="))
     skill_log(f"Hook triggered: UserPromptSubmit, path: {__file__}, pid: {os.getpid()}")
@@ -137,7 +154,9 @@ def main():
 
     # Read input from stdin
     try:
-        data = json.load(sys.stdin)
+        raw = sys.stdin.read()
+        _dump_stdin(raw)
+        data = json.loads(raw)
         skill_log(f"Input received: {json.dumps(data)}")
     except json.JSONDecodeError as e:
         skill_log(f"ERROR: Invalid JSON input: {e}")

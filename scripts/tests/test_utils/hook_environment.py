@@ -1,11 +1,14 @@
 """Simple test environment for hook testing."""
 
+import io
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
+from contextlib import redirect_stdout
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -17,38 +20,44 @@ TEMP_DIR = Path(tempfile.gettempdir()) / "skillit_test"
 SKILLIT_ROOT = Path(__file__).resolve().parents[3]
 
 
-def open_terminal(cwd: str | Path, command: str | None = None) -> None:
+def open_terminal(
+    cwd: str | Path,
+    command: str | None = None,
+    env: dict[str, str] | None = None,
+) -> None:
     """Open a visible terminal window at the given directory.
 
     Args:
         cwd: Directory to open the terminal in.
         command: Optional command to run in the new terminal.
+        env: Optional environment variables for the child process.
     """
     cwd = str(cwd)
 
+    # Build an export prefix so the new shell inherits custom env vars
+    export_prefix = ""
+    if env:
+        inherited = {k: v for k, v in env.items() if k not in os.environ or os.environ[k] != v}
+        if inherited:
+            if sys.platform == "win32":
+                export_prefix = " && ".join(f"set {k}={v}" for k, v in inherited.items()) + " && "
+            else:
+                export_prefix = " ".join(f"export {k}={shlex.quote(v)};" for k, v in inherited.items()) + " "
+
     if sys.platform == "darwin":
-        if command:
-            script = (
-                'tell application "Terminal"\n'
-                f'    do script "cd {cwd} && {command}"\n'
-                '    activate\n'
-                'end tell'
-            )
-        else:
-            script = (
-                'tell application "Terminal"\n'
-                f'    do script "cd {cwd}"\n'
-                '    activate\n'
-                'end tell'
-            )
+        inner = f"{export_prefix}cd {cwd} && {command}" if command else f"{export_prefix}cd {cwd}"
+        script = (
+            'tell application "Terminal"\n'
+            f'    do script "{inner}"\n'
+            '    activate\n'
+            'end tell'
+        )
         subprocess.run(["osascript", "-e", script])
     elif sys.platform == "win32":
-        if command:
-            subprocess.Popen(["cmd", "/c", "start", "cmd", "/K", f"cd /d {cwd} && {command}"])
-        else:
-            subprocess.Popen(["cmd", "/c", "start", "cmd", "/K", f"cd /d {cwd}"])
+        inner = f"{export_prefix}cd /d {cwd} && {command}" if command else f"{export_prefix}cd /d {cwd}"
+        subprocess.Popen(["cmd", "/c", "start", "cmd", "/K", inner])
     else:
-        shell_cmd = f"cd {cwd} && {command}; exec $SHELL" if command else f"cd {cwd} && $SHELL"
+        shell_cmd = f"{export_prefix}cd {cwd} && {command}; exec $SHELL" if command else f"{export_prefix}cd {cwd} && $SHELL"
         for term in ["gnome-terminal", "konsole", "xfce4-terminal", "xterm"]:
             try:
                 if term == "gnome-terminal":
@@ -119,8 +128,15 @@ class PromptResult:
 class HookTestEnvironment:
     """Self-contained test environment with project-level hooks."""
 
-    def __init__(self):
+    DUMP_FILENAME = "stdin_dump.jsonl"
+
+    def __init__(self, dump: bool = True, clean=True):
         self.temp_dir = TEMP_DIR
+        self._env_vars: dict[str, str] = {}
+        self._dump_activations = False
+        self._clean = clean
+        if dump:
+            self.dump_activations = True
         self._setup()
 
     @property
@@ -140,9 +156,60 @@ class HookTestEnvironment:
         """Return RuleEngine for this environment."""
         return RuleEngine(project_dir=str(self.temp_dir))
 
+    # ------------------------------------------------------------------
+    # Environment variable helpers
+    # ------------------------------------------------------------------
+
+    def env_set(self, key: str, value: str) -> None:
+        """Set an environment variable to be passed to child processes.
+
+        Works cross-platform — the variable is stored internally and
+        merged into the subprocess environment at launch time.
+
+        Args:
+            key: Environment variable name.
+            value: Environment variable value.
+        """
+        self._env_vars[key] = value
+
+    def env_unset(self, key: str) -> None:
+        """Remove a previously set environment variable.
+
+        Args:
+            key: Environment variable name.
+        """
+        self._env_vars.pop(key, None)
+
+    def _build_env(self) -> dict[str, str]:
+        """Return a copy of os.environ merged with custom env vars."""
+        env = os.environ.copy()
+        env.update(self._env_vars)
+        return env
+
+    @property
+    def dump_activations(self) -> bool:
+        """Whether stdin dumping is enabled for hook invocations."""
+        return self._dump_activations
+
+    @dump_activations.setter
+    def dump_activations(self, value: bool) -> None:
+        self._dump_activations = value
+        if value:
+            dump_path = self.temp_dir / ".flow" / self.DUMP_FILENAME
+            self.env_set("SKILLIT_DUMP_STDIN", str(dump_path))
+        else:
+            self.env_unset("SKILLIT_DUMP_STDIN")
+
+    @property
+    def dump_file(self) -> Path | None:
+        """Return the path to the stdin dump file, or None if dumping is off."""
+        if not self._dump_activations:
+            return None
+        return self.temp_dir / ".flow" / self.DUMP_FILENAME
+
     def _setup(self):
         """Create a clean temp folder."""
-        if self.temp_dir.exists():
+        if self.temp_dir.exists() and self._clean:
             shutil.rmtree(self.temp_dir)
 
         self.temp_dir.mkdir(parents=True)
@@ -296,6 +363,7 @@ class HookTestEnvironment:
             cwd=str(self.temp_dir),
             capture_output=True,
             text=True,
+            env=self._build_env(),
         )
         if verbose:
             print(result.stdout)
@@ -316,7 +384,7 @@ class HookTestEnvironment:
         Args:
             command: Optional command to run in the terminal.
         """
-        open_terminal(self.temp_dir, command=command)
+        open_terminal(self.temp_dir, command=command, env=self._build_env())
 
     def launch_claude(
         self,
@@ -341,6 +409,73 @@ class HookTestEnvironment:
         else:
             self.open_terminal(command="claude --dangerously-skip-permissions")
         return None
+
+    def run_last_activation(self) -> PromptResult:
+        """Re-run main.py with the last dumped stdin, in-process.
+
+        Calls ``main.main()`` directly in the current Python process so
+        that breakpoints set in main.py (or any code it calls) are hit
+        by the debugger.
+
+        Returns:
+            PromptResult with captured stdout and skill log.
+
+        Raises:
+            FileNotFoundError: If the dump file does not exist.
+            ValueError: If the dump file is empty.
+        """
+        dump = self.dump_file
+        if dump is None or not dump.exists():
+            raise FileNotFoundError(
+                f"No dump file found at {dump}. "
+                "Run a prompt with dump_activations=True first."
+            )
+
+        lines = [line for line in dump.read_text().splitlines() if line.strip()]
+        if not lines:
+            raise ValueError(f"Dump file is empty: {dump}")
+        last_entry = lines[-1]
+
+        # Save state we're about to mutate
+        old_stdin = sys.stdin
+        old_cwd = os.getcwd()
+        saved_env: dict[str, str | None] = {}
+
+        stdout_buf = io.StringIO()
+        exit_code = 0
+
+        try:
+            # Apply env vars to the real os.environ (so main.py sees them)
+            for key, value in self._env_vars.items():
+                saved_env[key] = os.environ.get(key)
+                os.environ[key] = value
+
+            os.chdir(str(self.temp_dir))
+            sys.stdin = io.StringIO(last_entry)
+
+            from main import main  # noqa: import here so debugger resolves it
+
+            with redirect_stdout(stdout_buf):
+                try:
+                    main()
+                except SystemExit as exc:
+                    exit_code = exc.code if isinstance(exc.code, int) else 0
+        finally:
+            # Restore everything
+            sys.stdin = old_stdin
+            os.chdir(old_cwd)
+            for key, orig in saved_env.items():
+                if orig is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = orig
+
+        log_path = self._plugin_skill_log_path()
+        skill_log_text = ""
+        if log_path and log_path.exists():
+            skill_log_text = log_path.read_text()
+
+        return PromptResult(exit_code, stdout_buf.getvalue(), skill_log_text)
 
     def cleanup(self):
         """Remove temp folder."""
