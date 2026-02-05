@@ -362,4 +362,8 @@ def format_hook_output(output: dict[str, Any], hook_event: str) -> dict[str, Any
             result["hookSpecificOutput"]["permissionDecisionReason"] = result.pop("reason", "Blocked")
             del result["decision"]
 
+    # Add hookEventName to hookSpecificOutput (required by Claude Code hooks API)
+    if "hookSpecificOutput" in result and hook_event:
+        result["hookSpecificOutput"]["hookEventName"] = hook_event
+
     return result

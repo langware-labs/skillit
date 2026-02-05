@@ -4,11 +4,9 @@ Utility functions for building skill creation instructions.
 from pathlib import Path
 
 from activation_rules import get_ad_if_needed
+from conf import SCRIPT_DIR, PLUGIN_DIR
 
-# Path to the activation_rules.py script for callbacks
-SCRIPTS_DIR = Path(__file__).parent.resolve()
-PLUGIN_DIR = SCRIPTS_DIR.parent
-ACTIVATION_RULES_SCRIPT = SCRIPTS_DIR / "activation_rules.py"
+ACTIVATION_RULES_SCRIPT = SCRIPT_DIR / "activation_rules.py"
 
 
 def get_skills_dir(cwd: str) -> Path:

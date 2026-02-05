@@ -6,12 +6,13 @@ import os
 from pathlib import Path
 from typing import Any
 
+from conf import FLOW_HOME
 from log import skill_log
 
 
 def get_user_rules_dir() -> Path:
     """Return the user-level rules directory (~/.flow/skill_rules)."""
-    return Path.home() / ".flow" / "skill_rules"
+    return FLOW_HOME / "skill_rules"
 
 
 def get_project_rules_dir(project_dir: str | None = None) -> Path | None:

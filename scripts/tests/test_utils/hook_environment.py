@@ -159,24 +159,21 @@ class HookTestEnvironment:
         return plugin_meta["name"], marketplace_meta["name"], plugin_meta["version"]
 
     def install_plugin(self) -> None:
-        """Build templates and install the skillit plugin at project scope.
+        """Build templates and enable the skillit plugin at project scope.
 
         Renders templates (so agents carry the current version), ensures the
-        marketplace is registered, then installs with ``--scope project``.
+        marketplace is registered, then enables with ``--scope project``.
         """
         from plugin_manager import SkillitPluginManager
         SkillitPluginManager().build()
 
         plugin_name, marketplace_name, _ = self._read_plugin_meta()
-        plugin_ref = f"{plugin_name}@{marketplace_name}"
 
         # Ensure marketplace points at the local repo
         subprocess.run(
             ["claude", "plugin", "marketplace", "remove", marketplace_name],
             capture_output=True,
         )
-        # Use relative path with ./ prefix for cross-platform compatibility
-        # The marketplace add command expects: owner/repo, https://..., or ./path
         rel_path = os.path.relpath(SKILLIT_ROOT, os.getcwd())
         local_path = f"./{rel_path.replace(os.sep, '/')}"
         subprocess.run(
@@ -184,40 +181,26 @@ class HookTestEnvironment:
             check=True,
         )
 
-        # Install at project scope (writes into <temp_dir>/.claude/settings.json)
+        # Install plugin
+        plugin_ref = f"{plugin_name}@{marketplace_name}"
         subprocess.run(
             ["claude", "plugin", "install", plugin_ref, "--scope", "project"],
             cwd=str(self.temp_dir),
             check=True,
         )
 
-        # Write explicit hooks into settings.json so they fire during claude -p
-        plugin_root = self._plugin_cache_dir()
-        # Use forward slashes for cross-platform JSON compatibility
-        plugin_root_str = plugin_root.as_posix()
-        hooks_json_path = plugin_root / "hooks" / "hooks.json"
-        if hooks_json_path.exists():
-            hooks_config = json.loads(hooks_json_path.read_text())
-            # Resolve plugin root placeholders to the actual cache path
-            raw = json.dumps(hooks_config["hooks"])
-            raw = raw.replace("%CLAUDE_PLUGIN_ROOT%", plugin_root_str)
-            raw = raw.replace("$CLAUDE_PLUGIN_ROOT", plugin_root_str)
-            resolved_hooks = json.loads(raw)
-        else:
-            resolved_hooks = {
-                "UserPromptSubmit": [{
-                    "hooks": [{
-                        "type": "command",
-                        "command": f"python {plugin_root_str}/scripts/main.py"
-                    }]
-                }]
-            }
-
-        settings_path = self.temp_dir / ".claude" / "settings.json"
-        settings_path.parent.mkdir(parents=True, exist_ok=True)
-        settings = json.loads(settings_path.read_text()) if settings_path.exists() else {}
-        settings["hooks"] = resolved_hooks
-        settings_path.write_text(json.dumps(settings, indent=2))
+        # Enable plugin at project scope (may already be enabled after install)
+        result = subprocess.run(
+            ["claude", "plugin", "enable", plugin_name, "--scope", "project"],
+            cwd=str(self.temp_dir),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0 and "already enabled" not in result.stderr:
+            raise RuntimeError(
+                f"'claude plugin enable {plugin_name} --scope project' failed "
+                f"(exit {result.returncode}): {result.stderr}"
+            )
 
     def _plugin_cache_dir(self) -> Path:
         """Return the plugin cache directory."""
@@ -261,13 +244,24 @@ class HookTestEnvironment:
         shutil.copy2(agent_src, agents_dir / f"{agent_name}.md")
 
     def load_rule(self, rule_path: str) -> None:
-        """Copy a rule into the env's .flow/skill_rules folder."""
+        """Copy a rule into the env's .flow/skill_rules folder.
+
+        Args:
+            rule_path: Full path to a rule directory, or a simple name
+                       that will be resolved from tests/unit/sample_rules/.
+        """
         rule_src = Path(rule_path).expanduser()
+        if not rule_src.exists():
+            # Try resolving as a sample rule name
+            sample = Path(__file__).resolve().parent.parent / "unit" / "sample_rules" / rule_path
+            if sample.exists():
+                rule_src = sample
+            else:
+                raise FileNotFoundError(f"Rule not found: {rule_path}")
+
         rules_dir = self.temp_dir / ".flow" / "skill_rules"
         rules_dir.mkdir(parents=True, exist_ok=True)
-
-        rule_name = rule_src.name
-        shutil.copytree(rule_src, rules_dir / rule_name)
+        shutil.copytree(rule_src, rules_dir / rule_src.name)
 
     def load_all_user_rules(self) -> None:
         """Copy all rules from ~/.flow/skill_rules/ into the env."""
@@ -281,11 +275,9 @@ class HookTestEnvironment:
                 shutil.copytree(rule_dir, rules_dir / rule_dir.name)
 
     def _plugin_skill_log_path(self) -> Path | None:
-        """Return the path to skill.log inside the installed plugin cache."""
-        try:
-            return self._plugin_cache_dir() / "skill.log"
-        except (FileNotFoundError, KeyError, json.JSONDecodeError):
-            return None
+        """Return the path to skill.log."""
+        from conf import LOG_FILE
+        return LOG_FILE
 
     def prompt(self, text: str, verbose: bool = False) -> PromptResult:
         """Run claude -p with the prompt and return the result.

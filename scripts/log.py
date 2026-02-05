@@ -3,17 +3,14 @@ Skillit - Logging Module
 Provides centralized logging functionality for all scripts.
 """
 from datetime import datetime
-from pathlib import Path
+
+from conf import SCRIPT_DIR, LOG_FILE, SKILLIT_HOME
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
 LOG = True  # Set to False to disable logging
-
-SCRIPT_DIR = Path(__file__).parent.resolve()
-PLUGIN_DIR = SCRIPT_DIR.parent
-LOG_FILE = PLUGIN_DIR / "skill.log"
 
 first_line = True
 # =============================================================================
@@ -27,6 +24,7 @@ def skill_log(message: str) -> None:
         return
     if first_line:
         first_line = False
+        SKILLIT_HOME.mkdir(parents=True, exist_ok=True)
         skill_log("--- New Skillit Session ---")
         skill_log("Script started folder: " + str(SCRIPT_DIR))
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

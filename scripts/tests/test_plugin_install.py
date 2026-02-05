@@ -70,3 +70,26 @@ def test_patch_installs_new_version():
 
     result:PromptResult = env.launch_claude('use the skillit sugagent  and ask for its version, make sure to invoken it', False)
     assert new_version in result.stdout
+
+def test_activation_dump():
+    """Bumping the patch version and reinstalling should update the cache."""
+    env = HookTestEnvironment()
+    print(f"env path: {env.path}")
+    env.install_plugin()
+    env.dump_activations= True
+    no_secret_result:PromptResult = env.launch_claude('is 42', False)
+    assert env.dump_file is not None
+    assert env.dump_file.exists()
+
+
+def test_secret_word_install():
+    """Bumping the patch version and reinstalling should update the cache."""
+    env = HookTestEnvironment()
+    print(f"env path: {env.path}")
+    env.install_plugin()
+    no_secret_result:PromptResult = env.launch_claude('is 42', False)
+
+    assert '443216' not in no_secret_result.stdout
+    env.load_rule("secret_word")
+    secret_result: PromptResult = env.launch_claude('skillit, is 42', False)
+    assert '443216' in secret_result.stdout

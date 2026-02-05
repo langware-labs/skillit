@@ -4,6 +4,7 @@ Skillit - Main Entry Point
 Routes prompts to appropriate skill modifiers based on keyword matching.
 """
 import json
+import os
 import re
 import sys
 
@@ -97,9 +98,42 @@ def _evaluate_file_rules(data: dict) -> dict:
     return result
 
 
+def _emit_hook_output(output: dict) -> None:
+    """Emit hook output to stdout in the format Claude Code expects.
+
+    For UserPromptSubmit hooks, additionalContext must be plain text stdout
+    (not JSON) for Claude to see it. Blocking decisions use JSON or exit codes.
+
+    Args:
+        output: Hook output dict from rule engine or handler.
+    """
+    hso = output.get("hookSpecificOutput", {})
+    additional_context = hso.pop("additionalContext", None)
+    is_blocking = (
+        output.get("decision") == "block"
+        or hso.get("permissionDecision") == "deny"
+    )
+
+    if is_blocking:
+        # Blocking: output full JSON (additionalContext won't apply)
+        if additional_context:
+            hso["additionalContext"] = additional_context
+        print(json.dumps(output))
+    elif additional_context:
+        # Context only: output as plain text (Claude reads this as context)
+        skill_log(f"Emitting plain text context: {additional_context[:100]}...")
+        print(additional_context)
+    else:
+        # Other non-blocking output (e.g., allow, modify_input)
+        if hso:
+            output["hookSpecificOutput"] = hso
+        print(json.dumps(output))
+
+
 def main():
     skill_log(" skillit ".center(60, "="))
-    skill_log("Hook triggered: UserPromptSubmit")
+    skill_log(f"Hook triggered: UserPromptSubmit, path: {__file__}, pid: {os.getpid()}")
+    skill_log("Working directory: " + str(os.getcwd()))
 
     # Read input from stdin
     try:
@@ -135,16 +169,16 @@ def main():
             if file_rules_output:
                 result = _merge_hook_outputs(file_rules_output, result)
             skill_log(f"Handler result: {json.dumps(result)}")
-            print(json.dumps(result))
+            _emit_hook_output(result)
         else:
             skill_log("Handler returned no result")
             # Still emit file rules output if triggered
             if file_rules_output:
-                print(json.dumps(file_rules_output))
+                _emit_hook_output(file_rules_output)
     else:
         skill_log("No keyword matched, passing through unchanged")
         if file_rules_output:
-            print(json.dumps(file_rules_output))
+            _emit_hook_output(file_rules_output)
 
     skill_log("Hook completed")
     sys.exit(0)
