@@ -52,9 +52,6 @@ from .rule_engine import (
     matches_any,
     extract_match,
     word_boundary_match,
-    # Rule generator
-    GeneratedRule,
-    gen_rule,
 )
 
 __all__ = [
@@ -105,7 +102,4 @@ __all__ = [
     "matches_any",
     "extract_match",
     "word_boundary_match",
-    # Rule generator
-    "GeneratedRule",
-    "gen_rule",
 ]

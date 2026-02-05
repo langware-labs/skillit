@@ -4,7 +4,7 @@ import pytest
 from tests.test_utils import HookTestEnvironment
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def isolated_hook_env():
     """Provides a clean test environment with plugin installed at project scope."""
     env = HookTestEnvironment()

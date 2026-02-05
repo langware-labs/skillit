@@ -525,26 +525,6 @@ class RuleEngine:
         package = self._get_package()
         return package.get_summary()
 
-    @classmethod
-    def gen_rule(
-        cls,
-        hooks_data: dict[str, Any],
-        transcript: Any,
-        name: str,
-    ) -> "ActivationRule":
-        """Generate a rule from hook data and transcript.
-
-        Args:
-            hooks_data: Current hook event data.
-            transcript: Transcript data.
-            name: Name for the generated rule.
-
-        Returns:
-            ActivationRule ready to be loaded.
-        """
-        from .rule_generator import gen_rule as _gen_rule
-        return _gen_rule(hooks_data, transcript, name)
-
     def load_rule(self, rule: "ActivationRule") -> None:
         """Load a rule into this engine's package.
 

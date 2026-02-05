@@ -33,10 +33,6 @@ from .regex_utils import (
     extract_match,
     word_boundary_match,
 )
-from .rule_generator import (
-    GeneratedRule,
-    gen_rule,
-)
 
 __all__ = [
     # Core classes
@@ -84,7 +80,4 @@ __all__ = [
     "matches_any",
     "extract_match",
     "word_boundary_match",
-    # Rule generator
-    "GeneratedRule",
-    "gen_rule",
 ]

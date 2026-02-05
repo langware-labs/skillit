@@ -12,8 +12,6 @@ from contextlib import redirect_stdout
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Re-export gen_rule and GeneratedRule from rule_generator
-from memory.rule_engine.rule_generator import GeneratedRule, gen_rule
 from memory.rule_engine.engine import RulesPackage, RuleEngine
 
 TEMP_DIR = Path(tempfile.gettempdir()) / "skillit_test"
