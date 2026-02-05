@@ -159,12 +159,14 @@ class HookTestEnvironment:
         return plugin_meta["name"], marketplace_meta["name"], plugin_meta["version"]
 
     def install_plugin(self) -> None:
-        """Install the skillit plugin at project scope into this environment.
+        """Build templates and install the skillit plugin at project scope.
 
-        Ensures the marketplace is registered (pointing at the local repo),
-        then installs the plugin with ``--scope project`` so hooks are written
-        into the environment's ``.claude/settings.json``.
+        Renders templates (so agents carry the current version), ensures the
+        marketplace is registered, then installs with ``--scope project``.
         """
+        from plugin_manager import SkillitPluginManager
+        SkillitPluginManager().build()
+
         plugin_name, marketplace_name, _ = self._read_plugin_meta()
         plugin_ref = f"{plugin_name}@{marketplace_name}"
 

@@ -3,7 +3,9 @@
 import json
 from pathlib import Path
 
+from tests.test_utils import PromptResult
 from tests.test_utils.hook_environment import HookTestEnvironment, SKILLIT_ROOT
+from plugin_manager import SkillitPluginManager
 
 
 def test_install_plugin_creates_project_settings():
@@ -53,3 +55,18 @@ def test_install_plugin_caches_hooks():
     hooks = json.loads(cached_hooks.read_text())
     assert "hooks" in hooks, "hooks key missing from hooks.json"
     assert "UserPromptSubmit" in hooks["hooks"], "UserPromptSubmit hook not configured"
+
+
+def test_patch_installs_new_version():
+    """Bumping the patch version and reinstalling should update the cache."""
+    plugin_mgr = SkillitPluginManager()
+    old_version = plugin_mgr.version
+    new_version = plugin_mgr.patch()
+    print(f"old_version={old_version}, new_version={new_version}")
+    assert new_version != old_version
+
+    env = HookTestEnvironment()
+    env.install_plugin()
+
+    result:PromptResult = env.launch_claude('use the skillit sugagent  and ask for its version, make sure to invoken it', False)
+    assert new_version in result.stdout
