@@ -10,16 +10,11 @@ import sys
 from pathlib import Path
 
 from log import skill_log
-from notify import send_skill_notification
-
-# =============================================================================
-# MODIFIER IMPORTS
-# =============================================================================
-
+from memory import create_rule_engine
 from modifiers.analyzer import handle_analyze
 from modifiers.create_test import handle_create_test
 from modifiers.test import handle_test
-from memory import create_rule_engine
+from notify import send_skill_notification
 
 # =============================================================================
 # KEYWORD MAPPINGS
@@ -90,7 +85,7 @@ def _evaluate_file_rules(data: dict) -> dict:
     # Handle exit code if set
     exit_code = result.pop("_exit_code", None)
     if exit_code == 2:
-        skill_log(f"Rule requested exit code 2 (block)")
+        skill_log("Rule requested exit code 2 (block)")
 
     # Remove internal metadata for output
     result.pop("_triggered_rules", None)
@@ -159,6 +154,11 @@ def main():
     try:
         raw = sys.stdin.read()
         _dump_stdin(raw)
+        if not raw or not raw.strip():
+          ERROR_MSG = "ERROR: No input received on stdin"
+          skill_log(ERROR_MSG)
+          sys.stdout.write(ERROR_MSG + "\n")
+          sys.exit(1)    
         data = json.loads(raw)
         skill_log(f"Input received: {json.dumps(data)}")
     except json.JSONDecodeError as e:

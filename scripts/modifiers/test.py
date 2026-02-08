@@ -25,13 +25,8 @@ def handle_test(prompt: str, data: dict) -> dict:
     cwd = data.get("cwd", "")
     skills_dir = get_skills_dir(cwd)
 
-    instructions = build_subagent_instructions(
+    return build_subagent_instructions(
         instructions_file=INSTRUCTIONS_FILE,
         skills_dir=skills_dir,
         cwd=cwd,
     )
-
-    return {
-        "continue": True,
-        "systemMessage": instructions,
-    }

@@ -17,7 +17,7 @@ from claude_utils import (  # noqa: E402
 INSTRUCTIONS_FILE = PLUGIN_DIR / "analyze_transcript.md"
 
 
-def handle_analyze(prompt: str, data: dict) -> str:
+def handle_analyze(prompt: str, data: dict) -> dict:
     """
     Return instructions for the current Claude session to launch a Task subagent
     that analyzes the conversation and creates activation rules.
@@ -28,9 +28,8 @@ def handle_analyze(prompt: str, data: dict) -> str:
     cwd = data.get("cwd", "")
     skills_dir = get_skills_dir(cwd)
 
-    instructions = build_subagent_instructions(
+    return build_subagent_instructions(
         instructions_file=INSTRUCTIONS_FILE,
         skills_dir=skills_dir,
         cwd=cwd,
     )
-    return instructions

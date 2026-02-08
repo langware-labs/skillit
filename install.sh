@@ -31,11 +31,16 @@ claude plugin install "$PLUGIN_NAME@$MARKETPLACE_NAME" --scope user
 
 CACHE_DIR="$HOME/.claude/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME/$PLUGIN_VERSION"
 
-# Replace cache copy with symlink if requested, otherwise clean up log file
+# Replace cache copy with content symlinks if requested, otherwise clean up log file
 if [ "$USE_SYMLINK" = true ] && [ -d "$CACHE_DIR" ]; then
+    # Keep cache as a real directory (Claude Code replaces top-level symlinks),
+    # but symlink each item inside it back to the source
     rm -rf "$CACHE_DIR"
-    ln -s "$SOURCE_DIR" "$CACHE_DIR"
-    echo "Created symlink: $CACHE_DIR -> $SOURCE_DIR"
+    mkdir -p "$CACHE_DIR"
+    for item in "$SOURCE_DIR"/* "$SOURCE_DIR"/.[!.]*; do
+        [ -e "$item" ] || [ -L "$item" ] && ln -s "$item" "$CACHE_DIR/"
+    done
+    echo "Created content symlinks: $CACHE_DIR/* -> $SOURCE_DIR/*"
 elif [ "$USE_SYMLINK" = false ]; then
     rm -f "$CACHE_DIR/skill.log" 2>/dev/null || true
 fi

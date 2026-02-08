@@ -30,10 +30,8 @@ def handle_create_test(prompt: str, data: dict) -> dict:
 
     skills_dir = get_skills_dir(cwd)
 
-    instructions = build_subagent_instructions(
+    return build_subagent_instructions(
         instructions_file=INSTRUCTIONS_FILE,
         skills_dir=skills_dir,
         cwd=cwd,
     )
-
-    return instructions
