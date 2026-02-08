@@ -10,8 +10,9 @@ CLAUDE_HOME = HOME / ".claude"
 CLAUDE_PROJECT = Path.cwd() / ".claude"
 
 
-# Pricing constants (per 1M tokens) - January 2026
+# Pricing constants (per 1M tokens) - February 2026
 MODEL_PRICING = {
+    "claude-opus-4-6": {"input": 5.00, "output": 25.00},
     "claude-opus-4-5-20251101": {"input": 5.00, "output": 25.00},
     "claude-opus-4-5": {"input": 5.00, "output": 25.00},
     "claude-sonnet-4-5-20250929": {"input": 3.00, "output": 15.00},
