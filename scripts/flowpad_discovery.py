@@ -187,22 +187,22 @@ def is_flowpad_installed() -> bool:
     """
     if sys.platform == "darwin":
         paths = [
-            Path("/Applications/Flowpad.app"),
-            Path.home() / "Applications" / "Flowpad.app",
+            Path("/Applications") / f"{FLOWPAD_APP_NAME}.app",
+            Path.home() / "Applications" / f"{FLOWPAD_APP_NAME}.app",
         ]
     elif sys.platform.startswith("win"):
         program_files = os.getenv("ProgramFiles", "C:\\Program Files")
         local_appdata = os.getenv("LOCALAPPDATA", "")
         paths = [
-            Path(program_files) / "Flowpad" / "Flowpad.exe",
-            Path(local_appdata) / "Programs" / "Flowpad" / "Flowpad.exe",
+            Path(program_files) / FLOWPAD_APP_NAME / f"{FLOWPAD_APP_NAME}.exe",
+            Path(local_appdata) / "Programs" / FLOWPAD_APP_NAME / f"{FLOWPAD_APP_NAME}.exe",
         ]
     else:
         # Linux
         paths = [
-            Path.home() / ".local" / "share" / "applications" / "flowpad.desktop",
-            Path("/usr/share/applications/flowpad.desktop"),
-            Path("/usr/bin/flowpad"),
+            Path.home() / ".local" / "share" / "applications" / f"{FLOWPAD_APP_NAME}.desktop",
+            Path(f"/usr/share/applications/{FLOWPAD_APP_NAME}.desktop"),
+            Path(f"/usr/bin/{FLOWPAD_APP_NAME}"),
         ]
     return any(p.exists() for p in paths)
 
