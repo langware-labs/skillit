@@ -32,6 +32,6 @@ def handle_create_test(prompt: str, data: dict) -> dict:
 
     return build_subagent_instructions(
         instructions_file=INSTRUCTIONS_FILE,
-        skills_dir=skills_dir,
         cwd=cwd,
+        target_dir=skills_dir,
     )

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from log import skill_log
 from memory import create_rule_engine
-from modifiers.analyzer import handle_analyze
+from modifiers.analyze_and_create_activation_rules import handle_analyze
 from modifiers.create_test import handle_create_test
 from modifiers.test import handle_test
 from notify import send_skill_notification

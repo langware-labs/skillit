@@ -96,7 +96,17 @@ Simply include the `skillit` keyword in your Claude Code prompts:
 claude -p "skillit analyze this codebase"
 ```
 
-This will activate the analyzer modifier which enhances Claude's ability to understand and analyze code structures.
+This will activate the analyze_and_create_activation_rules modifier which enhances Claude's ability to understand and analyze code structures.
+
+### Create Test
+
+Use `skillit:create-test` to generate reproducible test steps as a skill:
+
+```bash
+claude -p "skillit:create-test for the login flow"
+```
+
+This modifier analyzes the conversation and creates a test skill in `.claude/skills/`.
 
 ### Test Mode
 
@@ -112,7 +122,8 @@ This modifier optimizes Claude for test writing, debugging, and test coverage an
 
 | Keyword | Description | Use Case |
 |---------|-------------|----------|
-| `skillit` | Activates the analyzer modifier | Code analysis, understanding architecture |
+| `skillit` | Analyzes conversation and creates activation rules | Code analysis, understanding architecture |
+| `skillit:create-test` | Creates reproducible test steps as a skill | Generating test skills from conversation |
 | `skillit:test` | Activates the test modifier | Writing tests, debugging test failures |
 
 ## Configuration
@@ -132,7 +143,8 @@ skillit/
 ├── scripts/           # Core plugin logic
 │   ├── main.py        # Entry point and routing
 │   ├── modifiers/     # Skill modifier implementations
-│   │   ├── analyzer.py
+│   │   ├── analyze_and_create_activation_rules.py
+│   │   ├── create_test.py
 │   │   └── test.py
 │   ├── global_state.py
 │   ├── log.py

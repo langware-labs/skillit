@@ -1,7 +1,7 @@
 # Shared Skill Creation Instructions
 
 ## Input Parameters
-- `skills_dir`: Base directory for skills (`<cwd>/.claude/skills/`)
+- `target_dir`: Base directory for skills (`<cwd>/.claude/skills/`)
 - `activation_rules_script`: Path to the activation_rules.py script for reporting
 - `cwd`: Current working directory
 
@@ -21,10 +21,10 @@ python3 "<activation_rules_script>" started_generating_skill '{"skill_name": "<s
 
 ⚠️ **CRITICAL: Directory Structure**
 Skills MUST be created in a subdirectory, NOT as a flat file:
-- ✅ CORRECT: `<skills_dir>/<skill-name>/SKILL.md`
-- ❌ WRONG: `<skills_dir>/<skill-name>.md`
+- ✅ CORRECT: `<target_dir>/<skill-name>/SKILL.md`
+- ❌ WRONG: `<target_dir>/<skill-name>.md`
 
-First create the directory `<skills_dir>/<skill-name>/`, then create the file `SKILL.md` inside it.
+First create the directory `<target_dir>/<skill-name>/`, then create the file `SKILL.md` inside it.
 
 Use the SKILL.md format below.
 

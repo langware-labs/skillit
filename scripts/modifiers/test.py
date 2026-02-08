@@ -11,10 +11,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from claude_utils import (  # noqa: E402
     PLUGIN_DIR,
     build_subagent_instructions,
-    get_skills_dir,
+    get_skill_rules_dir,
 )
 
-INSTRUCTIONS_FILE = PLUGIN_DIR / "analyze_transcript.md"
+INSTRUCTIONS_FILE = PLUGIN_DIR / "analyze_and_create_activation_rules.md"
 
 
 def handle_test(prompt: str, data: dict) -> dict:
@@ -23,10 +23,10 @@ def handle_test(prompt: str, data: dict) -> dict:
     that analyzes the conversation and creates activation rules.
     """
     cwd = data.get("cwd", "")
-    skills_dir = get_skills_dir(cwd)
+    skill_rules_dir = get_skill_rules_dir(cwd)
 
     return build_subagent_instructions(
         instructions_file=INSTRUCTIONS_FILE,
-        skills_dir=skills_dir,
         cwd=cwd,
+        target_dir=skill_rules_dir,
     )

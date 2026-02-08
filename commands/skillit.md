@@ -1,8 +1,6 @@
 ---
 name: skillit
-description: Fixing and debugging issues. Use when you need help fixing bugs, debugging code, or solving problems.
+description: Fixing and preventing issues. Use when you need help fixing bugs, debugging code, solving problems, or preventing issues from happening again.
 ---
 
-The user's request is: "$ARGUMENTS"
-
-Your task: Focus on FIXING the issue described. Prioritize debugging, identifying root causes, and providing working solutions. Do not add unnecessary features or refactor unrelated code - just fix the problem.
+python "$CLAUDE_PLUGIN_ROOT/scripts/main.py"

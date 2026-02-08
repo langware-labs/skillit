@@ -370,7 +370,7 @@ def run_tests():
     """Run test suite."""
     # Test cases: (prompt, expected_modifier, expected_text_in_output)
     tests = [
-        ("skillit fix bug", "analyzer", "Create Activation Rule Skill"),
+        ("skillit", "analyze_and_create_activation_rules", "Create Activation Rule Skill"),
         ("skillit:test", "test", "Create Activation Rule Skill"),
         ("skillit create test for showing current time", "create_test", "Create Activation Rule Skill"),
         ("hello world", None, None),

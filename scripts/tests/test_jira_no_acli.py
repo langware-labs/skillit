@@ -24,7 +24,7 @@ def test_jira_with_acli(isolated_hook_env):
 
 def test_jira_with_acli_gen_rule(isolated_hook_env):
     """handle_analyze returns subagent instructions for rule creation."""
-    from modifiers.analyzer import handle_analyze
+    from modifiers.analyze_and_create_activation_rules import handle_analyze
 
     transcript = ClaudeTranscript.load(TRANSCRIPT_PATH)
     data = {
@@ -39,4 +39,4 @@ def test_jira_with_acli_gen_rule(isolated_hook_env):
     assert isinstance(result, str)
     assert "Task subagent" in result or "subagent" in result
     assert "activation rules" in result.lower()
-    assert "analyze_transcript" in result or "Skillit Analysis" in result
+    assert "analyze_and_create_activation_rules" in result or "Skillit Analysis" in result
