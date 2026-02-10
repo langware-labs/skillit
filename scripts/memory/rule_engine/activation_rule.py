@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import shutil
 import sys
 from dataclasses import dataclass, field
@@ -12,6 +13,197 @@ from typing import Any
 
 from log import skill_log
 from .trigger_executor import TriggerResult, Action, _convert_actions_to_result
+
+
+@dataclass
+class EvalCaseResult:
+    """Result from running a single eval case."""
+
+    case_name: str
+    passed: bool
+    expected: dict
+    actual: dict
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "case_name": self.case_name,
+            "passed": self.passed,
+            "expected": self.expected,
+            "actual": self.actual,
+            "error": self.error,
+        }
+
+
+@dataclass
+class RuleEvaluation:
+    """Aggregated eval results for a rule."""
+
+    rule_name: str
+    cases: list[EvalCaseResult] = field(default_factory=list)
+
+    @property
+    def passed(self) -> int:
+        return sum(1 for c in self.cases if c.passed)
+
+    @property
+    def failed(self) -> int:
+        return sum(1 for c in self.cases if not c.passed)
+
+    @property
+    def total(self) -> int:
+        return len(self.cases)
+
+    @property
+    def all_passed(self) -> bool:
+        return self.total > 0 and self.failed == 0
+
+    def summary_table(self) -> str:
+        """Return a formatted summary table."""
+        if not self.cases:
+            return f"Rule '{self.rule_name}': no eval cases found."
+
+        lines = [
+            f"Rule: {self.rule_name}  ({self.passed}/{self.total} passed)\n",
+            f"{'Case':<30} {'Expected':>10} {'Actual':>10} {'Result':>8}",
+            f"{'-'*30} {'-'*10} {'-'*10} {'-'*8}",
+        ]
+        for c in self.cases:
+            exp_trigger = c.expected.get("trigger", "?")
+            act_trigger = c.actual.get("trigger", "?")
+            status = "PASS" if c.passed else "FAIL"
+            line = f"{c.case_name:<30} {str(exp_trigger):>10} {str(act_trigger):>10} {status:>8}"
+            if c.error:
+                line += f"\n{'':>30} error: {c.error}"
+            lines.append(line)
+
+        lines.append("")
+        lines.append(f"Result: {'ALL PASSED' if self.all_passed else f'{self.failed} FAILED'}")
+        return "\n".join(lines)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "rule_name": self.rule_name,
+            "passed": self.passed,
+            "failed": self.failed,
+            "total": self.total,
+            "cases": [c.to_dict() for c in self.cases],
+        }
+
+
+class ActivationRuleCase:
+    """A single eval case that can run itself against a rule's trigger."""
+
+    def __init__(self, case_dir: Path, rule: "ActivationRule"):
+        self.case_dir = case_dir
+        self.name = case_dir.name
+        self._rule = rule
+
+    @property
+    def transcript_file(self) -> Path:
+        return self.case_dir / "transcript.jsonl"
+
+    @property
+    def expected_file(self) -> Path:
+        return self.case_dir / "expected_output.json"
+
+    def load_transcript(self) -> list[dict]:
+        """Load and parse transcript.jsonl."""
+        entries: list[dict] = []
+        for line in self.transcript_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                entries.append(json.loads(line))
+        return entries
+
+    def load_expected(self) -> dict:
+        """Load and parse expected_output.json."""
+        return json.loads(self.expected_file.read_text(encoding="utf-8"))
+
+    def run_eval(self) -> EvalCaseResult:
+        """Run this case's transcript through the rule's trigger and compare.
+
+        Returns:
+            EvalCaseResult with pass/fail and details.
+        """
+        if not self.transcript_file.exists():
+            return EvalCaseResult(
+                case_name=self.name, passed=False,
+                expected={}, actual={},
+                error="transcript.jsonl not found",
+            )
+
+        if not self.expected_file.exists():
+            return EvalCaseResult(
+                case_name=self.name, passed=False,
+                expected={}, actual={},
+                error="expected_output.json not found",
+            )
+
+        try:
+            expected = self.load_expected()
+        except (json.JSONDecodeError, OSError) as e:
+            return EvalCaseResult(
+                case_name=self.name, passed=False,
+                expected={}, actual={},
+                error=f"Failed to load expected_output.json: {e}",
+            )
+
+        try:
+            transcript = self.load_transcript()
+        except (json.JSONDecodeError, OSError) as e:
+            return EvalCaseResult(
+                case_name=self.name, passed=False,
+                expected=expected, actual={},
+                error=f"Failed to load transcript.jsonl: {e}",
+            )
+
+        hooks_data = _extract_hooks_data(transcript)
+        result = self._rule.run(hooks_data, transcript)
+        actual = result.to_dict()
+        passed = _compare_eval(expected, actual)
+
+        return EvalCaseResult(
+            case_name=self.name,
+            passed=passed,
+            expected=expected,
+            actual=actual,
+        )
+
+
+def _extract_hooks_data(transcript: list[dict]) -> dict:
+    """Extract hooks_data from transcript entries for eval."""
+    for entry in transcript:
+        if entry.get("type") == "user":
+            msg = entry.get("message", {})
+            content = msg.get("content", "") if isinstance(msg, dict) else ""
+            return {
+                "hookEvent": "UserPromptSubmit",
+                "hook_event_name": "UserPromptSubmit",
+                "prompt": content,
+                "cwd": entry.get("cwd", ""),
+            }
+    return transcript[0] if transcript else {}
+
+
+def _compare_eval(expected: dict, actual: dict) -> bool:
+    """Compare expected and actual eval output.
+
+    Checks trigger bool and action types match.
+    """
+    if expected.get("trigger") != actual.get("trigger"):
+        return False
+    if not expected.get("trigger"):
+        return True
+
+    exp_actions = expected.get("actions", [])
+    act_actions = actual.get("actions", [])
+    if len(exp_actions) != len(act_actions):
+        return False
+    for exp_a, act_a in zip(exp_actions, act_actions):
+        if exp_a.get("type") != act_a.get("type"):
+            return False
+    return True
 
 
 @dataclass
@@ -472,6 +664,35 @@ class ActivationRule:
                 rule_name=self.name,
                 error=f"Error executing trigger.py: {e}",
             )
+
+    def get_eval_cases(self) -> list[ActivationRuleCase]:
+        """Return all eval cases for this rule."""
+        eval_dir = self._path / "eval"
+        if not eval_dir.is_dir():
+            return []
+        return [
+            ActivationRuleCase(case_dir=d, rule=self)
+            for d in sorted(eval_dir.iterdir())
+            if d.is_dir()
+        ]
+
+    def run_eval(self) -> RuleEvaluation:
+        """Run all eval cases in the rule's eval/ subfolder.
+
+        Returns:
+            RuleEvaluation with results for every case found.
+        """
+        evaluation = RuleEvaluation(rule_name=self.name)
+        cases = self.get_eval_cases()
+
+        if not cases:
+            skill_log(f"[{self.name}] No eval cases found")
+            return evaluation
+
+        for case in cases:
+            evaluation.cases.append(case.run_eval())
+
+        return evaluation
 
     def deploy_to_user(self) -> "ActivationRule":
         """Deploy this rule to the user rules directory (~/.flow/skill_rules/).

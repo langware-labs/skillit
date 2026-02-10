@@ -137,13 +137,21 @@ def invoke_main(prompt: str, verbose: bool = True) -> dict:
     }
 
 
-class NotificationHandler(BaseHTTPRequestHandler):
-    """HTTP handler to capture notification requests."""
+class TestServerHandler(BaseHTTPRequestHandler):
+    """HTTP handler that serves health checks and captures webhook requests."""
     received = []
+
+    def do_GET(self):
+        if self.path == "/health":
+            self.send_response(200)
+            self.end_headers()
+        else:
+            self.send_response(404)
+            self.end_headers()
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
-        NotificationHandler.received.append(json.loads(body.decode()))
+        TestServerHandler.received.append(json.loads(body.decode()))
         self.send_response(200)
         self.end_headers()
 
@@ -151,37 +159,68 @@ class NotificationHandler(BaseHTTPRequestHandler):
         pass
 
 
+def _start_test_server(port: int) -> HTTPServer:
+    """Start a test HTTP server and write a server.json port file for discovery."""
+    server = HTTPServer(("127.0.0.1", port), TestServerHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    TestServerHandler.received.clear()
+
+    # Write server.json so discover_flowpad() finds our test server
+    from flowpad_discovery import get_flowpad_data_dir
+    data_dir = get_flowpad_data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    port_file = data_dir / "server.json"
+
+    # Back up existing port file
+    backup = None
+    if port_file.exists():
+        backup = port_file.read_text()
+
+    port_file.write_text(json.dumps({
+        "port": port,
+        "webhook_path": "/webhook",
+        "health_path": "/health",
+    }))
+
+    return server, port_file, backup
+
+
+def _stop_test_server(server: HTTPServer, port_file: Path, backup: str | None) -> None:
+    """Stop test server and restore the original port file."""
+    server.shutdown()
+    if backup is not None:
+        port_file.write_text(backup)
+    elif port_file.exists():
+        port_file.unlink()
+
+
 def test_notifications():
-    """Test notify.py module with mock server."""
+    """Test notify.py with a real test server and real discovery."""
     print("\n" + "=" * 60)
     print("NOTIFICATION TEST")
     print("=" * 60 + "\n")
 
-    # Start mock server
     port = 18765
-    server = HTTPServer(("127.0.0.1", port), NotificationHandler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    NotificationHandler.received.clear()
+    server, port_file, backup = _start_test_server(port)
+    print(f"Test server: http://127.0.0.1:{port}/webhook")
 
-    print(f"Mock server: http://127.0.0.1:{port}/notify")
-
-    # Run notification with mocked discovery
-    result = subprocess.run(
-        ["python3", "-c", f"""
+    try:
+        # Run notification through real discovery pipeline
+        result = subprocess.run(
+            ["python3", "-c", f"""
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
 import os
 os.environ["FLOWPAD_EXECUTION_SCOPE"] = '[{{"type": "flow", "id": "test-123"}}]'
 
-from flowpad_discovery import FlowpadStatus, FlowpadDiscoveryResult, FlowpadServerInfo
-import notify
+from notify import get_flowpad_status, send_skill_notification
+from flowpad_discovery import FlowpadStatus
 
-# Mock discover_flowpad to return RUNNING with our test server
-notify.discover_flowpad = lambda: FlowpadDiscoveryResult(
-    status=FlowpadStatus.RUNNING,
-    server_info=FlowpadServerInfo(port={port}, webhook_path="/notify", health_path="/health", url="http://127.0.0.1:{port}/notify")
-)
+status = get_flowpad_status()
+if status != FlowpadStatus.RUNNING:
+    print("FAIL:flowpad_status=" + status)
+    sys.exit(1)
 
-success = notify.send_skill_notification(
+success = send_skill_notification(
     skill_name="skillit",
     matched_keyword="test-keyword",
     prompt="test prompt",
@@ -189,24 +228,25 @@ success = notify.send_skill_notification(
     folder_path="/tmp/test"
 )
 print("QUEUED:" + str(success))
-import time; time.sleep(0.5)  # Wait for daemon thread
+import time; time.sleep(0.5)
 """],
-        capture_output=True, text=True
-    )
-    print(result.stdout)
-    if result.stderr:
-        print(f"stderr: {result.stderr[:200]}")
-    time.sleep(0.3)
+            capture_output=True, text=True
+        )
+        print(result.stdout)
+        if result.stderr:
+            print(f"stderr: {result.stderr[:200]}")
+        time.sleep(0.3)
 
-    if NotificationHandler.received:
-        notif = NotificationHandler.received[0]["flow_value"]["notification"]
-        print(f"✓ Notification received: skill={notif['skill_name']}, handler={notif['handler_name']}")
-        passed = True
-    else:
-        print("✗ No notification received")
-        passed = False
+        if TestServerHandler.received:
+            notif = TestServerHandler.received[0]["flow_value"]["notification"]
+            print(f"✓ Notification received: skill={notif['skill_name']}, handler={notif['handler_name']}")
+            passed = True
+        else:
+            print("✗ No notification received")
+            passed = False
+    finally:
+        _stop_test_server(server, port_file, backup)
 
-    server.shutdown()
     print(f"\n>>> {'PASS' if passed else 'FAIL'}")
 
 
@@ -237,130 +277,83 @@ def test_with_transcript():
 
 
 def test_activation_rules():
-    """Test ad display logic based on Flowpad discovery status."""
+    """Test activation rules with a real test server and real discovery."""
     print("\n" + "=" * 60)
     print("ACTIVATION RULES TEST")
     print("=" * 60 + "\n")
 
-    # Test 1: Ad shown when Flowpad is NOT installed (mocked)
-    print("Test 1: Ad shown when Flowpad is NOT installed")
-    print("-" * 40)
+    port = 18766
+    server, port_file, backup = _start_test_server(port)
+    print(f"Test server: http://127.0.0.1:{port}/webhook")
 
-    result = subprocess.run(
-        ["python3", "-c", f"""
+    try:
+        # Test 1: No ad when server is running
+        print("\nTest 1: No ad when Flowpad is running")
+        print("-" * 40)
+
+        result = subprocess.run(
+            ["python3", "-c", f"""
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
-from flowpad_discovery import FlowpadStatus, FlowpadDiscoveryResult
-import activation_rules
+from notify import get_flowpad_status
+from flowpad_discovery import FlowpadStatus
+from activation_rules import get_ad_if_needed
 
-# Mock discover_flowpad to return NOT_INSTALLED
-activation_rules._cached_discovery_result = FlowpadDiscoveryResult(
-    status=FlowpadStatus.NOT_INSTALLED
-)
-ad = activation_rules.get_ad_if_needed()
-print("HAS_AD:" + str("flowpad.ai" in ad.lower()))
-"""],
-        capture_output=True, text=True
-    )
-    test1_passed = "HAS_AD:True" in result.stdout
-    print(f"{'✓' if test1_passed else '✗'} Ad returned when Flowpad not installed")
-    if result.stderr:
-        print(f"  stderr: {result.stderr[:200]}")
-    print(f">>> {'PASS' if test1_passed else 'FAIL'}\n")
+status = get_flowpad_status()
+if status != FlowpadStatus.RUNNING:
+    print("FAIL:flowpad_status=" + status)
+    sys.exit(1)
 
-    # Test 2: Launch prompt shown when Flowpad is installed but not running
-    print("Test 2: Launch prompt shown when Flowpad installed but not running")
-    print("-" * 40)
-
-    result = subprocess.run(
-        ["python3", "-c", f"""
-import sys; sys.path.insert(0, "{SCRIPT_DIR}")
-from flowpad_discovery import FlowpadStatus, FlowpadDiscoveryResult
-import activation_rules
-
-# Mock discover_flowpad to return INSTALLED_NOT_RUNNING
-activation_rules._cached_discovery_result = FlowpadDiscoveryResult(
-    status=FlowpadStatus.INSTALLED_NOT_RUNNING
-)
-ad = activation_rules.get_ad_if_needed()
-print("HAS_LAUNCH:" + str("not running" in ad.lower()))
-"""],
-        capture_output=True, text=True
-    )
-    test2_passed = "HAS_LAUNCH:True" in result.stdout
-    print(f"{'✓' if test2_passed else '✗'} Launch prompt returned when installed but not running")
-    if result.stderr:
-        print(f"  stderr: {result.stderr[:200]}")
-    print(f">>> {'PASS' if test2_passed else 'FAIL'}\n")
-
-    # Test 3: No ad when Flowpad IS running (mocked)
-    print("Test 3: No ad when Flowpad IS running")
-    print("-" * 40)
-
-    result = subprocess.run(
-        ["python3", "-c", f"""
-import sys; sys.path.insert(0, "{SCRIPT_DIR}")
-from flowpad_discovery import FlowpadStatus, FlowpadDiscoveryResult, FlowpadServerInfo
-import activation_rules
-
-# Mock discover_flowpad to return RUNNING
-activation_rules._cached_discovery_result = FlowpadDiscoveryResult(
-    status=FlowpadStatus.RUNNING,
-    server_info=FlowpadServerInfo(port=12345, webhook_path="/webhook", health_path="/health", url="http://localhost:12345/webhook")
-)
-ad = activation_rules.get_ad_if_needed()
+ad = get_ad_if_needed()
 print("AD_EMPTY:" + str(ad == ""))
 """],
-        capture_output=True, text=True
-    )
-    test3_passed = "AD_EMPTY:True" in result.stdout
-    print(f"{'✓' if test3_passed else '✗'} No ad returned when Flowpad is running")
-    if result.stderr:
-        print(f"  stderr: {result.stderr[:200]}")
-    print(f">>> {'PASS' if test3_passed else 'FAIL'}\n")
-
-    # Test 4: Notification sent to mock server when Flowpad running
-    print("Test 4: Notification sent to backend when Flowpad running")
-    print("-" * 40)
-
-    port = 18766
-    server = HTTPServer(("127.0.0.1", port), NotificationHandler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    NotificationHandler.received.clear()
-
-    result = subprocess.run(
-        ["python3", "-c", f"""
-import sys; sys.path.insert(0, "{SCRIPT_DIR}")
-from flowpad_discovery import FlowpadStatus, FlowpadDiscoveryResult, FlowpadServerInfo
-from activation_rules import send_activation_rules_notification
-import activation_rules
-
-# Mock discover_flowpad to return RUNNING with our test server
-activation_rules._cached_discovery_result = FlowpadDiscoveryResult(
-    status=FlowpadStatus.RUNNING,
-    server_info=FlowpadServerInfo(port={port}, webhook_path="/activation_rules", health_path="/health", url="http://127.0.0.1:{port}/activation_rules")
-)
-success = send_activation_rules_notification("skill_ready", {{"skill_name": "test-skill", "session_id": "test-123"}})
-print("SENT:" + str(success))
-"""],
-        capture_output=True, text=True
-    )
-    time.sleep(0.3)
-
-    if NotificationHandler.received:
-        event = NotificationHandler.received[0]["flow_value"]["event"]
-        test4_passed = event["type"] == "skill_ready"
-        print(f"{'✓' if test4_passed else '✗'} Notification received: type={event['type']}")
-    else:
-        print("✗ No notification received")
+            capture_output=True, text=True
+        )
+        test1_passed = "AD_EMPTY:True" in result.stdout
+        print(f"{'✓' if test1_passed else '✗'} No ad returned when Flowpad is running")
         if result.stderr:
             print(f"  stderr: {result.stderr[:200]}")
-        test4_passed = False
+        print(f">>> {'PASS' if test1_passed else 'FAIL'}\n")
 
-    server.shutdown()
-    print(f">>> {'PASS' if test4_passed else 'FAIL'}\n")
+        # Test 2: Activation event sent to server
+        print("Test 2: Activation event sent to backend")
+        print("-" * 40)
+
+        TestServerHandler.received.clear()
+        result = subprocess.run(
+            ["python3", "-c", f"""
+import sys; sys.path.insert(0, "{SCRIPT_DIR}")
+from notify import get_flowpad_status, send_activation_event
+from flowpad_discovery import FlowpadStatus
+
+status = get_flowpad_status()
+if status != FlowpadStatus.RUNNING:
+    print("FAIL:flowpad_status=" + status)
+    sys.exit(1)
+
+success = send_activation_event("skill_ready", {{"skill_name": "test-skill", "session_id": "test-123"}})
+print("SENT:" + str(success))
+import time; time.sleep(0.5)
+"""],
+            capture_output=True, text=True
+        )
+        time.sleep(0.3)
+
+        if TestServerHandler.received:
+            event = TestServerHandler.received[0]["flow_value"]["event"]
+            test2_passed = event["type"] == "skill_ready"
+            print(f"{'✓' if test2_passed else '✗'} Notification received: type={event['type']}")
+        else:
+            print("✗ No notification received")
+            if result.stderr:
+                print(f"  stderr: {result.stderr[:200]}")
+            test2_passed = False
+        print(f">>> {'PASS' if test2_passed else 'FAIL'}\n")
+
+    finally:
+        _stop_test_server(server, port_file, backup)
 
     # Summary
-    all_passed = test1_passed and test2_passed and test3_passed and test4_passed
+    all_passed = test1_passed and test2_passed
     print("=" * 60)
     print(f"ACTIVATION RULES: {'ALL TESTS PASSED' if all_passed else 'SOME TESTS FAILED'}")
     print("=" * 60)

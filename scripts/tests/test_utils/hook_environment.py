@@ -8,13 +8,24 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import uuid
 from contextlib import redirect_stdout
+import dataclasses
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 
 from memory.rule_engine.engine import RulesPackage, RuleEngine
 
 TEMP_DIR = Path(tempfile.gettempdir()) / "skillit_test"
+
+
+class LaunchMode(StrEnum):
+    """How to launch claude."""
+
+    HEADLESS = "headless"
+    TERMINAL = "terminal"
+    INTERACTIVE = "interactive"
 SKILLIT_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -32,6 +43,16 @@ def open_terminal(
     """
     cwd = str(cwd)
 
+    def _check_popen_exit(cmd: list[str], timeout: float = 0.25) -> None:
+        """Start a process and raise if it exits quickly with a non-zero code."""
+        proc = subprocess.Popen(cmd)
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return
+        if proc.returncode != 0:
+            raise subprocess.CalledProcessError(proc.returncode, cmd)
+
     # Build an export prefix so the new shell inherits custom env vars
     export_prefix = ""
     if env:
@@ -44,32 +65,34 @@ def open_terminal(
 
     if sys.platform == "darwin":
         inner = f"{export_prefix}cd {cwd} && {command}" if command else f"{export_prefix}cd {cwd}"
+        # Escape backslashes and double-quotes for AppleScript string literal
+        inner_escaped = inner.replace("\\", "\\\\").replace('"', '\\"')
         script = (
             'tell application "Terminal"\n'
-            f'    do script "{inner}"\n'
+            f'    do script "{inner_escaped}"\n'
             '    activate\n'
             'end tell'
         )
-        subprocess.run(["osascript", "-e", script])
+        subprocess.run(["osascript", "-e", script], check=True)
     elif sys.platform == "win32":
         inner = f"{export_prefix}cd /d {cwd} && {command}" if command else f"{export_prefix}cd /d {cwd}"
-        subprocess.Popen(["cmd", "/c", "start", "cmd", "/K", inner])
+        subprocess.run(["cmd", "/c", "start", "cmd", "/K", inner], check=True)
     else:
         shell_cmd = f"{export_prefix}cd {cwd} && {command}; exec $SHELL" if command else f"{export_prefix}cd {cwd} && $SHELL"
         for term in ["gnome-terminal", "konsole", "xfce4-terminal", "xterm"]:
             try:
                 if term == "gnome-terminal":
                     if command:
-                        subprocess.Popen([term, "--working-directory", cwd, "--", "bash", "-c", shell_cmd])
+                        _check_popen_exit([term, "--working-directory", cwd, "--", "bash", "-c", shell_cmd])
                     else:
-                        subprocess.Popen([term, "--working-directory", cwd])
+                        _check_popen_exit([term, "--working-directory", cwd])
                 elif term == "konsole":
                     if command:
-                        subprocess.Popen([term, "--workdir", cwd, "-e", "bash", "-c", shell_cmd])
+                        _check_popen_exit([term, "--workdir", cwd, "-e", "bash", "-c", shell_cmd])
                     else:
-                        subprocess.Popen([term, "--workdir", cwd])
+                        _check_popen_exit([term, "--workdir", cwd])
                 else:
-                    subprocess.Popen([term, "-e", f"cd {cwd} && $SHELL"])
+                    _check_popen_exit([term, "-e", f"cd {cwd} && $SHELL"])
                 return
             except FileNotFoundError:
                 continue
@@ -95,6 +118,10 @@ class ClaudeTranscript:
                         entries.append(json.loads(line))
         return cls(path=transcript_path, entries=entries)
 
+    def get_entries(self, entry_type: str) -> list[dict]:
+        """Return entries whose ``type`` field matches *entry_type*."""
+        return [e for e in self.entries if e.get("type") == entry_type]
+
     def __iter__(self):
         """Allow iteration over entries."""
         return iter(self.entries)
@@ -104,13 +131,13 @@ class ClaudeTranscript:
         return len(self.entries)
 
 
+@dataclass
 class PromptResult:
     """Result from running a prompt."""
 
-    def __init__(self, returncode: int, stdout: str, skill_log: str = ""):
-        self.returncode = returncode
-        self.stdout = stdout
-        self.skill_log = skill_log
+    returncode: int
+    stdout: str
+    skill_log: str = ""
 
     def response_contains(self, text: str) -> bool:
         return text.lower() in self.stdout.lower()
@@ -121,6 +148,10 @@ class PromptResult:
     def hook_output_contains(self, text: str) -> bool:
         """Check if the hook output (skill.log) contains the text."""
         return text.lower() in self.skill_log.lower()
+
+    def to_dict(self) -> dict:
+        """Return a JSON-serializable dict."""
+        return dataclasses.asdict(self)
 
 
 class _TeeIO(io.StringIO):
@@ -137,19 +168,67 @@ class _TeeIO(io.StringIO):
         return super().write(s)
 
 
-class HookTestEnvironment:
+class HookTestProjectEnvironment:
     """Self-contained test environment with project-level hooks."""
 
     DUMP_FILENAME = "stdin_dump.jsonl"
 
-    def __init__(self, dump: bool = True, clean=True):
+    def __init__(
+        self,
+        dump: bool = True,
+        clean: bool = True,
+        include_user_home: bool = False,
+        session_id: str | None = None,
+        resume_session_id: str | None = None,
+        fork: bool = False,
+    ):
         self.temp_dir = TEMP_DIR
+        self._resume_session_id = resume_session_id
+        self._session_id = session_id or str(uuid.uuid4())
+        self._fork = fork
+        self._session_started = False
         self._env_vars: dict[str, str] = {}
         self._dump_activations = False
         self._clean = clean
+        self._include_user_home = include_user_home
         if dump:
             self.dump_activations = True
         self._setup()
+
+    @property
+    def session_id(self) -> str:
+        """The active session ID (resume ID takes precedence)."""
+        return self._resume_session_id or self._session_id
+
+    @session_id.setter
+    def session_id(self, value: str) -> None:
+        self._session_id = value
+
+    @property
+    def is_resuming(self) -> bool:
+        """True if this env resumes an existing session."""
+        return self._resume_session_id is not None
+
+    def _session_args(self) -> list[str]:
+        """Return CLI args for session continuity.
+
+        When resuming (resume_session_id set or session already started),
+        returns ``['--resume', <uuid>]`` (plus ``--fork-session`` if fork is set).
+        Otherwise returns ``['--session-id', <uuid>]`` for the first call,
+        then switches to resume for subsequent calls.
+        """
+        if self.is_resuming or self._session_started:
+            args = ["--resume", self.session_id]
+            if self._fork and self.is_resuming:
+                args.append("--fork-session")
+            return args
+        self._session_started = True
+        return ["--session-id", self.session_id]
+
+    def _session_arg_str(self) -> str:
+        """Return session CLI fragment as a shell string."""
+        args = self._session_args()
+        return " ".join(args)
 
     @property
     def path(self) -> Path:
@@ -157,11 +236,34 @@ class HookTestEnvironment:
         return self.temp_dir
 
     @property
+    def user_rules(self) -> RulesPackage:
+        """Return user-level rules (~/.flow/skill_rules). Empty if include_user_home is False."""
+        if not self._include_user_home:
+            return RulesPackage(source="user", rules=[])
+        from memory.rule_engine.rule_loader import get_user_rules_dir
+        return RulesPackage.from_folder(get_user_rules_dir(), source="user")
+
+    @property
     def project_rules(self) -> RulesPackage:
-        """Return the project rules package."""
+        """Return project-level rules (<temp_dir>/.flow/skill_rules)."""
         rules_path = self.temp_dir / ".flow" / "skill_rules"
         rules_path.mkdir(parents=True, exist_ok=True)
-        return RulesPackage(path=rules_path, source="project")
+        return RulesPackage.from_folder(rules_path, source="project")
+
+    @property
+    def all_rules(self) -> RulesPackage:
+        """Return merged rules (user + project, project overrides user).
+
+        Only includes user rules when include_user_home is True.
+        """
+        user_path = None
+        if self._include_user_home:
+            from memory.rule_engine.rule_loader import get_user_rules_dir
+            user_path = get_user_rules_dir()
+        return RulesPackage.from_multiple_folders(
+            user_path=user_path,
+            project_path=self.temp_dir / ".flow" / "skill_rules",
+        )
 
     @property
     def rule_engine(self) -> RuleEngine:
@@ -218,6 +320,20 @@ class HookTestEnvironment:
         if not self._dump_activations:
             return None
         return self.temp_dir / ".flow" / self.DUMP_FILENAME
+
+    @property
+    def dump_entries(self) -> list[dict]:
+        """Return the parsed entries from the dump file, or an empty list."""
+        dump_file = self.dump_file
+        if dump_file is None or not dump_file.exists():
+            return []
+        entries = []
+        with open(dump_file) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    entries.append(json.loads(line))
+        return entries
 
     def _setup(self):
         """Create a clean temp folder."""
@@ -308,19 +424,22 @@ class HookTestEnvironment:
             raise FileNotFoundError(f"System prompt file not found: {src}")
         shutil.copy2(src, self.temp_dir / "CLAUDE.md")
 
-    def load_agent(self, agent_name: str) -> None:
+    def load_agent(self, agent_name: "str | SubAgent") -> None:
         """Copy an agent .md file into the env's .claude/agents/ folder.
 
         Args:
-            agent_name: Name of the agent (without .md extension) from the agents/ dir.
+            agent_name: Agent name as a string or SubAgent enum value.
         """
-        agent_src = SKILLIT_ROOT / "agents" / f"{agent_name}.md"
+        name = str(agent_name)
+        agent_src = SKILLIT_ROOT / "agents" / f"{name}.md"
         if not agent_src.exists():
-            raise FileNotFoundError(f"Agent not found: {agent_src}")
+            agent_src = SKILLIT_ROOT / "agents" / name
+            if not agent_src.exists():
+                raise FileNotFoundError(f"Agent not found: {agent_src}")
 
         agents_dir = self.temp_dir / ".claude" / "agents"
         agents_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(agent_src, agents_dir / f"{agent_name}.md")
+        shutil.copy2(agent_src, agents_dir / f"{name}.md")
 
     def load_rule(self, rule_path: str) -> None:
         """Copy a rule into the env's .flow/skill_rules folder.
@@ -374,7 +493,7 @@ class HookTestEnvironment:
             log_path.unlink()
 
         proc = subprocess.Popen(
-            ["claude", "-p", text, "--dangerously-skip-permissions"],
+            ["claude", "-p", text, "--dangerously-skip-permissions", *self._session_args()],
             cwd=str(self.temp_dir),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
@@ -392,7 +511,12 @@ class HookTestEnvironment:
                 if remaining <= 0:
                     proc.kill()
                     proc.wait()
-                    return PromptResult(1, "".join(stdout_parts), skill_log="[timed out]")
+                    raise subprocess.CalledProcessError(
+                        proc.returncode if proc.returncode is not None else 1,
+                        proc.args,
+                        output="".join(stdout_parts),
+                        stderr="[timed out]",
+                    )
 
                 line = proc.stdout.readline()
                 if not line and proc.poll() is not None:
@@ -402,17 +526,28 @@ class HookTestEnvironment:
                     if verbose:
                         print(line, end="", flush=True)
         except Exception:
-            proc.kill()
-            proc.wait()
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait()
             raise
 
-        returncode = proc.returncode
+        returncode = proc.returncode if proc.returncode is not None else 1
+        stdout_output = "".join(stdout_parts)
+        stderr_output = proc.stderr.read() if proc.stderr else ""
+
+        if returncode != 0:
+            raise subprocess.CalledProcessError(
+                returncode,
+                proc.args,
+                output=stdout_output,
+                stderr=stderr_output,
+            )
 
         skill_log = ""
         if log_path and log_path.exists():
             skill_log = log_path.read_text()
 
-        return PromptResult(returncode, "".join(stdout_parts), skill_log)
+        return PromptResult(returncode, stdout_output, skill_log)
 
     # ------------------------------------------------------------------
     # Launch helpers
@@ -429,25 +564,31 @@ class HookTestEnvironment:
     def launch_claude(
         self,
         prompt: str | None = None,
-        terminal: bool = True,
+        mode: LaunchMode = LaunchMode.HEADLESS,
     ) -> PromptResult | None:
         """Launch claude in this environment.
 
         Args:
-            prompt: When provided, run non-interactively with ``claude -p``
-                    and return the result.  When *None*, open an interactive
-                    session.
-            terminal: Open a new terminal window.  When *False* with a
-                      *prompt*, run in-process and return stdout only
-                      (useful for tests).
+            prompt: Prompt text. Required for headless mode.
+            mode: How to launch claude (headless, terminal, interactive).
         """
-        if prompt and not terminal:
+        if mode == LaunchMode.HEADLESS and prompt:
             return self.prompt(prompt)
 
         if prompt:
-            self.open_terminal(command=f"claude --dangerously-skip-permissions -p '{prompt}'")
+            prompt_file = self.temp_dir / ".prompt_input.txt"
+            prompt_file.write_text(prompt, encoding="utf-8")
+            quoted = shlex.quote(str(prompt_file))
+            if mode == LaunchMode.INTERACTIVE:
+                self.open_terminal(
+                    command=f"cat {quoted} | claude --dangerously-skip-permissions {self._session_arg_str()}"
+                )
+            else:
+                self.open_terminal(
+                    command=f"claude --dangerously-skip-permissions {self._session_arg_str()} -p \"$(cat {quoted})\""
+                )
         else:
-            self.open_terminal(command="claude --dangerously-skip-permissions")
+            self.open_terminal(command=f"claude --dangerously-skip-permissions {self._session_arg_str()}")
         return None
 
     def run_last_activation(self) -> PromptResult:

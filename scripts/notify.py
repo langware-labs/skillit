@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 """
 Skillit - Notification Module
-Sends skill activation notifications to FlowPad backend via webhook.
+Single gateway for all FlowPad server communication.
 
-Similar to flow_trace, but for skill-level notifications rather than instruction traces.
+Handles service discovery, webhook sending, and rate limiting.
+All other modules should go through notify.py for server interaction.
 """
 
 import json
 import os
+import subprocess
 import sys
-import threading
-import urllib.error
-import urllib.request
 from dataclasses import asdict, dataclass
 from typing import Optional
 
 from flowpad_discovery import (
-    FlowpadStatus,
+    FlowpadStatus,  # re-exported for consumers (e.g., activation_rules)
     discover_flowpad,
     is_webhook_rate_limited,
     record_webhook_failure,
@@ -35,51 +34,20 @@ class SkillNotification:
     folder_path: str  # Working directory where skill output is generated
 
 
-def _send_request(url: str, data: bytes, headers: dict, log_context: str) -> None:
-    """Send HTTP request in background thread (fire-and-forget).
+# ---------------------------------------------------------------------------
+# Service discovery
+# ---------------------------------------------------------------------------
 
-    Args:
-        url: The URL to POST to.
-        data: The request body bytes.
-        headers: HTTP headers dict.
-        log_context: Context string for logging (e.g., "skill=my_skill" or "event=session_start").
+def get_flowpad_status() -> str:
+    """Get current Flowpad status.
+
+    Returns:
+        One of FlowpadStatus constants: RUNNING, INSTALLED_NOT_RUNNING, NOT_INSTALLED.
     """
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=10) as response:
-            if response.status == 200:
-                skill_log(f"Notification sent: {log_context}")
-            else:
-                body = response.read().decode("utf-8")
-                skill_log(f"HTTP {response.status}: {body}")
-                record_webhook_failure()
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8")
-        skill_log(f"HTTP {e.code}: {body}")
-        record_webhook_failure()
-    except Exception as e:
-        skill_log(f"Request failed: {e}")
-        record_webhook_failure()
+    return discover_flowpad().status
 
 
-def send_fire_and_forget(url: str, data: bytes, headers: dict, log_context: str) -> None:
-    """Send HTTP POST request in a fire-and-forget daemon thread.
-
-    Args:
-        url: The URL to POST to.
-        data: The request body bytes.
-        headers: HTTP headers dict.
-        log_context: Context string for logging.
-    """
-    thread = threading.Thread(
-        target=_send_request,
-        args=(url, data, headers, log_context),
-        daemon=True,
-    )
-    thread.start()
-
-
-def get_report_url() -> Optional[str]:
+def _get_report_url() -> Optional[str]:
     """Discover Flowpad server and return webhook URL.
 
     Returns:
@@ -90,6 +58,90 @@ def get_report_url() -> Optional[str]:
         return result.server_info.url
     return None
 
+
+# ---------------------------------------------------------------------------
+# Low-level transport
+# ---------------------------------------------------------------------------
+
+def _send_fire_and_forget(url: str, data: bytes, log_context: str) -> None:
+    """Send HTTP POST in a detached subprocess that survives parent exit."""
+    script = (
+        "import urllib.request, sys; "
+        "req = urllib.request.Request(sys.argv[1], data=sys.stdin.buffer.read(), "
+        "headers={'Content-Type': 'application/json'}, method='POST'); "
+        "urllib.request.urlopen(req, timeout=10)"
+    )
+    try:
+        proc = subprocess.Popen(
+            [sys.executable, "-c", script, url],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        proc.stdin.write(data)
+        proc.stdin.close()
+        skill_log(f"Notification dispatched: {log_context}")
+    except Exception as e:
+        skill_log(f"Failed to dispatch notification: {e}")
+        record_webhook_failure()
+
+
+# ---------------------------------------------------------------------------
+# Generic webhook sender
+# ---------------------------------------------------------------------------
+
+def _get_execution_scope() -> list:
+    """Parse FLOWPAD_EXECUTION_SCOPE from environment."""
+    execution_scope = os.environ.get("FLOWPAD_EXECUTION_SCOPE")
+    try:
+        return json.loads(execution_scope) if execution_scope else []
+    except json.JSONDecodeError:
+        return []
+
+
+def send_webhook_event(webhook_type: str, inner_payload: dict, log_context: str) -> bool:
+    """Send a webhook to FlowPad (fire-and-forget).
+
+    Handles discovery, rate limiting, scope parsing, and envelope wrapping.
+
+    Args:
+        webhook_type: Webhook type string (e.g., "skill_notification", "activation_rules").
+        inner_payload: Type-specific payload dict (merged into flow_value).
+        log_context: Context string for logging.
+
+    Returns:
+        True if notification was queued, False if skipped.
+    """
+    if is_webhook_rate_limited():
+        skill_log(f"Notification skipped: rate-limited ({log_context})")
+        return False
+
+    report_url = _get_report_url()
+    if not report_url:
+        skill_log(f"Notification skipped: Flowpad not running ({log_context})")
+        return False
+
+    flow_value = {
+        "webhook_type": webhook_type,
+        "execution_scope": _get_execution_scope(),
+        **inner_payload,
+    }
+
+    payload = {
+        "attributes": {"element-type": "webhook", "data-type": "object"},
+        "flow_value": flow_value,
+    }
+
+    data = json.dumps(payload).encode("utf-8")
+
+    _send_fire_and_forget(report_url, data, log_context)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Typed convenience senders
+# ---------------------------------------------------------------------------
 
 def send_skill_notification(
     skill_name: str,
@@ -110,24 +162,6 @@ def send_skill_notification(
     Returns:
         True if notification was queued, False if Flowpad not running
     """
-    if is_webhook_rate_limited():
-        skill_log("Notification skipped: rate-limited due to repeated failures")
-        return False
-
-    report_url = get_report_url()
-    execution_scope = os.environ.get("FLOWPAD_EXECUTION_SCOPE")
-
-    if not report_url:
-        skill_log("Notification skipped: Flowpad not running")
-        return False
-
-    # Parse execution_scope (defaults to empty array if not set)
-    try:
-        scope_list = json.loads(execution_scope) if execution_scope else []
-    except json.JSONDecodeError:
-        scope_list = []
-
-    # Build notification
     notification = SkillNotification(
         skill_name=skill_name,
         matched_keyword=matched_keyword,
@@ -135,29 +169,69 @@ def send_skill_notification(
         handler_name=handler_name,
         folder_path=folder_path,
     )
-
-    # Wrap with webhook metadata (similar to flow_trace structure)
-    flow_value = {
-        "webhook_type": "skill_notification",
-        "execution_scope": scope_list,
-        "notification": asdict(notification),
-    }
-
-    payload = {
-        "attributes": {"element-type": "webhook", "data-type": "object"},
-        "flow_value": flow_value,
-    }
-
-    data = json.dumps(payload).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
-
-    send_fire_and_forget(report_url, data, headers, f"skill={skill_name}")
-
-    return True
+    return send_webhook_event(
+        webhook_type="skill_notification",
+        inner_payload={"notification": asdict(notification)},
+        log_context=f"skill={skill_name}",
+    )
 
 
-if __name__ == "__main__":
-    # CLI interface for testing
+def send_skillit_notification(event_type: str, context: dict = None) -> bool:
+    """Send a skillit log event to FlowPad (fire-and-forget).
+
+    Args:
+        event_type: Type of event (e.g., "skill_matched", "hook_triggered").
+        context: Optional additional context.
+
+    Returns:
+        True if notification was queued, False if Flowpad not running.
+    """
+    return send_webhook_event(
+        webhook_type="skillit_log",
+        inner_payload={
+            "event": {
+                "type": event_type,
+                "context": context or {},
+            },
+        },
+        log_context=f"skillit_log={event_type}",
+    )
+
+def send_activation_event(event_type: str, context: dict = None) -> bool:
+    """Send activation rules event to FlowPad (fire-and-forget).
+
+    Args:
+        event_type: Type of event (e.g., "started_generating_skill", "skill_ready").
+        context: Optional additional context (session_id, skill_name, etc.).
+
+    Returns:
+        True if notification was queued, False if Flowpad not running.
+    """
+    return send_webhook_event(
+        webhook_type="activation_rules",
+        inner_payload={
+            "event": {
+                "type": event_type,
+                "context": context or {},
+            },
+        },
+        log_context=f"event={event_type}",
+    )
+
+
+
+def send_hello_skillit_notification(context: dict = None) -> bool:
+    """Send a hello skillit event to FlowPad (fire-and-forget).
+
+    Args:
+        context: Optional additional context.
+
+    Returns:
+        True if notification was queued, False if Flowpad not running.
+    """
+    return send_skillit_notification("hello_skillit", context)
+
+def main():
     if len(sys.argv) < 3:
         print("Usage: python notify.py <skill_name> <matched_keyword> [prompt] [handler_name] [folder_path]")
         print()
@@ -178,3 +252,9 @@ if __name__ == "__main__":
         time.sleep(0.5)  # Allow daemon thread to send
     else:
         print("Notification skipped (env vars not set)")
+
+if __name__ == "__main__":
+    # CLI interface for testing
+    send_hello_skillit_notification()
+    # main() # Uncomment to test skill notification with CLI args
+

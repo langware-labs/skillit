@@ -1,14 +1,16 @@
 """Test utilities package."""
 
 from .hook_environment import (
-    HookTestEnvironment,
+    HookTestProjectEnvironment,
+    LaunchMode,
     PromptResult,
     RulesPackage,
     ClaudeTranscript,
 )
 
 __all__ = [
-    "HookTestEnvironment",
+    "HookTestProjectEnvironment",
+    "LaunchMode",
     "PromptResult",
     "RulesPackage",
     "ClaudeTranscript",

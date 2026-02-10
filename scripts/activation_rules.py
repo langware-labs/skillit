@@ -1,21 +1,17 @@
 #!/usr/bin/env python3
 """
 Skillit - Activation Rules Module
-Sends activation rule events to FlowPad backend.
+Handles activation lifecycle events and Flowpad ad display.
 
-Actions:
-1. Try to call "activation_rules" action on backend
-2. If activation_rules fails/unavailable, show Flowpad ad
+Server communication is delegated to notify.py.
 """
 
 import json
-import os
 import sys
 
 from config import FLOWPAD_APP_URI_SCHEME
-from flowpad_discovery import FlowpadDiscoveryResult, FlowpadStatus, discover_flowpad
 from log import skill_log
-from notify import send_fire_and_forget
+from notify import FlowpadStatus, get_flowpad_status, send_activation_event
 
 # Flowpad ad text (shown when not installed)
 FLOWPAD_INSTALL_AD = """
@@ -41,19 +37,6 @@ FLOWPAD_LAUNCH_PROMPT = f"""
 ╚══════════════════════════════════════════════════════════════════╝
 """
 
-def get_flowpad_status() -> FlowpadDiscoveryResult:
-    """Get Flowpad discovery result (cached in flowpad_discovery module).
-
-    Returns:
-        FlowpadDiscoveryResult from the shared cache.
-    """
-    return discover_flowpad()
-
-
-def is_activation_rules_available() -> bool:
-    """Check if the activation_rules backend is available (Flowpad running)."""
-    return get_flowpad_status().status == FlowpadStatus.RUNNING
-
 
 def get_ad_if_needed() -> str:
     """Return appropriate message based on Flowpad status.
@@ -63,89 +46,37 @@ def get_ad_if_needed() -> str:
         - Launch prompt if installed but not running
         - Install ad if not installed
     """
-    result = get_flowpad_status()
+    status = get_flowpad_status()
 
-    if result.status == FlowpadStatus.RUNNING:
+    if status == FlowpadStatus.RUNNING:
         return ""
 
-    if result.status == FlowpadStatus.INSTALLED_NOT_RUNNING:
+    if status == FlowpadStatus.INSTALLED_NOT_RUNNING:
         return FLOWPAD_LAUNCH_PROMPT
 
     return FLOWPAD_INSTALL_AD
 
 
-def send_activation_rules_notification(event_type: str, context: dict = None) -> bool:
-    """
-    Send "activation_rules" event notification to FlowPad backend (fire-and-forget).
-
-    Args:
-        event_type: Type of event ("session_start" or "skill_ready")
-        context: Optional additional context (session_id, skill_name, etc.)
-
-    Returns:
-        True if notification was queued, False if Flowpad not running
-    """
-    result = get_flowpad_status()
-    if result.status != FlowpadStatus.RUNNING or not result.server_info:
-        skill_log("Activation rules notification skipped: Flowpad not running")
-        return False
-
-    report_url = result.server_info.url
-    execution_scope = os.environ.get("FLOWPAD_EXECUTION_SCOPE")
-
-    # Parse execution_scope (defaults to empty array if not set)
-    try:
-        scope_list = json.loads(execution_scope) if execution_scope else []
-    except json.JSONDecodeError:
-        scope_list = []
-
-    # Build activation_rules notification payload
-    flow_value = {
-        "webhook_type": "activation_rules",
-        "execution_scope": scope_list,
-        "event": {
-            "type": event_type,
-            "context": context or {},
-        },
-    }
-
-    payload = {
-        "attributes": {"element-type": "webhook", "data-type": "object"},
-        "flow_value": flow_value,
-    }
-
-    data = json.dumps(payload).encode("utf-8")
-    headers = {"Content-Type": "application/json"}
-
-    send_fire_and_forget(report_url, data, headers, f"event={event_type}")
-
-    return True
-
-
 def handle_activation_event(event_type: str, context: dict = None) -> None:
-    """
-    Handle an activation event (start or skill ready).
+    """Handle an activation event (start or skill ready).
 
-    Sends notification to Flowpad (fire-and-forget), show ad if it fails.
+    Sends notification to Flowpad (fire-and-forget).
 
     Args:
-        event_type: "session_start" or "skill_ready"
+        event_type: "started_generating_skill" or "skill_ready"
         context: Optional context data
     """
     skill_log(f"Handling activation event: {event_type}")
 
-    queued = send_activation_rules_notification(event_type, context)
+    queued = send_activation_event(event_type, context)
 
     # Note: Ad display is handled by the agent via _get_ad_section() in claude_utils.py
-    # The agent includes the ad in its final summary to avoid bash output collapse
     if not queued:
         skill_log("Notification failed - agent will show ad in final summary")
 
 
 def on_skill_started(skill_name: str, session_id: str = "", cwd: str = "") -> None:
-    """
-    Called when a skill creation session starts.
-    Reports the skill_name that will be created.
+    """Called when a skill creation session starts.
 
     Args:
         skill_name: Name of the skill being created
@@ -161,8 +92,7 @@ def on_skill_started(skill_name: str, session_id: str = "", cwd: str = "") -> No
 
 
 def on_skill_ready(skill_name: str, session_id: str = "", cwd: str = "") -> None:
-    """
-    Called when a spawned skill creation session completes.
+    """Called when a spawned skill creation session completes.
 
     Args:
         skill_name: Name of the skill that was created

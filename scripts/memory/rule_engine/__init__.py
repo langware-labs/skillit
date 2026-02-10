@@ -1,6 +1,12 @@
 """Rule engine module for file-based rules."""
 
-from .activation_rule import ActivationRule, ActivationRuleHeader
+from .activation_rule import (
+    ActivationRule,
+    ActivationRuleCase,
+    ActivationRuleHeader,
+    EvalCaseResult,
+    RuleEvaluation,
+)
 from .engine import RulesPackage, RuleEngine, create_rule_engine, evaluate_hooks_with_rules
 from .trigger_executor import Action, TriggerResult, execute_trigger, execute_all_triggers
 from .action_executor import ActionExecutor, ActionResult, execute_actions, format_hook_output
@@ -37,7 +43,10 @@ from .regex_utils import (
 __all__ = [
     # Core classes
     "ActivationRule",
+    "ActivationRuleCase",
     "ActivationRuleHeader",
+    "EvalCaseResult",
+    "RuleEvaluation",
     "RulesPackage",
     "RuleEngine",
     # Trigger/Action system

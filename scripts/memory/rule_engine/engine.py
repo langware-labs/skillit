@@ -36,22 +36,21 @@ class RulesPackage:
         """Initialize a RulesPackage.
 
         Args:
-            path: Path to the rules directory. If None, uses user rules dir.
-            source: Source identifier for this package.
-            rules: Optional pre-loaded rules list.
+            path: Path to the rules folder. None means no folder.
+            source: Source identifier for folder rules.
+            rules: Optional additional rules (not from folder).
         """
-        self._path = path or get_user_rules_dir()
+        self._path = path
         self._source = source
-        self._rules: list[ActivationRule] = rules or []
-        self._rules_by_name: dict[str, ActivationRule] = {r.name: r for r in self._rules}
+        self._additional_rules: list[ActivationRule] = rules or []
 
     # -------------------------------------------------------------------------
     # Properties
     # -------------------------------------------------------------------------
 
     @property
-    def path(self) -> Path:
-        """Path to the rules directory."""
+    def path(self) -> Path | None:
+        """Path to the rules directory, or None."""
         return self._path
 
     @property
@@ -60,15 +59,47 @@ class RulesPackage:
         return self._source
 
     @property
+    def folder_rules(self) -> list[ActivationRule]:
+        """Live list of rules loaded from the folder path."""
+        if not self._path or not self._path.exists():
+            return []
+        rules = []
+        for rule_dir in self._path.iterdir():
+            if not rule_dir.is_dir():
+                continue
+            if not (rule_dir / "trigger.py").exists():
+                continue
+            rule = ActivationRule.from_md(rule_dir)
+            rule.source = self._source
+            rules.append(rule)
+        rules.sort(key=lambda r: r.name)
+        return rules
+
+    @property
+    def additional_rules(self) -> list[ActivationRule]:
+        """Rules added programmatically (not from folder)."""
+        return list(self._additional_rules)
+
+    @property
     def rules(self) -> list[ActivationRule]:
-        """List of all rules in this package."""
-        return list(self._rules)
+        """All rules (folder + additional). Additional overrides folder by name."""
+        by_name: dict[str, ActivationRule] = {}
+        for r in self.folder_rules:
+            by_name[r.name] = r
+        for r in self._additional_rules:
+            by_name[r.name] = r
+        return sorted(by_name.values(), key=lambda r: r.name)
+
+    @property
+    def _rules_by_name(self) -> dict[str, ActivationRule]:
+        """Live name-to-rule lookup derived from rules."""
+        return {r.name: r for r in self.rules}
 
     def __len__(self) -> int:
-        return len(self._rules)
+        return len(self.rules)
 
     def __iter__(self) -> Iterator[ActivationRule]:
-        return iter(self._rules)
+        return iter(self.rules)
 
     def __contains__(self, name: str) -> bool:
         return name in self._rules_by_name
@@ -78,7 +109,7 @@ class RulesPackage:
     # -------------------------------------------------------------------------
 
     def add_rule(self, rule: ActivationRule) -> None:
-        """Add a rule to the package.
+        """Add a rule to the additional rules list.
 
         Args:
             rule: The ActivationRule to add.
@@ -88,12 +119,11 @@ class RulesPackage:
         """
         if rule.name in self._rules_by_name:
             raise ValueError(f"Rule '{rule.name}' already exists in package")
-        self._rules.append(rule)
-        self._rules_by_name[rule.name] = rule
+        self._additional_rules.append(rule)
         skill_log(f"Added rule '{rule.name}' to package")
 
     def remove_rule(self, name: str) -> bool:
-        """Remove a rule from the package by name.
+        """Remove a rule from the additional rules list by name.
 
         Args:
             name: Name of the rule to remove.
@@ -101,12 +131,12 @@ class RulesPackage:
         Returns:
             True if rule was removed, False if not found.
         """
-        if name not in self._rules_by_name:
-            return False
-        rule = self._rules_by_name.pop(name)
-        self._rules.remove(rule)
-        skill_log(f"Removed rule '{name}' from package")
-        return True
+        for rule in self._additional_rules:
+            if rule.name == name:
+                self._additional_rules.remove(rule)
+                skill_log(f"Removed rule '{name}' from package")
+                return True
+        return False
 
     def update_rule(self, name: str, **updates: Any) -> bool:
         """Update a rule's header fields.
@@ -148,37 +178,18 @@ class RulesPackage:
 
     @classmethod
     def from_folder(cls, path: Path, source: str = "user") -> "RulesPackage":
-        """Load a RulesPackage from a directory.
+        """Create a RulesPackage backed by a directory.
+
+        Rules are loaded live from the folder via the folder_rules property.
 
         Args:
             path: Path to the rules directory.
             source: Source identifier for rules in this package.
 
         Returns:
-            RulesPackage with loaded rules.
+            RulesPackage backed by the given folder.
         """
-        rules: list[ActivationRule] = []
-
-        if not path.exists():
-            skill_log(f"Rules directory does not exist: {path}")
-            return cls(path=path, source=source, rules=[])
-
-        for rule_dir in path.iterdir():
-            if not rule_dir.is_dir():
-                continue
-            trigger_file = rule_dir / "trigger.py"
-            if not trigger_file.exists():
-                continue
-
-            rule = ActivationRule.from_md(rule_dir)
-            rule.source = source
-            rules.append(rule)
-
-        # Sort by name for consistent ordering
-        rules.sort(key=lambda r: r.name)
-        skill_log(f"Loaded {len(rules)} rules from {path}")
-
-        return cls(path=path, source=source, rules=rules)
+        return cls(path=path, source=source)
 
     @classmethod
     def from_multiple_folders(
@@ -186,51 +197,31 @@ class RulesPackage:
         user_path: Path | None = None,
         project_path: Path | None = None,
     ) -> "RulesPackage":
-        """Load rules from user and project directories.
+        """Create a RulesPackage merging user and project directories.
 
-        Project rules override user rules with the same name.
+        Project folder is the live folder (folder_rules). User rules are
+        loaded once into additional_rules. Project overrides user by name
+        via the rules property.
 
         Args:
-            user_path: Path to user rules directory. Defaults to ~/.flow/skill_rules.
-            project_path: Optional path to project rules directory.
+            user_path: Path to user rules directory. None to skip.
+            project_path: Path to project rules directory (live folder).
 
         Returns:
-            RulesPackage with merged rules.
+            RulesPackage with project as folder and user as additional.
         """
-        user_path = user_path or get_user_rules_dir()
-        rules_by_name: dict[str, ActivationRule] = {}
-
-        # Load user rules first
-        if user_path.exists():
+        user_rules: list[ActivationRule] = []
+        if user_path and user_path.exists():
             for rule_dir in user_path.iterdir():
                 if not rule_dir.is_dir():
                     continue
-                trigger_file = rule_dir / "trigger.py"
-                if not trigger_file.exists():
+                if not (rule_dir / "trigger.py").exists():
                     continue
-
                 rule = ActivationRule.from_md(rule_dir)
                 rule.source = "user"
-                rules_by_name[rule.name] = rule
+                user_rules.append(rule)
 
-        # Load project rules (override user rules)
-        if project_path and project_path.exists():
-            for rule_dir in project_path.iterdir():
-                if not rule_dir.is_dir():
-                    continue
-                trigger_file = rule_dir / "trigger.py"
-                if not trigger_file.exists():
-                    continue
-
-                rule = ActivationRule.from_md(rule_dir)
-                rule.source = "project"
-                rules_by_name[rule.name] = rule
-
-        # Sort by name
-        rules = sorted(rules_by_name.values(), key=lambda r: r.name)
-        skill_log(f"Loaded {len(rules)} rules from user/project directories")
-
-        return cls(path=user_path, source="merged", rules=rules)
+        return cls(path=project_path, source="project", rules=user_rules)
 
     # -------------------------------------------------------------------------
     # Instance Methods
@@ -245,7 +236,8 @@ class RulesPackage:
         target_path = path or self._path
         target_path.mkdir(parents=True, exist_ok=True)
 
-        for rule in self._rules:
+        all_rules = self.rules
+        for rule in all_rules:
             rule_dir = target_path / rule.name
             rule_dir.mkdir(exist_ok=True)
 
@@ -255,7 +247,7 @@ class RulesPackage:
 
         # Write index
         self._write_index(target_path)
-        skill_log(f"Saved {len(self._rules)} rules to {target_path}")
+        skill_log(f"Saved {len(all_rules)} rules to {target_path}")
 
     def run(
         self,
@@ -273,7 +265,8 @@ class RulesPackage:
         Returns:
             Combined hook JSON output dict.
         """
-        if not self._rules:
+        all_rules = self.rules
+        if not all_rules:
             return {}
 
         # Get hook event type for proper output formatting
@@ -286,7 +279,7 @@ class RulesPackage:
 
         # Execute all triggers
         trigger_results: list[TriggerResult] = []
-        for rule in self._rules:
+        for rule in all_rules:
             result = rule.run(hooks_data, transcript, timeout)
             if result.error:
                 skill_log(f"[{result.rule_name}] Error: {result.error}")
@@ -356,7 +349,7 @@ class RulesPackage:
         manager = IndexManager(path)
         rules_data = []
 
-        for rule in self._rules:
+        for rule in self.rules:
             rules_data.append({
                 "name": rule.name,
                 "trigger_summary": rule.if_condition,
@@ -370,6 +363,18 @@ class RulesPackage:
 
         manager.save_index(rules_data)
 
+    @property
+    def rules_index(self) -> str:
+        """Return a plain-text index of all rules (name + description)."""
+        all_rules = self.rules
+        if not all_rules:
+            return "(no rules)"
+        lines = []
+        for rule in all_rules:
+            desc = rule.description or rule.if_condition or ""
+            lines.append(f"- {rule.name}: {desc}")
+        return "\n".join(lines)
+
     def get_summary(self) -> list[dict[str, str]]:
         """Get a summary of all rules.
 
@@ -382,7 +387,7 @@ class RulesPackage:
                 "source": r.source,
                 "path": str(r.path),
             }
-            for r in self._rules
+            for r in self.rules
         ]
 
     def find_similar(self, pattern: str, threshold: float = 0.7) -> str | None:
@@ -398,7 +403,7 @@ class RulesPackage:
         pattern_lower = pattern.lower()
         pattern_words = set(pattern_lower.split())
 
-        for rule in self._rules:
+        for rule in self.rules:
             rule_trigger = rule.if_condition.lower()
             rule_words = set(rule_trigger.split())
 

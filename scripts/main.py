@@ -14,7 +14,7 @@ from memory import create_rule_engine
 from modifiers.analyze_and_create_activation_rules import handle_analyze
 from modifiers.create_test import handle_create_test
 from modifiers.test import handle_test
-from notify import send_skill_notification
+from notify import send_skill_notification, send_activation_event
 
 # =============================================================================
 # KEYWORD MAPPINGS
@@ -149,7 +149,14 @@ def main():
     skill_log(" skillit ".center(60, "="))
     skill_log(f"Hook triggered: UserPromptSubmit, path: {__file__}, pid: {os.getpid()}")
     skill_log("Working directory: " + str(os.getcwd()))
-
+    hookEvent = "UserPromptSubmit"
+    event_context = {
+        "hookEvent": hookEvent,
+        "scriptPath": __file__,
+        "pid": os.getpid(),
+        "cwd": os.getcwd(),
+    }
+    send_activation_event("skillit called", event_context)
     # Read input from stdin
     try:
         raw = sys.stdin.read()
