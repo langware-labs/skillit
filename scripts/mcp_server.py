@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Skillit MCP Server — exposes tools for reporting and notifications."""
-import datetime
 import sys
 from pathlib import Path
 
@@ -9,7 +8,7 @@ from log import skill_log
 sys.path.insert(0, str(Path(__file__).parent))
 
 from fastmcp import FastMCP
-from notify import send_activation_event
+from notify import WebhookType, send_webhook_event, xml_str_to_flow_data_dict
 
 mcp = FastMCP("skillit")
 
@@ -28,14 +27,23 @@ def flow_tag(flow_tag_xml: str) -> str:
         Confirmation string with the received flow tag.
     """
     skill_log(f"MCP Received flow tag: {flow_tag_xml}")
-    start_time = datetime.datetime.now()
 
-    success = send_activation_event("mcp_notification", flow_tag_xml)
-    #duration_ms = (datetime.datetime.now() - start_time).total_seconds() * 1000
-    #result = f"Time {duration_ms:.0f}ms : Emitted event '{event_type}' with context {context}" if success else f"Failed to emit event '{event_type}' (FlowPad unavailable)"
-    result = f"Received flow tag: {flow_tag_xml}"
+    try:
+        flow_data = xml_str_to_flow_data_dict(flow_tag_xml)
+    except (ValueError, Exception) as e:
+        skill_log(f"MCP flow tag parse error: {e}")
+        return f"Error parsing flow tag: {e}"
 
-    return result
+    skill_log(f"MCP parsed flow data: {flow_data}")
+
+    success = send_webhook_event(
+        webhook_type=WebhookType.MCP_WEBHOOK,
+        webhook_payload=flow_data,
+        log_context=f"mcp_flow_tag={flow_data.get('element_type', 'unknown')}",
+    )
+
+    status = "sent" if success else "skipped (FlowPad unavailable)"
+    return f"Flow tag {flow_data.get('element_type', 'unknown')}: {status}"
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")
