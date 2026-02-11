@@ -26,17 +26,15 @@ TEMP_DIR = Path(tempfile.gettempdir()) / "skillit_test"
 
 
 def _rmtree_onexc(func, path, exc):
-    """Handle Windows file-lock errors during rmtree by retrying once after a short delay."""
-    if isinstance(exc, PermissionError):
-        # Clear read-only flag if set, then retry
+    """Handle Windows errors during rmtree (file locks, reserved names, etc.)."""
+    if not isinstance(exc, (PermissionError, OSError)):
+        raise exc
+    try:
         os.chmod(path, stat.S_IRWXU)
         time.sleep(0.1)
-        try:
-            func(path)
-        except PermissionError:
-            pass  # still locked – skip this path so the rest of cleanup proceeds
-    else:
-        raise exc
+        func(path)
+    except OSError:
+        pass  # still locked or reserved device name – skip so cleanup proceeds
 
 
 class LaunchMode(StrEnum):
@@ -448,6 +446,34 @@ class TestPluginProjectEnvironment:
                 f"'claude plugin enable {plugin_name} --scope project' failed "
                 f"(exit {result.returncode}): {result.stderr}"
             )
+
+        # Workaround: Claude Code doesn't expand $CLAUDE_PLUGIN_ROOT on
+        # Windows (cmd.exe only understands %VAR%, not $VAR).  Expand it
+        # in all cached plugin files so hooks, commands, and MCP config
+        # work on all platforms.
+        if CURRENT_PLATFORM == Platform.WINDOWS:
+            self._expand_plugin_root_in_cache()
+
+    def _expand_plugin_root_in_cache(self) -> None:
+        """Replace $CLAUDE_PLUGIN_ROOT with the real cache path in plugin files.
+
+        Patches .json and .md files that Claude Code reads at runtime
+        (hooks, commands, MCP config).  Only needed on Windows where
+        cmd.exe does not expand $VAR syntax.
+        """
+        cache_dir = self._plugin_cache_dir()
+        replacement = str(cache_dir).replace("\\", "/")
+        for pattern in ("**/*.json", "**/*.md"):
+            for path in cache_dir.glob(pattern):
+                try:
+                    content = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if "$CLAUDE_PLUGIN_ROOT" in content:
+                    path.write_text(
+                        content.replace("$CLAUDE_PLUGIN_ROOT", replacement),
+                        encoding="utf-8",
+                    )
 
     def _plugin_cache_dir(self) -> Path:
         """Return the plugin cache directory."""

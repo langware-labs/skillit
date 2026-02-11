@@ -2,5 +2,6 @@
 .idea/
 *.log
 __pycache__/
+settings.local.json
 
 nul
