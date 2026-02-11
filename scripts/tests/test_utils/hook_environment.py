@@ -5,9 +5,11 @@ import json
 import os
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 from contextlib import redirect_stdout
 import dataclasses
@@ -16,10 +18,25 @@ from enum import StrEnum
 from pathlib import Path
 
 from agent_manager import SubAgent
+from conf import Platform, CURRENT_PLATFORM
 from log import skill_log_clear
 from memory.rule_engine.engine import RulesPackage, RuleEngine
 
 TEMP_DIR = Path(tempfile.gettempdir()) / "skillit_test"
+
+
+def _rmtree_onexc(func, path, exc):
+    """Handle Windows file-lock errors during rmtree by retrying once after a short delay."""
+    if isinstance(exc, PermissionError):
+        # Clear read-only flag if set, then retry
+        os.chmod(path, stat.S_IRWXU)
+        time.sleep(0.1)
+        try:
+            func(path)
+        except PermissionError:
+            pass  # still locked – skip this path so the rest of cleanup proceeds
+    else:
+        raise exc
 
 
 class LaunchMode(StrEnum):
@@ -60,12 +77,12 @@ def open_terminal(
     if env:
         inherited = {k: v for k, v in env.items() if k not in os.environ or os.environ[k] != v}
         if inherited:
-            if sys.platform == "win32":
+            if CURRENT_PLATFORM == Platform.WINDOWS:
                 export_prefix = " && ".join(f"set {k}={v}" for k, v in inherited.items()) + " && "
             else:
                 export_prefix = " ".join(f"export {k}={shlex.quote(v)};" for k, v in inherited.items()) + " "
 
-    if sys.platform == "darwin":
+    if CURRENT_PLATFORM == Platform.MACOS:
         inner = f"{export_prefix}cd {cwd} && {command}" if command else f"{export_prefix}cd {cwd}"
         # Escape backslashes and double-quotes for AppleScript string literal
         inner_escaped = inner.replace("\\", "\\\\").replace('"', '\\"')
@@ -76,7 +93,7 @@ def open_terminal(
             'end tell'
         )
         subprocess.run(["osascript", "-e", script], check=True)
-    elif sys.platform == "win32":
+    elif CURRENT_PLATFORM == Platform.WINDOWS:
         inner = f"{export_prefix}cd /d {cwd} && {command}" if command else f"{export_prefix}cd /d {cwd}"
         subprocess.run(["cmd", "/c", "start", "cmd", "/K", inner], check=True)
     else:
@@ -233,6 +250,38 @@ class TestPluginProjectEnvironment:
         args = self._session_args()
         return " ".join(args)
 
+    def _write_win_prompt_launcher(self, prompt_file: Path, claude_args: str) -> Path:
+        """Write a Python launcher that reads a prompt file and calls claude.
+
+        Uses Python + subprocess to avoid cmd.exe escaping issues with
+        quotes, angle brackets, and other special characters in prompts.
+
+        Args:
+            prompt_file: File containing the prompt text.
+            claude_args: CLI flags to place between ``claude`` and the prompt
+                         (e.g. ``--dangerously-skip-permissions``).
+                         For TERMINAL mode append ``-p`` so the prompt goes
+                         through print mode.
+
+        Returns:
+            Path to the generated launcher script (.cmd wrapper around .py).
+        """
+        py_script = self.temp_dir / "_launch_claude.py"
+        py_script.write_text(
+            "import subprocess, sys\n"
+            "from pathlib import Path\n"
+            f"prompt = Path(r\"{prompt_file}\").read_text(encoding=\"utf-8\")\n"
+            f"sys.exit(subprocess.call([\"claude\", *{claude_args.split()!r}, prompt]))\n",
+            encoding="utf-8",
+        )
+        # Wrap in a .cmd so open_terminal can run it directly in cmd.exe
+        cmd_script = self.temp_dir / "_launch_claude.cmd"
+        cmd_script.write_text(
+            f"@python \"{py_script}\"\r\n",
+            encoding="utf-8",
+        )
+        return cmd_script
+
     @property
     def path(self) -> Path:
         """Return the environment's root path."""
@@ -341,7 +390,7 @@ class TestPluginProjectEnvironment:
     def _setup(self):
         """Create a clean temp folder."""
         if self.temp_dir.exists() and self._clean:
-            shutil.rmtree(self.temp_dir)
+            shutil.rmtree(self.temp_dir, onexc=_rmtree_onexc)
 
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -598,15 +647,33 @@ class TestPluginProjectEnvironment:
         if prompt:
             prompt_file = self.temp_dir / ".prompt_input.txt"
             prompt_file.write_text(prompt, encoding="utf-8")
-            quoted = shlex.quote(str(prompt_file))
-            if mode == LaunchMode.INTERACTIVE:
-                self.open_terminal(
-                    command=f"cat {quoted} | claude --dangerously-skip-permissions {self._session_arg_str()}"
-                )
+            claude_base = f"claude --dangerously-skip-permissions {self._session_arg_str()}"
+
+            if CURRENT_PLATFORM == Platform.WINDOWS:
+                # Windows has no $(cat) or shlex-safe quoting, so use a
+                # .cmd launcher that reads the file into a variable.
+                if mode == LaunchMode.INTERACTIVE:
+                    # Positional arg → opens TUI and submits the prompt.
+                    # No --session-id: Claude creates its own session.
+                    launcher = self._write_win_prompt_launcher(
+                        prompt_file, "--dangerously-skip-permissions",
+                    )
+                else:
+                    # -p → non-interactive print mode in a visible terminal
+                    launcher = self._write_win_prompt_launcher(
+                        prompt_file, f"--dangerously-skip-permissions {self._session_arg_str()} -p",
+                    )
+                self.open_terminal(command=str(launcher))
             else:
-                self.open_terminal(
-                    command=f"claude --dangerously-skip-permissions {self._session_arg_str()} -p \"$(cat {quoted})\""
-                )
+                quoted = shlex.quote(str(prompt_file))
+                if mode == LaunchMode.INTERACTIVE:
+                    self.open_terminal(
+                        command=f"cat {quoted} | {claude_base}"
+                    )
+                else:
+                    self.open_terminal(
+                        command=f"{claude_base} -p \"$(cat {quoted})\""
+                    )
         else:
             self.open_terminal(command=f"claude --dangerously-skip-permissions {self._session_arg_str()}")
         return None
