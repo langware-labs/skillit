@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from conf import Platform, CURRENT_PLATFORM
 from config import FLOWPAD_APP_NAME
 
 # Rate limiting constants
@@ -131,9 +132,9 @@ def get_flowpad_data_dir() -> Path:
         - Windows: %APPDATA%/{FLOWPAD_APP_NAME}
         - Linux: ~/.config/{FLOWPAD_APP_NAME}
     """
-    if sys.platform == "darwin":
+    if CURRENT_PLATFORM == Platform.MACOS:
         return Path.home() / "Library" / "Application Support" / FLOWPAD_APP_NAME
-    elif sys.platform.startswith("win"):
+    elif CURRENT_PLATFORM == Platform.WINDOWS:
         return Path(os.getenv("APPDATA", "")) / FLOWPAD_APP_NAME
     else:
         return Path.home() / ".config" / FLOWPAD_APP_NAME
@@ -185,12 +186,12 @@ def is_flowpad_installed() -> bool:
     Returns:
         True if Flowpad appears to be installed, False otherwise.
     """
-    if sys.platform == "darwin":
+    if CURRENT_PLATFORM == Platform.MACOS:
         paths = [
             Path("/Applications") / f"{FLOWPAD_APP_NAME}.app",
             Path.home() / "Applications" / f"{FLOWPAD_APP_NAME}.app",
         ]
-    elif sys.platform.startswith("win"):
+    elif CURRENT_PLATFORM == Platform.WINDOWS:
         program_files = os.getenv("ProgramFiles", "C:\\Program Files")
         local_appdata = os.getenv("LOCALAPPDATA", "")
         paths = [
