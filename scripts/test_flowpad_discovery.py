@@ -19,9 +19,9 @@ def make_server_info(port: int = 3000) -> FlowpadServerInfo:
     """Create a test server info object."""
     return FlowpadServerInfo(
         port=port,
-        webhook_path="/webhook",
+        webhook_path="/api/v1/webhook/listen",
         health_path="/health",
-        url=f"http://localhost:{port}/webhook",
+        url=f"http://localhost:{port}/api/v1/webhook/listen",
     )
 
 

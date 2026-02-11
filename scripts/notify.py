@@ -29,7 +29,7 @@ class WebhookType(StrEnum):
     SKILLIT_LOG = "skillit_log"
     ACTIVATION_RULES = "activation_rules"
     AGENT_HOOK = "agent_hook"
-    MCP_NOTIFICATION = "mcp_notification"
+    INSTRUCTION_TRACE = "instruction_trace"
 
 
 @dataclass
@@ -109,14 +109,14 @@ def _get_execution_scope() -> list:
         return []
 
 
-def send_webhook_event(webhook_type: WebhookType, inner_payload: dict | str, log_context: str) -> bool:
+def send_webhook_event(webhook_type: WebhookType, webhook_payload: dict | str, log_context: str) -> bool:
     """Send a webhook to FlowPad (fire-and-forget).
 
-    Handles discovery, rate limiting, scope parsing, and envelope wrapping.
+    Handles discovery, rate limiting, and envelope wrapping.
 
     Args:
         webhook_type: A WebhookType enum value.
-        inner_payload: Type-specific payload dict (merged into flow_value).
+        webhook_payload: Type-specific payload dict.
         log_context: Context string for logging.
 
     Returns:
@@ -131,15 +131,9 @@ def send_webhook_event(webhook_type: WebhookType, inner_payload: dict | str, log
         skill_log(f"Notification skipped: Flowpad not running ({log_context})")
         return False
 
-    flow_value = {
-        "webhook_type": webhook_type,
-        "execution_scope": _get_execution_scope(),
-        **inner_payload,
-    }
-
     payload = {
-        "attributes": {"element-type": "webhook", "data-type": "object"},
-        "flow_value": flow_value,
+        "webhook_type": webhook_type,
+        "webhook_payload": webhook_payload,
     }
 
     data = json.dumps(payload).encode("utf-8")
@@ -180,7 +174,10 @@ def send_skill_notification(
     )
     return send_webhook_event(
         webhook_type=WebhookType.SKILL_NOTIFICATION,
-        inner_payload={"notification": asdict(notification)},
+        webhook_payload={
+            "notification": asdict(notification),
+            "execution_scope": _get_execution_scope(),
+        },
         log_context=f"skill={skill_name}",
     )
 
@@ -197,7 +194,7 @@ def send_skillit_notification(event_type: str, context: dict | str = None) -> bo
     """
     return send_webhook_event(
         webhook_type=WebhookType.SKILLIT_LOG,
-        inner_payload={
+        webhook_payload={
             "event": {
                 "type": event_type,
                 "context": context or {},
@@ -218,11 +215,12 @@ def send_activation_event(event_type: str, context: dict = None) -> bool:
     """
     return send_webhook_event(
         webhook_type=WebhookType.ACTIVATION_RULES,
-        inner_payload={
+        webhook_payload={
             "event": {
                 "type": event_type,
                 "context": context or {},
             },
+            "execution_scope": _get_execution_scope(),
         },
         log_context=f"event={event_type}",
     )
