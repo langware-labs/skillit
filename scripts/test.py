@@ -178,7 +178,7 @@ def _start_test_server(port: int) -> HTTPServer:
 
     port_file.write_text(json.dumps({
         "port": port,
-        "webhook_path": "/webhook",
+        "webhook_path": "/api/v1/webhook/listen",
         "health_path": "/health",
     }))
 
@@ -238,7 +238,7 @@ import time; time.sleep(0.5)
         time.sleep(0.3)
 
         if TestServerHandler.received:
-            notif = TestServerHandler.received[0]["flow_value"]["notification"]
+            notif = TestServerHandler.received[0]["webhook_payload"]["notification"]
             print(f"✓ Notification received: skill={notif['skill_name']}, handler={notif['handler_name']}")
             passed = True
         else:
@@ -339,7 +339,7 @@ import time; time.sleep(0.5)
         time.sleep(0.3)
 
         if TestServerHandler.received:
-            event = TestServerHandler.received[0]["flow_value"]["event"]
+            event = TestServerHandler.received[0]["webhook_payload"]["event"]
             test2_passed = event["type"] == "skill_ready"
             print(f"{'✓' if test2_passed else '✗'} Notification received: type={event['type']}")
         else:

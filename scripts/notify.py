@@ -7,10 +7,12 @@ Handles service discovery, webhook sending, and rate limiting.
 All other modules should go through notify.py for server interaction.
 """
 
+import html
 import json
 import os
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Optional
@@ -29,7 +31,8 @@ class WebhookType(StrEnum):
     SKILLIT_LOG = "skillit_log"
     ACTIVATION_RULES = "activation_rules"
     AGENT_HOOK = "agent_hook"
-    MCP_NOTIFICATION = "mcp_notification"
+    INSTRUCTION_TRACE = "instruction_trace"
+    MCP_WEBHOOK = "mcp_webhook"
 
 
 @dataclass
@@ -109,14 +112,70 @@ def _get_execution_scope() -> list:
         return []
 
 
-def send_webhook_event(webhook_type: WebhookType, inner_payload: dict | str, log_context: str) -> bool:
+def xml_str_to_flow_data_dict(xml_str: str) -> dict:
+    """Parse a flow-* XML string into a flow-data-compatible dict.
+
+    Extracts minimal fields: element_type, index, created_time, data_type, flow_value.
+
+    Example:
+        xml_str_to_flow_data_dict('<flow-chat i="5" t="2026-01-01" data-type="string">Hello</flow-chat>')
+        # {"element_type": "chat", "index": 5, "created_time": "2026-01-01",
+        #  "data_type": "string", "flow_value": "Hello"}
+
+    Args:
+        xml_str: XML string like '<flow-{type} attr="val">content</flow-{type}>'
+
+    Returns:
+        Dict with element_type, data_type, flow_value, and optional index/created_time.
+
+    Raises:
+        ValueError: If xml_str contains no flow-* element.
+    """
+    root = ET.fromstring(xml_str)
+    tag = root.tag
+
+    if not tag.startswith("flow-"):
+        raise ValueError(f"Expected a flow-* element, got <{tag}>")
+
+    element_type = tag[5:]
+
+    attribs = dict(root.attrib)
+    data_type = attribs.get("data-type", "string")
+
+    # Content is the text inside the element
+    content = root.text or ""
+
+    # Parse flow_value based on data_type
+    if data_type in ("object", "json", "entity") and content.strip():
+        try:
+            flow_value = json.loads(html.unescape(content))
+        except (json.JSONDecodeError, ValueError):
+            flow_value = html.unescape(content)
+    else:
+        flow_value = html.unescape(content) if content else ""
+
+    result = {
+        "element_type": element_type,
+        "data_type": data_type,
+        "flow_value": flow_value,
+    }
+
+    if "i" in attribs:
+        result["index"] = int(attribs["i"])
+    if "t" in attribs:
+        result["created_time"] = attribs["t"]
+
+    return result
+
+
+def send_webhook_event(webhook_type: WebhookType, webhook_payload: dict | str, log_context: str) -> bool:
     """Send a webhook to FlowPad (fire-and-forget).
 
-    Handles discovery, rate limiting, scope parsing, and envelope wrapping.
+    Handles discovery, rate limiting, and envelope wrapping.
 
     Args:
         webhook_type: A WebhookType enum value.
-        inner_payload: Type-specific payload dict (merged into flow_value).
+        webhook_payload: Type-specific payload dict.
         log_context: Context string for logging.
 
     Returns:
@@ -131,15 +190,9 @@ def send_webhook_event(webhook_type: WebhookType, inner_payload: dict | str, log
         skill_log(f"Notification skipped: Flowpad not running ({log_context})")
         return False
 
-    flow_value = {
-        "webhook_type": webhook_type,
-        "execution_scope": _get_execution_scope(),
-        **inner_payload,
-    }
-
     payload = {
-        "attributes": {"element-type": "webhook", "data-type": "object"},
-        "flow_value": flow_value,
+        "webhook_type": webhook_type,
+        "webhook_payload": webhook_payload,
     }
 
     data = json.dumps(payload).encode("utf-8")
@@ -180,7 +233,10 @@ def send_skill_notification(
     )
     return send_webhook_event(
         webhook_type=WebhookType.SKILL_NOTIFICATION,
-        inner_payload={"notification": asdict(notification)},
+        webhook_payload={
+            "notification": asdict(notification),
+            "execution_scope": _get_execution_scope(),
+        },
         log_context=f"skill={skill_name}",
     )
 
@@ -197,7 +253,7 @@ def send_skillit_notification(event_type: str, context: dict | str = None) -> bo
     """
     return send_webhook_event(
         webhook_type=WebhookType.SKILLIT_LOG,
-        inner_payload={
+        webhook_payload={
             "event": {
                 "type": event_type,
                 "context": context or {},
@@ -218,11 +274,12 @@ def send_activation_event(event_type: str, context: dict = None) -> bool:
     """
     return send_webhook_event(
         webhook_type=WebhookType.ACTIVATION_RULES,
-        inner_payload={
+        webhook_payload={
             "event": {
                 "type": event_type,
                 "context": context or {},
             },
+            "execution_scope": _get_execution_scope(),
         },
         log_context=f"event={event_type}",
     )

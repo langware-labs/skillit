@@ -641,12 +641,15 @@ def parse_hook_payload(payload: dict[str, Any]) -> AgentHookPayload:
 
     Args:
         payload: The raw webhook payload dictionary.
+            New format: {"webhook_type": ..., "webhook_payload": {...}}
 
     Returns:
         An AgentHookPayload dataclass.
     """
-    hook_data_dict = payload.get("hook_data", {})
-    hook_metadata_dict = payload.get("hook_metadata")
+    webhook_payload = payload.get("webhook_payload", {})
+
+    hook_data_dict = webhook_payload.get("hook_data", {})
+    hook_metadata_dict = webhook_payload.get("hook_metadata")
 
     hook_metadata = None
     if hook_metadata_dict:
@@ -658,11 +661,11 @@ def parse_hook_payload(payload: dict[str, Any]) -> AgentHookPayload:
 
     return AgentHookPayload(
         webhook_type=WebhookType(payload.get("webhook_type", "agent_hook")),
-        agent_hook_id=payload.get("agent_hook_id", ""),
+        agent_hook_id=webhook_payload.get("agent_hook_id", ""),
         hook_data=parse_hook_data(hook_data_dict),
-        hook_entry_id=payload.get("hook_entry_id", ""),
+        hook_entry_id=webhook_payload.get("hook_entry_id", ""),
         hook_metadata=hook_metadata,
-        hook_file_path=payload.get("hook_file_path", ""),
+        hook_file_path=webhook_payload.get("hook_file_path", ""),
     )
 
 
