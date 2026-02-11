@@ -12,6 +12,7 @@ import os
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
+from enum import StrEnum
 from typing import Optional
 
 from flowpad_discovery import (
@@ -21,6 +22,14 @@ from flowpad_discovery import (
     record_webhook_failure,
 )
 from log import skill_log
+
+
+class WebhookType(StrEnum):
+    SKILL_NOTIFICATION = "skill_notification"
+    SKILLIT_LOG = "skillit_log"
+    ACTIVATION_RULES = "activation_rules"
+    AGENT_HOOK = "agent_hook"
+    MCP_NOTIFICATION = "mcp_notification"
 
 
 @dataclass
@@ -81,7 +90,7 @@ def _send_fire_and_forget(url: str, data: bytes, log_context: str) -> None:
         )
         proc.stdin.write(data)
         proc.stdin.close()
-        skill_log(f"Notification dispatched: {log_context}")
+        skill_log(f"Notification dispatched to {url}:\n {log_context}")
     except Exception as e:
         skill_log(f"Failed to dispatch notification: {e}")
         record_webhook_failure()
@@ -100,13 +109,13 @@ def _get_execution_scope() -> list:
         return []
 
 
-def send_webhook_event(webhook_type: str, inner_payload: dict, log_context: str) -> bool:
+def send_webhook_event(webhook_type: WebhookType, inner_payload: dict | str, log_context: str) -> bool:
     """Send a webhook to FlowPad (fire-and-forget).
 
     Handles discovery, rate limiting, scope parsing, and envelope wrapping.
 
     Args:
-        webhook_type: Webhook type string (e.g., "skill_notification", "activation_rules").
+        webhook_type: A WebhookType enum value.
         inner_payload: Type-specific payload dict (merged into flow_value).
         log_context: Context string for logging.
 
@@ -170,13 +179,13 @@ def send_skill_notification(
         folder_path=folder_path,
     )
     return send_webhook_event(
-        webhook_type="skill_notification",
+        webhook_type=WebhookType.SKILL_NOTIFICATION,
         inner_payload={"notification": asdict(notification)},
         log_context=f"skill={skill_name}",
     )
 
 
-def send_skillit_notification(event_type: str, context: dict = None) -> bool:
+def send_skillit_notification(event_type: str, context: dict | str = None) -> bool:
     """Send a skillit log event to FlowPad (fire-and-forget).
 
     Args:
@@ -187,7 +196,7 @@ def send_skillit_notification(event_type: str, context: dict = None) -> bool:
         True if notification was queued, False if Flowpad not running.
     """
     return send_webhook_event(
-        webhook_type="skillit_log",
+        webhook_type=WebhookType.SKILLIT_LOG,
         inner_payload={
             "event": {
                 "type": event_type,
@@ -208,7 +217,7 @@ def send_activation_event(event_type: str, context: dict = None) -> bool:
         True if notification was queued, False if Flowpad not running.
     """
     return send_webhook_event(
-        webhook_type="activation_rules",
+        webhook_type=WebhookType.ACTIVATION_RULES,
         inner_payload={
             "event": {
                 "type": event_type,

@@ -4,13 +4,13 @@ import json
 from pathlib import Path
 
 from tests.test_utils import PromptResult
-from tests.test_utils.hook_environment import HookTestProjectEnvironment, SKILLIT_ROOT
+from tests.test_utils.hook_environment import TestPluginProjectEnvironment, SKILLIT_ROOT
 from plugin_manager import SkillitPluginManager
 
 
 def test_install_plugin_creates_project_settings():
     """Plugin install should write enabledPlugins into .claude/settings.json."""
-    env = HookTestProjectEnvironment()
+    env = TestPluginProjectEnvironment()
     env.install_plugin()
 
     settings_path = env.path / ".claude" / "settings.json"
@@ -25,7 +25,7 @@ def test_install_plugin_creates_project_settings():
 
 def test_installed_version_matches_source():
     """Installed (cached) plugin version should match the source plugin.json."""
-    env = HookTestProjectEnvironment()
+    env = TestPluginProjectEnvironment()
     env.install_plugin()
 
     source_version = json.loads(
@@ -41,7 +41,7 @@ def test_installed_version_matches_source():
 
 def test_install_plugin_caches_hooks():
     """The cached plugin should contain hooks/hooks.json."""
-    env = HookTestProjectEnvironment()
+    env = TestPluginProjectEnvironment()
     env.install_plugin()
 
     plugin_name, marketplace_name, version = env._read_plugin_meta()
@@ -65,7 +65,7 @@ def test_patch_installs_new_version():
     print(f"old_version={old_version}, new_version={new_version}")
     assert new_version != old_version
 
-    env = HookTestProjectEnvironment()
+    env = TestPluginProjectEnvironment()
     env.install_plugin()
 
     result:PromptResult = env.launch_claude('use the skillit sugagent  and ask for its version, make sure to invoken it', False)
@@ -73,7 +73,7 @@ def test_patch_installs_new_version():
 
 def test_activation_dump():
     """Bumping the patch version and reinstalling should update the cache."""
-    env = HookTestProjectEnvironment()
+    env = TestPluginProjectEnvironment()
     print(f"env path: {env.path}")
     env.install_plugin()
     env.dump_activations= True
@@ -85,7 +85,7 @@ def test_activation_dump():
 
 def test_secret_word_install():
     """Loading secret_word rule should inject 443216 when prompt contains '42'."""
-    env = HookTestProjectEnvironment()
+    env = TestPluginProjectEnvironment()
     print(f"env path: {env.path}")
     env.install_plugin()
 

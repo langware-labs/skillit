@@ -34,3 +34,21 @@ def skill_log(message: str) -> None:
         sys.stderr.write(log_line)
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(log_line)
+
+
+def skill_log_print() -> None:
+    """Print the contents of the log file to stdout."""
+    if LOG_FILE.exists():
+        log_contents = LOG_FILE.read_text(encoding="utf-8")
+        if log_contents:
+            print(log_contents, end="")
+        else:
+            print("[Skillit Log is empty]")
+    else:
+        print("[Skillit Log file does not exist]")
+
+
+def skill_log_clear() -> None:
+    """Delete the log file."""
+    if LOG_FILE.exists():
+        LOG_FILE.unlink()

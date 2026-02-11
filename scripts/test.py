@@ -4,12 +4,12 @@ Test Runner for Skillit Plugin
 Invokes main.py exactly as Claude Code does - same command, env vars, and stdin format.
 
 Usage:
-    python3 test.py                     # Test with default "skillit:test"
-    python3 test.py "skillit:test"      # Test with custom prompt
-    python3 test.py --all               # Run full test suite
-    python3 test.py --transcript        # Test with real transcript
-    python3 test.py --notify            # Test notification module
-    python3 test.py --activation        # Test activation rules module
+    python test.py                     # Test with default "skillit:test"
+    python test.py "skillit:test"      # Test with custom prompt
+    python test.py --all               # Run full test suite
+    python test.py --transcript        # Test with real transcript
+    python test.py --notify            # Test notification module
+    python test.py --activation        # Test activation rules module
 """
 import json
 import os
@@ -40,7 +40,7 @@ def reset_cooldown():
         pass
 
 # The exact command from hooks.json
-HOOK_COMMAND = 'python3 "$CLAUDE_PLUGIN_ROOT/scripts/main.py"'
+HOOK_COMMAND = 'python "$CLAUDE_PLUGIN_ROOT/scripts/main.py"'
 
 
 def invoke_main(prompt: str, verbose: bool = True) -> dict:
@@ -48,7 +48,7 @@ def invoke_main(prompt: str, verbose: bool = True) -> dict:
     Invoke main.py exactly as Claude Code does.
 
     From hooks.json:
-        "command": "python3 \"$CLAUDE_PLUGIN_ROOT/scripts/main.py\""
+        "command": "python \"$CLAUDE_PLUGIN_ROOT/scripts/main.py\""
 
     Claude Code:
     1. Sets environment variables
@@ -80,7 +80,7 @@ def invoke_main(prompt: str, verbose: bool = True) -> dict:
         print("=" * 60)
         print()
         print(f"Command: {HOOK_COMMAND}")
-        print(f"  -> Expands to: python3 \"{PLUGIN_DIR}/scripts/main.py\"")
+        print(f"  -> Expands to: python \"{PLUGIN_DIR}/scripts/main.py\"")
         print()
         print("Environment:")
         print(f"  CLAUDE_PLUGIN_ROOT={PLUGIN_DIR}")
@@ -207,7 +207,7 @@ def test_notifications():
     try:
         # Run notification through real discovery pipeline
         result = subprocess.run(
-            ["python3", "-c", f"""
+            ["python", "-c", f"""
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
 import os
 os.environ["FLOWPAD_EXECUTION_SCOPE"] = '[{{"type": "flow", "id": "test-123"}}]'
@@ -292,7 +292,7 @@ def test_activation_rules():
         print("-" * 40)
 
         result = subprocess.run(
-            ["python3", "-c", f"""
+            ["python", "-c", f"""
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
 from notify import get_flowpad_status
 from flowpad_discovery import FlowpadStatus
@@ -320,7 +320,7 @@ print("AD_EMPTY:" + str(ad == ""))
 
         TestServerHandler.received.clear()
         result = subprocess.run(
-            ["python3", "-c", f"""
+            ["python", "-c", f"""
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
 from notify import get_flowpad_status, send_activation_event
 from flowpad_discovery import FlowpadStatus

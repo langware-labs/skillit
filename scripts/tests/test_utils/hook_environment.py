@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
+from agent_manager import SubAgent
+from log import skill_log_clear
 from memory.rule_engine.engine import RulesPackage, RuleEngine
 
 TEMP_DIR = Path(tempfile.gettempdir()) / "skillit_test"
@@ -168,7 +170,7 @@ class _TeeIO(io.StringIO):
         return super().write(s)
 
 
-class HookTestProjectEnvironment:
+class TestPluginProjectEnvironment:
     """Self-contained test environment with project-level hooks."""
 
     DUMP_FILENAME = "stdin_dump.jsonl"
@@ -188,6 +190,7 @@ class HookTestProjectEnvironment:
         self._fork = fork
         self._session_started = False
         self._env_vars: dict[str, str] = {}
+        self._mcp_config_path: Path | None = None
         self._dump_activations = False
         self._clean = clean
         self._include_user_home = include_user_home
@@ -472,6 +475,20 @@ class HookTestProjectEnvironment:
             if rule_dir.is_dir() and (rule_dir / "trigger.py").exists():
                 shutil.copytree(rule_dir, rules_dir / rule_dir.name, dirs_exist_ok=True)
 
+    def loadMcp(self) -> None:
+        """Write an MCP config pointing to the skillit MCP server."""
+        mcp_server_script = str(SKILLIT_ROOT / "scripts" / "mcp_server.py")
+        mcp_config = {
+            "mcpServers": {
+                "skillit": {
+                    "command": "python",
+                    "args": [mcp_server_script],
+                }
+            }
+        }
+        self._mcp_config_path = self.temp_dir / "mcp.json"
+        self._mcp_config_path.write_text(json.dumps(mcp_config, indent=2))
+
     def _plugin_skill_log_path(self) -> Path | None:
         """Return the path to skill.log."""
         from conf import LOG_FILE
@@ -492,8 +509,11 @@ class HookTestProjectEnvironment:
         if log_path and log_path.exists():
             log_path.unlink()
 
+        cmd = ["claude", "-p", text, "--dangerously-skip-permissions", *self._session_args()]
+        if self._mcp_config_path:
+            cmd.extend(["--mcp-config", str(self._mcp_config_path)])
         proc = subprocess.Popen(
-            ["claude", "-p", text, "--dangerously-skip-permissions", *self._session_args()],
+            cmd,
             cwd=str(self.temp_dir),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
@@ -663,3 +683,14 @@ class HookTestProjectEnvironment:
         """Remove temp folder."""
         if self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
+
+
+def make_env() -> TestPluginProjectEnvironment:
+    """Create a test environment with all required agents loaded."""
+    env = TestPluginProjectEnvironment()
+    env.load_agent(SubAgent.MAIN_AGENT)
+    env.load_agent(SubAgent.ANALYZE)
+    env.load_agent(SubAgent.CLASSIFY)
+    env.load_agent(SubAgent.CREATE)
+    skill_log_clear()
+    return env

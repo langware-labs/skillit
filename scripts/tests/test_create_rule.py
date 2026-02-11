@@ -1,22 +1,13 @@
 from pathlib import Path
 
 from agent_manager import SubAgent, get_subagent_launch_prompt
-from tests.test_utils import HookTestProjectEnvironment, ClaudeTranscript, LaunchMode
+from log import skill_log_print
+from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
 
 TRANSCRIPT_PATH = Path(__file__).parent / "unit" / "resources" / "jira_acli_fail.jsonl"
 
 
-def _make_env() -> HookTestProjectEnvironment:
-    """Create a test environment with all required agents loaded."""
-    env = HookTestProjectEnvironment()
-    env.load_agent(SubAgent.MAIN_AGENT)
-    env.load_agent(SubAgent.ANALYZE)
-    env.load_agent(SubAgent.CLASSIFY)
-    env.load_agent(SubAgent.CREATE)
-    return env
-
-
-def analyze_hook(env: HookTestProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str:
+def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str:
     """Build the analysis prompt from the transcript and launch the analyzer.
 
     Returns:
@@ -42,7 +33,7 @@ def analyze_hook(env: HookTestProjectEnvironment, mode: LaunchMode = LaunchMode.
     return result.stdout
 
 
-def classify_analysis(env: HookTestProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str:
+def classify_analysis(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str:
     """Classify the issues found during analysis.
 
     Args:
@@ -65,7 +56,7 @@ def classify_analysis(env: HookTestProjectEnvironment, mode: LaunchMode = Launch
     return result.stdout
 
 
-def create_rule(env: HookTestProjectEnvironment,mode: LaunchMode = LaunchMode.HEADLESS) -> str | None:
+def create_rule(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str | None:
     transcript = ClaudeTranscript.load(TRANSCRIPT_PATH)
     prompt = transcript.get_entries("user")[0]["message"]["content"]
 
@@ -81,7 +72,7 @@ def create_rule(env: HookTestProjectEnvironment,mode: LaunchMode = LaunchMode.HE
 
 def test_create_rule():
     """End-to-end: analyze transcript, classify issues, create rule."""
-    env = _make_env()
+    env = make_env()
     env._fork = True
     print(f"Environment set up at: {env.path}")
     print(f"session: {env.session_id}")
@@ -98,9 +89,9 @@ def test_create_rule():
 
 def test_notify_mcp():
     """End-to-end: analyze transcript, classify issues, create rule."""
-    env = _make_env()
+    env = make_env()
     env.loadMcp()
-    result = env.launch_claude("use foo and get the response ")
-    print(result.stdout)
+    result = env.launch_claude("use skillit mcp to parse the tag: <flow-started_generating_skill>Testing MCP flow tag</flow-started_generating_skill>")
+    skill_log_print()
     assert result.returncode == 0
-    assert 'bar42' in result.stdout
+    assert 'flow' in result.stdout.lower()
