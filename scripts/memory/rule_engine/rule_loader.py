@@ -6,8 +6,13 @@ import os
 from pathlib import Path
 from typing import Any
 
-from conf import FLOW_HOME
+from conf import FLOW_HOME, SCRIPT_DIR
 from log import skill_log
+
+
+def get_system_rules_dir() -> Path:
+    """Return the system-level rules directory (ships with skillit)."""
+    return SCRIPT_DIR / "system_rules"
 
 
 def get_user_rules_dir() -> Path:

@@ -14,6 +14,7 @@ from .rule_loader import (
     get_rules_dir,
     get_user_rules_dir,
     get_project_rules_dir,
+    get_system_rules_dir,
 )
 from .trigger_executor import execute_all_triggers, TriggerResult
 from .action_executor import execute_actions, format_hook_output
@@ -82,11 +83,11 @@ class RulesPackage:
 
     @property
     def rules(self) -> list[ActivationRule]:
-        """All rules (folder + additional). Additional overrides folder by name."""
+        """All rules (additional + folder). Folder (project) overrides additional (system/user) by name."""
         by_name: dict[str, ActivationRule] = {}
-        for r in self.folder_rules:
-            by_name[r.name] = r
         for r in self._additional_rules:
+            by_name[r.name] = r
+        for r in self.folder_rules:
             by_name[r.name] = r
         return sorted(by_name.values(), key=lambda r: r.name)
 
@@ -194,23 +195,39 @@ class RulesPackage:
     @classmethod
     def from_multiple_folders(
         cls,
+        system_path: Path | None = None,
         user_path: Path | None = None,
         project_path: Path | None = None,
     ) -> "RulesPackage":
-        """Create a RulesPackage merging user and project directories.
+        """Create a RulesPackage merging system, user and project directories.
 
-        Project folder is the live folder (folder_rules). User rules are
-        loaded once into additional_rules. Project overrides user by name
-        via the rules property.
+        Project folder is the live folder (folder_rules). System and user rules
+        are loaded into additional_rules. Precedence: project > user > system
+        (project overrides user, user overrides system by name).
 
         Args:
+            system_path: Path to system rules directory (ships with skillit). None to skip.
             user_path: Path to user rules directory. None to skip.
             project_path: Path to project rules directory (live folder).
 
         Returns:
-            RulesPackage with project as folder and user as additional.
+            RulesPackage with project as folder and system+user as additional.
         """
-        user_rules: list[ActivationRule] = []
+        additional_rules: list[ActivationRule] = []
+
+        # Load system rules first (lowest precedence in additional)
+        if system_path and system_path.exists():
+            for rule_dir in system_path.iterdir():
+                if not rule_dir.is_dir():
+                    continue
+                if not (rule_dir / "trigger.py").exists():
+                    continue
+                rule = ActivationRule.from_md(rule_dir)
+                rule.source = "system"
+                additional_rules.append(rule)
+
+        # Load user rules (overrides system by name within additional)
+        user_by_name: dict[str, ActivationRule] = {}
         if user_path and user_path.exists():
             for rule_dir in user_path.iterdir():
                 if not rule_dir.is_dir():
@@ -219,9 +236,14 @@ class RulesPackage:
                     continue
                 rule = ActivationRule.from_md(rule_dir)
                 rule.source = "user"
-                user_rules.append(rule)
+                user_by_name[rule.name] = rule
 
-        return cls(path=project_path, source="project", rules=user_rules)
+        # Merge: user overrides system by name
+        merged: dict[str, ActivationRule] = {r.name: r for r in additional_rules}
+        merged.update(user_by_name)
+        additional_rules = list(merged.values())
+
+        return cls(path=project_path, source="project", rules=additional_rules)
 
     # -------------------------------------------------------------------------
     # Instance Methods
@@ -448,6 +470,7 @@ class RuleEngine:
         if self._package is None:
             project_path = get_project_rules_dir(self.project_dir) if self.project_dir else None
             self._package = RulesPackage.from_multiple_folders(
+                system_path=get_system_rules_dir(),
                 user_path=get_user_rules_dir(),
                 project_path=project_path,
             )

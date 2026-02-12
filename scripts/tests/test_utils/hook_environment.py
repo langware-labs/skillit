@@ -552,12 +552,14 @@ class TestPluginProjectEnvironment:
 
     def loadMcp(self) -> None:
         """Write an MCP config pointing to the skillit MCP server."""
-        mcp_server_script = str(SKILLIT_ROOT / "scripts" / "mcp_server.py")
+        scripts_dir = str(SKILLIT_ROOT / "scripts")
+        mcp_server_script = str(SKILLIT_ROOT / "scripts" / "mcp_server" / "main.py")
         mcp_config = {
             "mcpServers": {
                 "skillit": {
                     "command": "python",
                     "args": [mcp_server_script],
+                    "env": {"PYTHONPATH": scripts_dir},
                 }
             }
         }
@@ -569,7 +571,7 @@ class TestPluginProjectEnvironment:
         from conf import LOG_FILE
         return LOG_FILE
 
-    def prompt(self, text: str, verbose: bool = True, timeout: int = 120) -> PromptResult:
+    def prompt(self, text: str, verbose: bool = True, timeout: int = 180) -> PromptResult:
         """Run claude -p with the prompt and return the result.
 
         Args:

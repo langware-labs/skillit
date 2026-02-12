@@ -494,7 +494,7 @@ class TestRulesPackage:
             (project_rule / "trigger.py").write_text("# project trigger")
             (project_rule / "rule.md").write_text("# shared_rule\n\n- **IF**: project version\n")
 
-            package = RulesPackage.from_multiple_folders(user_dir, project_dir)
+            package = RulesPackage.from_multiple_folders(user_path=user_dir, project_path=project_dir)
 
             assert len(package) == 1
             rule = package.get("shared_rule")
@@ -509,7 +509,7 @@ class TestRulesPackage:
             rule_dir.mkdir()
             (rule_dir / "trigger.py").write_text("# empty")
 
-            package = RulesPackage(path=rules_dir, source="test", rules=[])
+            package = RulesPackage(path=None, source="test", rules=[])
 
             # Add rule
             new_rule = ActivationRule.from_md(rule_dir)
@@ -535,7 +535,7 @@ class TestRulesPackage:
             (rule_dir / "trigger.py").write_text("# empty")
 
             rule = ActivationRule.from_md(rule_dir)
-            package = RulesPackage(path=rules_dir, source="test", rules=[rule])
+            package = RulesPackage(path=None, source="test", rules=[rule])
 
             # Update
             updated = package.update_rule("update_test", if_condition="updated condition")
@@ -597,7 +597,7 @@ def evaluate(hooks_data: dict, transcript: list) -> Action | list[Action] | None
                 actions=["add_context"],
             )
             rule = ActivationRule(rule_dir, header)
-            package = RulesPackage(path=src_dir, source="test", rules=[rule])
+            package = RulesPackage(path=None, source="test", rules=[rule])
 
             # Save to new folder
             package.to_folder(dst_dir)
@@ -623,7 +623,7 @@ def evaluate(hooks_data: dict, transcript: list) -> Action | list[Action] | None
                 if_condition="prompt contains jira ticket",
             )
             rule = ActivationRule(rule_dir, header)
-            package = RulesPackage(path=rules_dir, rules=[rule])
+            package = RulesPackage(path=None, rules=[rule])
 
             # Should find similar
             similar = package.find_similar("jira ticket help", threshold=0.3)
@@ -642,7 +642,7 @@ def evaluate(hooks_data: dict, transcript: list) -> Action | list[Action] | None
 
             rule = ActivationRule.from_md(rule_dir)
             rule.source = "test_source"
-            package = RulesPackage(path=rules_dir, rules=[rule])
+            package = RulesPackage(path=None, rules=[rule])
 
             summary = package.get_summary()
             assert len(summary) == 1

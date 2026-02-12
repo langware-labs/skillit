@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from conf import SCRIPT_DIR
 from log import skill_log
 
 
@@ -124,9 +125,10 @@ def execute_trigger(
 
         module = importlib.util.module_from_spec(spec)
 
-        # Add rule_path to sys.path temporarily for relative imports
+        # Add rule_path and scripts/ dir to sys.path temporarily for imports
         original_path = sys.path.copy()
         sys.path.insert(0, str(rule_path))
+        sys.path.insert(0, str(SCRIPT_DIR))
         try:
             spec.loader.exec_module(module)
         finally:

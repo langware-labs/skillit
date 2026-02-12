@@ -73,6 +73,7 @@ def _evaluate_file_rules(data: dict) -> dict:
         "toolUseID": data.get("toolUseID") or data.get("tool_use_id"),
         "parentToolUseID": data.get("parentToolUseID") or data.get("parent_tool_use_id"),
         "timestamp": data.get("timestamp"),
+        "session_id": data.get("session_id", ""),
         "cwd": project_dir,
     }
 
@@ -147,16 +148,7 @@ def _dump_stdin(raw: str) -> None:
 
 def main():
     skill_log(" skillit ".center(60, "="))
-    skill_log(f"Hook triggered: UserPromptSubmit, path: {__file__}, pid: {os.getpid()}")
-    skill_log("Working directory: " + str(os.getcwd()))
-    hookEvent = "UserPromptSubmit"
-    event_context = {
-        "hookEvent": hookEvent,
-        "scriptPath": __file__,
-        "pid": os.getpid(),
-        "cwd": os.getcwd(),
-    }
-    send_activation_event("skillit called", event_context)
+
     # Read input from stdin
     try:
         raw = sys.stdin.read()
@@ -165,12 +157,26 @@ def main():
           ERROR_MSG = "ERROR: No input received on stdin"
           skill_log(ERROR_MSG)
           sys.stdout.write(ERROR_MSG + "\n")
-          sys.exit(1)    
+          sys.exit(1)
         data = json.loads(raw)
         skill_log(f"Input received: {json.dumps(data)}")
     except json.JSONDecodeError as e:
         skill_log(f"ERROR: Invalid JSON input: {e}")
         sys.exit(1)
+
+    # Determine hook event from stdin data
+    hookEvent = data.get("hook_event_name") or data.get("hookEvent") or "UserPromptSubmit"
+    data["hookEvent"] = hookEvent  # normalize for downstream
+
+    skill_log(f"Hook triggered: {hookEvent}, path: {__file__}, pid: {os.getpid()}")
+    skill_log("Working directory: " + str(os.getcwd()))
+    event_context = {
+        "hookEvent": hookEvent,
+        "scriptPath": __file__,
+        "pid": os.getpid(),
+        "cwd": os.getcwd(),
+    }
+    send_activation_event("skillit called", event_context)
 
     prompt = data.get("prompt", "")
     skill_log(f"Prompt: {prompt}")
@@ -180,32 +186,38 @@ def main():
     if file_rules_output:
         skill_log(f"File rules triggered: {json.dumps(file_rules_output)}")
 
-    handler, matched_keyword = find_matching_modifier(prompt)
-    if handler:
-        skill_log(f"Keyword matched: '{matched_keyword}', invoking handler {handler.__name__}")
-        # Send notification to FlowPad backend (fire-and-forget)
-        send_skill_notification(
-            skill_name="skillit",
-            matched_keyword=matched_keyword,
-            prompt=prompt,
-            handler_name=handler.__name__,
-            folder_path=data.get("cwd", ""),
-        )
-        result = handler(prompt, data)
+    # Keyword matching only applies to UserPromptSubmit
+    if hookEvent == "UserPromptSubmit":
+        handler, matched_keyword = find_matching_modifier(prompt)
+        if handler:
+            skill_log(f"Keyword matched: '{matched_keyword}', invoking handler {handler.__name__}")
+            # Send notification to FlowPad backend (fire-and-forget)
+            send_skill_notification(
+                skill_name="skillit",
+                matched_keyword=matched_keyword,
+                prompt=prompt,
+                handler_name=handler.__name__,
+                folder_path=data.get("cwd", ""),
+            )
+            result = handler(prompt, data)
 
-        if result:
-            # Merge file rules output
-            if file_rules_output:
-                result = _merge_hook_outputs(file_rules_output, result)
-            skill_log(f"Handler result: {json.dumps(result)}")
-            _emit_hook_output(result)
+            if result:
+                # Merge file rules output
+                if file_rules_output:
+                    result = _merge_hook_outputs(file_rules_output, result)
+                skill_log(f"Handler result: {json.dumps(result)}")
+                _emit_hook_output(result)
+            else:
+                skill_log("Handler returned no result")
+                # Still emit file rules output if triggered
+                if file_rules_output:
+                    _emit_hook_output(file_rules_output)
         else:
-            skill_log("Handler returned no result")
-            # Still emit file rules output if triggered
+            skill_log("No keyword matched, passing through unchanged")
             if file_rules_output:
                 _emit_hook_output(file_rules_output)
     else:
-        skill_log("No keyword matched, passing through unchanged")
+        # Non-UserPromptSubmit events: just emit file rules output
         if file_rules_output:
             _emit_hook_output(file_rules_output)
 
