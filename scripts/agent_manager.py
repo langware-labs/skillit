@@ -24,4 +24,8 @@ def get_subagent_launch_prompt(agent: SubAgent, prompt: str, data: dict) -> str:
 ```json
 {data_json}
 ```
+
+# Important Notes:
+- Make sure to include all the context you received : session_id and output directory are crucial for the subagent to function properly.
 """
+

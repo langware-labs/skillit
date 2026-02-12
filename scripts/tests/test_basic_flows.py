@@ -3,7 +3,7 @@ from pathlib import Path
 import json
 
 from agent_manager import SubAgent, get_subagent_launch_prompt
-from conf import get_session_output_dir
+from conf import get_session_dir, get_session_output_dir
 from log import skill_log_print, skill_log_clear
 from mcp_server.json_store import jsonKeyVal
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
@@ -37,20 +37,6 @@ def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
     return result.stdout
 
 
-def test_output_dir():
-    """End-to-end: analyze transcript, classify issues, create rule."""
-    env = make_env()
-    env.install_plugin()
-    skill_log_clear()
-    analyze_hook(env, mode=LaunchMode.HEADLESS)
-    output_dir = get_session_output_dir(env.session_id)
-    assert output_dir.exists()
-    assert any(output_dir.iterdir()), "Output directory should not be empty"
-    analysis_doc = output_dir / "analysis.md"
-    assert analysis_doc.exists(), "Analysis output file should exist"
-    skill_log_print()
-
-
 def test_mcp_session_id_injection():
     """Verify that SESSION_START hook injects session ID into context."""
     env = make_env()
@@ -61,9 +47,9 @@ def test_mcp_session_id_injection():
     result = env.prompt("what is the session id ? ", verbose=False)
     assert result.returncode == 0
     assert env.session_id in result.stdout, "session_id should be included in the prompt response"
-    # Verify context file was created by the hook
-    output_dir = get_session_output_dir(env.session_id)
-    context_file = output_dir / "flow_context.json"
+    # Verify context file was created by the hook in session dir (not output dir)
+    session_dir = get_session_dir(env.session_id)
+    context_file = session_dir / "flow_context.json"
     assert context_file.exists(), "flow_context.json should be created by SESSION_START hook"
 
     # Verify it contains session_id
@@ -84,9 +70,9 @@ def test_mcp_session_flow_context_usage():
     print(f"\n **********************\n Prompt result: {result.stdout} \n **********************\n")
     assert result.returncode == 0
     assert env.session_id in result.stdout, "session_id should be included in the prompt response"
-    # Verify context file was created by the hook
-    output_dir = get_session_output_dir(env.session_id)
-    context_file = output_dir / "flow_context.json"
+    # Verify context file was created by the hook in session dir (not output dir)
+    session_dir = get_session_dir(env.session_id)
+    context_file = session_dir / "flow_context.json"
     assert context_file.exists(), "flow_context.json should be created by SESSION_START hook"
 
     # Verify it contains session_id
@@ -99,8 +85,8 @@ def test_mcp_session_flow_context_usage():
 
     # Write a timestamp directly using jsonKeyVal
     timestamp = str(int(time.time()))
-    output_dir = get_session_output_dir(env.session_id)
-    context_file = output_dir / "flow_context.json"
+    session_dir = get_session_dir(env.session_id)
+    context_file = session_dir / "flow_context.json"
     store = jsonKeyVal(context_file)
     store.set("the key", timestamp)
 
@@ -117,6 +103,17 @@ def test_mcp_session_flow_context_usage():
     )
     skill_log_print()
 
-
+def test_output_dir():
+    """End-to-end: analyze transcript, classify issues, create rule."""
+    env = make_env()
+    env.install_plugin()
+    skill_log_clear()
+    analyze_hook(env, mode=LaunchMode.HEADLESS)
+    output_dir = get_session_output_dir(env.session_id)
+    assert output_dir.exists()
+    assert any(output_dir.iterdir()), "Output directory should not be empty"
+    analysis_doc = output_dir / "analysis.md"
+    assert analysis_doc.exists(), "Analysis output file should exist"
+    skill_log_print()
 
 

@@ -14,7 +14,7 @@ Your basic task list, make sure to create each task as a separate flow-do step i
 - Review the provided transcript of a conversation between a user and an AI assistant.
 - Identify any mistakes, misunderstandings, or inefficiencies that occurred with respect to the user ask.
 - If no mistakes or opportunities are found, respond with "No issues detected, please provide additional context."
-- write the results buth in machine readable json format and in a human readable format into the flow output dir.
+- write the results buth in machine-readable json format and in a human-readable format into the flow output dir.
 
 ## Input
 - **Transcript**: A conversation between user and AI assistant
@@ -24,6 +24,8 @@ Your basic task list, make sure to create each task as a separate flow-do step i
 make sure to include two files:
 - `analysis.json`: A CONCISE machine-readable JSON file with the results of your analysis, following the schema described in the Result section below.
 - `analysis.md`: A human-readable text file summarizing the issues you identified in the transcript, including their titles, descriptions, categories, and occurrences.
+!state the full path of these files in your response so the user can easily find them in the flow output directory.
+
 ## Result
 results is a JSON with the following properties:
 {

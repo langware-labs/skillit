@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from fastmcp import FastMCP
 from notify import WebhookType, send_webhook_event, xml_str_to_flow_data_dict
-from conf import get_session_output_dir
+from conf import get_session_dir
 from mcp_server.json_store import jsonKeyVal
 
 mcp = FastMCP("skillit")
@@ -78,10 +78,10 @@ def flow_context(session_id: str, action: str, key: str, value: str = None) -> s
     if not key:
         return "Error: key is required"
 
-    # Get session output directory and initialize store
+    # Get session directory and initialize store
     try:
-        output_dir = get_session_output_dir(session_id)
-        store_path = output_dir / "flow_context.json"
+        session_dir = get_session_dir(session_id)
+        store_path = session_dir / "flow_context.json"
         store = jsonKeyVal(store_path)
     except Exception as e:
         return f"Error initializing context store: {e}"
