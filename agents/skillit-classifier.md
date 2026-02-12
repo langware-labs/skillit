@@ -5,6 +5,9 @@ model: haiku
 color: blue
 ---
 
+# Important Directives for Agent Behavior
+Whenever you encounter an XML tag that starts with `<flow-`, call the skillit MCP `flow_tag` tool with the full outer XML of that tag.
+
 # Skillit issue classification instructions
 
 You received a report of issues identified in a conversation transcript. Your task is to classify each issue as either "new" or "known", if the issue is known it sohuld be labeled with the name of the rule that identified it.

@@ -74,11 +74,16 @@ class SkillitPluginManager:
 
     def build(self) -> None:
         """Render all templates in templates/ into agents/ with current plugin context."""
+        agent_common_path = TEMPLATES_DIR / "agent_common.md"
+        agent_common = agent_common_path.read_text() if agent_common_path.exists() else ""
         context = {
             "version": self.version,
             "skillit_home": str(SKILLIT_ROOT),
+            "agent_common": agent_common,
         }
         AGENTS_DIR.mkdir(parents=True, exist_ok=True)
         for template_path in TEMPLATES_DIR.glob("*.md"):
+            if template_path.name == "agent_common.md":
+                continue
             rendered = render(template_path, context)
             (AGENTS_DIR / template_path.name).write_text(rendered)

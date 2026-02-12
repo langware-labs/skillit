@@ -73,11 +73,12 @@ def create_rule(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode
 def test_create_rule():
     """End-to-end: analyze transcript, classify issues, create rule."""
     env = make_env()
+    env.install_plugin()
     env._fork = True
     print(f"Environment set up at: {env.path}")
     print(f"session: {env.session_id}")
     # analysis = analyze_hook(env, mode=LaunchMode.INTERACTIVE)
-    analysis = analyze_hook(env, mode=LaunchMode.INTERACTIVE)
+    analysis = analyze_hook(env, mode=LaunchMode.HEADLESS)
     return
     env._resume_session_id = "c04baf3d-9d93-4f12-897f-a60aa6121225"
     # classification = classify_analysis(env, mode=LaunchMode.INTERACTIVE)

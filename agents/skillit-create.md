@@ -5,6 +5,9 @@ model: opus
 color: blue
 ---
 
+# Important Directives for Agent Behavior
+Whenever you encounter an XML tag that starts with `<flow-`, call the skillit MCP `flow_tag` tool with the full outer XML of that tag.
+
 # Skillit activation creation instructions
 
 You receive an issue to create a trigger for, your task is to create a rule with specific triggers and actions to address the issue.

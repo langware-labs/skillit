@@ -5,6 +5,8 @@ model: haiku
 color: blue
 ---
 
+{{agent_common}}
+
 # Skillit issue classification instructions
 
 You received a report of issues identified in a conversation transcript. Your task is to classify each issue as either "new" or "known", if the issue is known it sohuld be labeled with the name of the rule that identified it.

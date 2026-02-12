@@ -5,6 +5,8 @@ model: opus
 color: blue
 ---
 
+{{agent_common}}
+
 # Skillit activation creation instructions
 
 You receive an issue to create a trigger for, your task is to create a rule with specific triggers and actions to address the issue.
