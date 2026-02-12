@@ -19,17 +19,24 @@ Your basic task list, make sure to create each task as a separate flow-do step i
 - **Transcript**: A conversation between user and AI assistant
 - **User Issue**: An optional user ask:  complaint, request, or description of what went wrong OR an automation optimization opportunity we wish to achieve
 
-## Result
+## Output
+If requested write your analysis into both analysis.md and analysis.json files, the first one should be a human readable report of the issues you found, and the second one should be a machine readable json with the issues details.
+
+## Analysis.json format
 results is a json with the following properties:
+```json
 {
-  issues:[
+  "issues":[
   {
     "name": "a unique name for the issue that can be used as informative folder name for the rule you will create to address this issue",
     "title": "A clear and concise title of the issue identified in the transcript.",
     "description": "A clear and concise description of the issue identified in the transcript, up to 3 lines",
-    "category": "One of the follwoing categories: [misunderstanding, mistake, inefficiency, automation_opportunity]",
+    "category": "One of the following categories: [misunderstanding, mistake, inefficiency, automation_opportunity]",
     "occurrence": "the LAST entry id in the transcript where the issue occurred"
   },...
 }
+```
+
+
 
 

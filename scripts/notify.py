@@ -186,6 +186,7 @@ def send_webhook_event(webhook_type: WebhookType, webhook_payload: dict | str, l
         return False
 
     report_url = _get_report_url()
+    print(f"[notify] webhook url: {report_url} | type: {webhook_type} | {log_context}")
     if not report_url:
         skill_log(f"Notification skipped: Flowpad not running ({log_context})")
         return False

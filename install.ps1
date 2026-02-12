@@ -101,8 +101,21 @@ Write-Host ""
 Write-Host "Installing plugin..."
 claude plugin install "$PluginName@$MarketplaceName" --scope user
 
-# Clean up log file from installation directory
 $InstallPath = Join-Path $env:USERPROFILE ".claude\plugins\cache\$MarketplaceName\$PluginName\$PluginVersion"
+
+# Resolve $CLAUDE_PLUGIN_ROOT in hooks.json to absolute path (Claude Code doesn't expand it on Windows)
+$HooksFile = Join-Path $InstallPath "hooks\hooks.json"
+if (Test-Path $HooksFile) {
+    $HooksContent = Get-Content $HooksFile -Raw
+    $ResolvedPath = $InstallPath.Replace('\', '/')
+    $HooksContent = $HooksContent.Replace('${CLAUDE_PLUGIN_ROOT}', $ResolvedPath)
+    $HooksContent = $HooksContent.Replace('$CLAUDE_PLUGIN_ROOT', $ResolvedPath)
+    $HooksContent = $HooksContent.Replace('%CLAUDE_PLUGIN_ROOT%', $ResolvedPath)
+    [System.IO.File]::WriteAllText($HooksFile, $HooksContent, [System.Text.UTF8Encoding]::new($false))
+    Write-Host "Patched hooks.json with resolved paths: $ResolvedPath"
+}
+
+# Clean up log file from installation directory
 $LogFile = Join-Path $InstallPath "skill.log"
 
 if (Test-Path $LogFile) {
