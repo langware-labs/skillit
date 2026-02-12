@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from conf import Platform, CURRENT_PLATFORM
+from conf import Platform, CURRENT_PLATFORM, SERVER_JSON_PATH
 from config import FLOWPAD_APP_NAME
 
 # Rate limiting constants
@@ -120,7 +120,7 @@ _server_state = _ServerState()
 
 def get_port_file_path() -> Path:
     """Get path to server.json port file."""
-    return get_flowpad_data_dir() / "server.json"
+    return SERVER_JSON_PATH
 
 
 def get_flowpad_data_dir() -> Path:
@@ -147,6 +147,8 @@ def read_server_info() -> Optional[FlowpadServerInfo]:
         FlowpadServerInfo if port file exists and is valid, None otherwise.
     """
     port_file = get_port_file_path()
+    print(f"[flowpad_discovery] port_file path: {port_file}")
+    print(f"[flowpad_discovery] port_file exists: {port_file.exists()}")
     if not port_file.exists():
         return None
     try:

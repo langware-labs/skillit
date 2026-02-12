@@ -86,6 +86,21 @@ def test_create_rule():
     print("=== Rule Creation ===")
     print(rule_output)
 
+def test_create_rule_complete():
+    """End-to-end: analyze transcript, classify issues, create rule."""
+    env = make_env()
+    env._clean = False  # Prevent cleanup so files persist for inspection
+    print(f"Environment set up at: {env.path}")
+    print(f"Rules will be created at: {env.path}/.flow/skill_rules")
+    print(f"session: {env.session_id}")
+    # Run all steps in headless mode for automatic completion
+    analyze_hook(env, mode=LaunchMode.HEADLESS)
+    classify_analysis(env, mode=LaunchMode.HEADLESS)
+    rule_output = create_rule(env, mode=LaunchMode.INTERACTIVE)
+    print("=== Rule Creation ===")
+    print(rule_output)
+    print(f"\n>>> Files preserved at: {env.path}")
+    print(f">>> Check for created rules at: {env.path}/.flow/skill_rules")
 
 def test_notify_mcp():
     """End-to-end: analyze transcript, classify issues, create rule."""

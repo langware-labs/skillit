@@ -28,4 +28,18 @@ SKILLIT_HOME = FLOW_HOME / "skillit"
 SCRIPT_DIR = Path(__file__).parent.resolve()
 PLUGIN_DIR = SCRIPT_DIR.parent
 
+SERVER_JSON_PATH = FLOW_HOME / "server.json"
 LOG_FILE = SKILLIT_HOME / "skill.log"
+
+SESSIONS_DIR = FLOW_HOME / "sessions"
+
+
+def get_session_output_dir(session_id: str) -> Path:
+    """Return the output directory for a given session.
+
+    Path: ~/.flow/sessions/<session_id>/output
+    Creates the directory if it doesn't exist.
+    """
+    output_dir = SESSIONS_DIR / session_id / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
