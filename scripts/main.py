@@ -9,12 +9,14 @@ import re
 import sys
 from pathlib import Path
 
+from conf import get_session_dir, get_session_output_dir
 from log import skill_log
 from memory import create_rule_engine
 from modifiers.analyze_and_create_activation_rules import handle_analyze
 from modifiers.create_test import handle_create_test
 from modifiers.test import handle_test
-from notify import send_skill_notification, send_activation_event
+from notify import send_skill_notification, send_activation_event, send_task_event
+from task_resource import TaskEventType, TaskResource, TaskStatus, TaskType
 
 # =============================================================================
 # KEYWORD MAPPINGS
@@ -146,6 +148,31 @@ def _dump_stdin(raw: str) -> None:
         skill_log(f"ERROR: Failed to dump stdin: {e}")
 
 
+def _send_analysis_task_created(data: dict) -> None:
+    """Create a TaskResource and send task_created event to FlowPad."""
+    session_id = data.get("session_id", "")
+    if not session_id:
+        skill_log("No session_id in hook data, skipping task_created event")
+        return
+
+    output_dir = get_session_output_dir(session_id)
+    task = TaskResource(
+        id=f"analysis-{session_id}",
+        title="Analyzing session",
+        status=TaskStatus.IN_PROGRESS,
+        task_type=TaskType.ANALYSIS,
+        tags=["analysis", "skillit"],
+        metadata={
+            "session_id": session_id,
+            "output_dir": str(output_dir),
+            "analysisPath": str(output_dir / "analysis.md"),
+            "analysisJsonPath": str(output_dir / "analysis.json"),
+        },
+    )
+    task.save_to(get_session_dir(session_id) / "task.json")
+    send_task_event(TaskEventType.TASK_CREATED, task.model_dump(mode="json"))
+
+
 def main():
     skill_log(" skillit ".center(60, "="))
 
@@ -200,6 +227,10 @@ def main():
                 folder_path=data.get("cwd", ""),
             )
             result = handler(prompt, data)
+
+            # Send task_created for analysis handler
+            if handler is handle_analyze:
+                _send_analysis_task_created(data)
 
             if result:
                 # Merge file rules output

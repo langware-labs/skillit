@@ -7,7 +7,7 @@ from conf import get_session_dir, get_session_output_dir
 from log import skill_log_print, skill_log_clear
 from mcp_server.json_store import jsonKeyVal
 from notify import send_task_event
-from resource_management.agent.claude.entities import TaskEventType, TaskResource, TaskStatus, TaskType
+from task_resource import TaskEventType, TaskResource, TaskStatus, TaskType
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
 
 TRANSCRIPT_PATH = Path(__file__).parent / "unit" / "resources" / "jira_acli_fail.jsonl"
