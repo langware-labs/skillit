@@ -7,6 +7,7 @@ class SyncOperation(StrEnum):
     CREATE = "create"
     UPDATE = "update"
     DELETE = "delete"
+    EVENT = "event"
 
 
 class RefType(StrEnum):

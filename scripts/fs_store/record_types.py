@@ -7,6 +7,5 @@ class RecordType(StrEnum):
     SESSION = "session"
     TASK = "task"
     RULE = "rule"
-    SKILL_EVENT = "skill_event"
-    SKILL_ACTIVATION = "skill_activation"
+    SKILL = "skill"
     LOG = "log"

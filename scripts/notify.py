@@ -163,12 +163,35 @@ def send_resource_sync(
     """Send a resource sync event to FlowPad (fire-and-forget).
 
     All notifications flow through this single envelope format.
+    ``execution_scope`` is always attached at the envelope level
+    (auto-populated from the FLOWPAD_EXECUTION_SCOPE env var).
+
+    Envelope wire format::
+
+        {
+            "webhook_type": "resource_sync",
+            "webhook_payload": {
+                "type":             <RecordType>,
+                "id":               <uuid>,
+                "operation":        "create" | "update" | "delete" | "event",
+                "ref_type":         "data" | "path",
+                "data":             <payload — see below>,
+                "execution_scope":  [...]
+            }
+        }
+
+    For CRUD operations (create/update/delete) ``data`` is a full
+    ResourceRecord dict.
+
+    For EVENT operations ``data`` follows the standard event shape::
+
+        {"event_name": "...", "event_data": {...}}
 
     Args:
         type: A RecordType value (e.g. "task", "skill_event").
-        id: Unique identifier for the resource.
-        operation: create / update / delete.
-        data: Resource payload.
+        id: Unique identifier for the resource or event.
+        operation: create / update / delete / event.
+        data: Resource payload (CRUD) or event payload (EVENT).
         ref_type: Whether data is inline ("data") or a path reference ("path").
         log_context: Context string for logging.
 
@@ -194,6 +217,7 @@ def send_resource_sync(
             "operation": str(operation),
             "ref_type": str(ref_type),
             "data": data,
+            "execution_scope": _get_execution_scope(),
         },
     }
 
@@ -213,7 +237,7 @@ def send_skill_activation(
     handler_name: str,
     folder_path: str,
 ) -> bool:
-    """Send skill activation notification to FlowPad (fire-and-forget).
+    """Send skill activation event to FlowPad (fire-and-forget).
 
     Args:
         skill_name: Name of the skill being invoked
@@ -226,16 +250,18 @@ def send_skill_activation(
         True if notification was queued, False if Flowpad not running
     """
     return send_resource_sync(
-        type=RecordType.SKILL_ACTIVATION,
+        type=RecordType.SKILL,
         id=str(uuid.uuid4()),
-        operation=SyncOperation.CREATE,
+        operation=SyncOperation.EVENT,
         data={
-            "skill_name": skill_name,
-            "matched_keyword": matched_keyword,
-            "prompt": prompt,
-            "handler_name": handler_name,
-            "folder_path": folder_path,
-            "execution_scope": _get_execution_scope(),
+            "event_name": "skill_activated",
+            "event_data": {
+                "skill_name": skill_name,
+                "matched_keyword": matched_keyword,
+                "prompt": prompt,
+                "handler_name": handler_name,
+                "folder_path": folder_path,
+            },
         },
         log_context=f"skill={skill_name}",
     )
@@ -254,10 +280,10 @@ def send_log_event(event_type: str, context: dict | str = None) -> bool:
     return send_resource_sync(
         type=RecordType.LOG,
         id=str(uuid.uuid4()),
-        operation=SyncOperation.CREATE,
+        operation=SyncOperation.EVENT,
         data={
-            "event_type": event_type,
-            "context": context or {},
+            "event_name": event_type,
+            "event_data": context or {},
         },
         log_context=f"log={event_type}",
     )
@@ -274,24 +300,23 @@ def send_skill_event(event_type: str, context: dict = None) -> bool:
         True if notification was queued, False if Flowpad not running.
     """
     return send_resource_sync(
-        type=RecordType.SKILL_EVENT,
+        type=RecordType.SKILL,
         id=str(uuid.uuid4()),
-        operation=SyncOperation.CREATE,
+        operation=SyncOperation.EVENT,
         data={
-            "event_type": event_type,
-            "context": context or {},
-            "execution_scope": _get_execution_scope(),
+            "event_name": event_type,
+            "event_data": context or {},
         },
         log_context=f"event={event_type}",
     )
 
 
 def send_task_sync(operation: SyncOperation, task_data: dict) -> bool:
-    """Send a task lifecycle event to FlowPad.
+    """Send a task CRUD sync to FlowPad.
 
     Args:
         operation: SyncOperation.CREATE or SyncOperation.UPDATE
-        task_data: Full task entity dict (from TaskResource.to_dict())
+        task_data: Full task ResourceRecord dict (from TaskResource.to_dict())
 
     Returns:
         True if notification was queued, False if Flowpad not running.
@@ -316,10 +341,13 @@ def send_flow_tag(flow_data: dict) -> bool:
         True if notification was queued, False if Flowpad not running.
     """
     return send_resource_sync(
-        type=RecordType.SKILL_EVENT,
+        type=RecordType.SKILL,
         id=str(uuid.uuid4()),
-        operation=SyncOperation.CREATE,
-        data=flow_data,
+        operation=SyncOperation.EVENT,
+        data={
+            "event_name": "flow_tag",
+            "event_data": flow_data,
+        },
         log_context=f"flow_tag={flow_data.get('element_type', 'unknown')}",
     )
 
