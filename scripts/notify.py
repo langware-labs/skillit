@@ -287,6 +287,27 @@ def send_activation_event(event_type: str, context: dict = None) -> bool:
 
 
 
+def send_task_event(event_type: str, task_data: dict) -> bool:
+    """Send a task lifecycle event to FlowPad via MCP_WEBHOOK.
+
+    Args:
+        event_type: A TaskEventType value ("task_created" or "task_updated")
+        task_data: Full task entity dict (from TaskResource.model_dump())
+
+    Returns:
+        True if notification was queued, False if Flowpad not running.
+    """
+    return send_webhook_event(
+        webhook_type=WebhookType.MCP_WEBHOOK,
+        webhook_payload={
+            "element_type": event_type,
+            "data_type": "object",
+            "flow_value": task_data,
+        },
+        log_context=f"task_event={event_type} id={task_data.get('id', '?')}",
+    )
+
+
 def send_hello_skillit_notification(context: dict = None) -> bool:
     """Send a hello skillit event to FlowPad (fire-and-forget).
 
