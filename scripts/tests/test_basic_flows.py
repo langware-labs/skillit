@@ -5,10 +5,9 @@ import json
 from agent_manager import SubAgent, get_subagent_launch_prompt
 from conf import get_session_dir, get_session_output_dir
 from log import skill_log_print, skill_log_clear
-from main import _send_analysis_task_created
 from mcp_server.json_store import jsonKeyVal
 from notify import send_task_event
-from task_resource import TaskEventType, TaskResource, TaskStatus
+from task_resource import TaskEventType, TaskResource, TaskStatus, TaskType
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
 
 TRANSCRIPT_PATH = Path(__file__).parent / "unit" / "resources" / "jira_acli_fail.jsonl"
@@ -21,9 +20,24 @@ def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
         The analysis output text (stdout from the analyzer subagent).
     """
     session_id = env.session_id
+    output_dir = get_session_output_dir(session_id)
 
     # Create "In Progress" task and reflect to FlowPad
-    _send_analysis_task_created({"session_id": session_id})
+    task = TaskResource(
+        id=f"analysis-{session_id}",
+        title="Analyzing session",
+        status=TaskStatus.IN_PROGRESS,
+        task_type=TaskType.ANALYSIS,
+        tags=["analysis", "skillit"],
+        metadata={
+            "session_id": session_id,
+            "output_dir": str(output_dir),
+            "analysisPath": str(output_dir / "analysis.md"),
+            "analysisJsonPath": str(output_dir / "analysis.json"),
+        },
+    )
+    task.save_to(get_session_dir(session_id) / "task.json")
+    send_task_event(TaskEventType.TASK_CREATED, task.model_dump(mode="json"))
 
     transcript = ClaudeTranscript.load(TRANSCRIPT_PATH)
     prompt_transcript_entry = transcript.get_entries("user")[0]
@@ -44,10 +58,8 @@ def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
     assert result.returncode == 0
 
     # Update task to "Done" and reflect to FlowPad
-    task_path = get_session_dir(session_id) / "task.json"
-    task = TaskResource.model_validate_json(task_path.read_text())
     task.status = TaskStatus.DONE
-    task.save_to(task_path)
+    task.save_to(get_session_dir(session_id) / "task.json")
     send_task_event(TaskEventType.TASK_UPDATED, task.model_dump(mode="json"))
 
     return result.stdout
