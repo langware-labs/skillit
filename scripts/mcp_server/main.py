@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from fastmcp import FastMCP
 from notify import WebhookType, send_webhook_event, xml_str_to_flow_data_dict
 from conf import get_session_dir
-from mcp_server.json_store import jsonKeyVal
+from fs_store import FsRecord
 
 mcp = FastMCP("skillit")
 
@@ -82,7 +82,7 @@ def flow_context(session_id: str, action: str, key: str, value: str = None) -> s
     try:
         session_dir = get_session_dir(session_id)
         store_path = session_dir / "flow_context.json"
-        store = jsonKeyVal(store_path)
+        store = FsRecord.from_json(store_path)
     except Exception as e:
         return f"Error initializing context store: {e}"
 
@@ -91,17 +91,17 @@ def flow_context(session_id: str, action: str, key: str, value: str = None) -> s
         if value is None:
             return "Error: value is required for 'set' action"
         try:
-            store.set(key, value)
+            store[key] = value
+            store.persist()
             return f"Context set: {key} = {value}"
         except Exception as e:
             return f"Error setting context: {e}"
 
     else:  # action == "get"
         try:
-            stored_value = store.get(key)
-            if stored_value is None:
+            if key not in store:
                 return f"Key '{key}' not found in session context"
-            return str(stored_value)
+            return str(store[key])
         except Exception as e:
             return f"Error getting context: {e}"
 

@@ -105,12 +105,11 @@ def test_create_rule():
     env.install_plugin()
     env._fork = True
     print(f"Environment set up at: {env.path}")
-    print(f"session: {env.session_id}")
     # analysis = analyze_hook(env, mode=LaunchMode.INTERACTIVE)
-    analysis = analyze_hook(env, mode=LaunchMode.HEADLESS)
+    # analysis = analyze_hook(env, mode=LaunchMode.HEADLESS)
+    env._resume_session_id = '53058fd8-a437-4532-853a-e0bc4f98f87f'
+    classification = classify_analysis(env, mode=LaunchMode.INTERACTIVE)
     return
-    env._resume_session_id = "c04baf3d-9d93-4f12-897f-a60aa6121225"
-    # classification = classify_analysis(env, mode=LaunchMode.INTERACTIVE)
     env._resume_session_id ='ecc0171f-80d7-4fed-a694-cc3c481ddb94'
     rule_output = create_rule(env, mode=LaunchMode.INTERACTIVE)
     print("=== Rule Creation ===")

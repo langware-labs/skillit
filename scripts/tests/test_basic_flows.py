@@ -5,9 +5,9 @@ import json
 from agent_manager import SubAgent, get_subagent_launch_prompt
 from conf import get_session_dir, get_session_output_dir
 from log import skill_log_print, skill_log_clear
-from mcp_server.json_store import jsonKeyVal
 from notify import send_task_event
 from task_resource import TaskEventType, TaskResource, TaskStatus, TaskType
+from fs_store import FsRecord
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
 
 TRANSCRIPT_PATH = Path(__file__).parent / "unit" / "resources" / "jira_acli_fail.jsonl"
@@ -111,12 +111,13 @@ def test_mcp_session_flow_context_usage():
     assert "the key" in data
     assert data["the key"] == "1566"
 
-    # Write a timestamp directly using jsonKeyVal
+    # Write a timestamp directly using ResourceRecord
     timestamp = str(int(time.time()))
     session_dir = get_session_dir(env.session_id)
     context_file = session_dir / "flow_context.json"
-    store = jsonKeyVal(context_file)
-    store.set("the key", timestamp)
+    store = FsRecord.from_json(context_file)
+    store["the key"] = timestamp
+    store.persist()
 
     # Second launch (resumes session): ask Claude to retrieve the value via MCP
     instruction = (
