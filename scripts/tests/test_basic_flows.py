@@ -5,8 +5,9 @@ import json
 from agent_manager import SubAgent, get_subagent_launch_prompt
 from conf import get_session_dir, get_session_output_dir
 from log import skill_log_print, skill_log_clear
-from notify import send_task_event
-from task_resource import TaskEventType, TaskResource, TaskStatus, TaskType
+from fs_store import SyncOperation
+from notify import send_task_sync
+from task_resource import TaskResource, TaskStatus, TaskType
 from fs_store import FsRecord
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
 
@@ -36,8 +37,8 @@ def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
             "analysisJsonPath": str(output_dir / "analysis.json"),
         },
     )
-    task.save_to(get_session_dir(session_id) / "task.json")
-    send_task_event(TaskEventType.TASK_CREATED, task.model_dump(mode="json"))
+    task.save_to(get_session_dir(session_id))
+    send_task_sync(SyncOperation.CREATE, task.to_dict())
 
     transcript = ClaudeTranscript.load(TRANSCRIPT_PATH)
     prompt_transcript_entry = transcript.get_entries("user")[0]
@@ -59,8 +60,8 @@ def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
 
     # Update task to "Done" and reflect to FlowPad
     task.status = TaskStatus.DONE
-    task.save_to(get_session_dir(session_id) / "task.json")
-    send_task_event(TaskEventType.TASK_UPDATED, task.model_dump(mode="json"))
+    task.save_to(get_session_dir(session_id))
+    send_task_sync(SyncOperation.UPDATE, task.to_dict())
 
     return result.stdout
 
@@ -77,8 +78,8 @@ def test_mcp_session_id_injection():
     assert env.session_id in result.stdout, "session_id should be included in the prompt response"
     # Verify context file was created by the hook in session dir (not output dir)
     session_dir = get_session_dir(env.session_id)
-    context_file = session_dir / "flow_context.json"
-    assert context_file.exists(), "flow_context.json should be created by SESSION_START hook"
+    context_file = session_dir / "record.json"
+    assert context_file.exists(), "record.json should be created by SESSION_START hook"
 
     # Verify it contains session_id
     with open(context_file) as f:
@@ -100,8 +101,8 @@ def test_mcp_session_flow_context_usage():
     assert env.session_id in result.stdout, "session_id should be included in the prompt response"
     # Verify context file was created by the hook in session dir (not output dir)
     session_dir = get_session_dir(env.session_id)
-    context_file = session_dir / "flow_context.json"
-    assert context_file.exists(), "flow_context.json should be created by SESSION_START hook"
+    context_file = session_dir / "record.json"
+    assert context_file.exists(), "record.json should be created by SESSION_START hook"
 
     # Verify it contains session_id
     with open(context_file) as f:
@@ -114,7 +115,7 @@ def test_mcp_session_flow_context_usage():
     # Write a timestamp directly using ResourceRecord
     timestamp = str(int(time.time()))
     session_dir = get_session_dir(env.session_id)
-    context_file = session_dir / "flow_context.json"
+    context_file = session_dir / "record.json"
     store = FsRecord.from_json(context_file)
     store["the key"] = timestamp
     store.persist()

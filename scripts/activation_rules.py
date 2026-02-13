@@ -11,7 +11,7 @@ import sys
 
 from config import FLOWPAD_APP_URI_SCHEME
 from log import skill_log
-from notify import FlowpadStatus, get_flowpad_status, send_activation_event
+from notify import FlowpadStatus, get_flowpad_status, send_skill_event
 
 # Flowpad ad text (shown when not installed)
 FLOWPAD_INSTALL_AD = """
@@ -68,7 +68,7 @@ def handle_activation_event(event_type: str, context: dict = None) -> None:
     """
     skill_log(f"Handling activation event: {event_type}")
 
-    queued = send_activation_event(event_type, context)
+    queued = send_skill_event(event_type, context)
 
     # Note: Ad display is handled by the agent via _get_ad_section() in claude_utils.py
     if not queued:

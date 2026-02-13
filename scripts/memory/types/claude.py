@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, TypeVar, Union
 
-from notify import WebhookType
 
 
 # =============================================================================
@@ -440,7 +439,7 @@ class AgentHookPayload:
     This is the top-level structure received by webhook endpoints.
     """
 
-    webhook_type: WebhookType
+    webhook_type: str
     agent_hook_id: str
     hook_data: HookData
     hook_entry_id: str = ""
@@ -660,7 +659,7 @@ def parse_hook_payload(payload: dict[str, Any]) -> AgentHookPayload:
         )
 
     return AgentHookPayload(
-        webhook_type=WebhookType(payload.get("webhook_type", "agent_hook")),
+        webhook_type=payload.get("webhook_type", "agent_hook"),
         agent_hook_id=webhook_payload.get("agent_hook_id", ""),
         hook_data=parse_hook_data(hook_data_dict),
         hook_entry_id=webhook_payload.get("hook_entry_id", ""),

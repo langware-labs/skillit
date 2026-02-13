@@ -3,8 +3,9 @@ from pathlib import Path
 from agent_manager import SubAgent, get_subagent_launch_prompt
 from conf import get_session_dir, get_session_output_dir
 from log import skill_log_print
-from notify import send_task_event
-from task_resource import TaskEventType, TaskResource, TaskStatus, TaskType
+from fs_store import SyncOperation
+from notify import send_task_sync
+from task_resource import TaskResource, TaskStatus, TaskType
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
 
 TRANSCRIPT_PATH = Path(__file__).parent / "unit" / "resources" / "jira_acli_fail.jsonl"
@@ -33,8 +34,8 @@ def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
             "analysisJsonPath": str(output_dir / "analysis.json"),
         },
     )
-    task.save_to(get_session_dir(session_id) / "task.json")
-    send_task_event(TaskEventType.TASK_CREATED, task.model_dump(mode="json"))
+    task.save_to(get_session_dir(session_id))
+    send_task_sync(SyncOperation.CREATE, task.to_dict())
 
     transcript = ClaudeTranscript.load(TRANSCRIPT_PATH)
     prompt_transcript_entry = transcript.get_entries("user")[0]
@@ -56,8 +57,8 @@ def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
 
     # Update task to "Done" and reflect to FlowPad
     task.status = TaskStatus.DONE
-    task.save_to(get_session_dir(session_id) / "task.json")
-    send_task_event(TaskEventType.TASK_UPDATED, task.model_dump(mode="json"))
+    task.save_to(get_session_dir(session_id))
+    send_task_sync(SyncOperation.UPDATE, task.to_dict())
 
     return result.stdout
 

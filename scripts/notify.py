@@ -12,9 +12,8 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 import xml.etree.ElementTree as ET
-from dataclasses import asdict, dataclass
-from enum import StrEnum
 from typing import Optional
 
 from flowpad_discovery import (
@@ -23,27 +22,8 @@ from flowpad_discovery import (
     is_webhook_rate_limited,
     record_webhook_failure,
 )
+from fs_store import RecordType, RefType, SyncOperation
 from log import skill_log
-
-
-class WebhookType(StrEnum):
-    SKILL_NOTIFICATION = "skill_notification"
-    SKILLIT_LOG = "skillit_log"
-    ACTIVATION_RULES = "activation_rules"
-    AGENT_HOOK = "agent_hook"
-    INSTRUCTION_TRACE = "instruction_trace"
-    MCP_WEBHOOK = "mcp_webhook"
-
-
-@dataclass
-class SkillNotification:
-    """Skill notification payload."""
-
-    skill_name: str
-    matched_keyword: str
-    prompt: str
-    handler_name: str
-    folder_path: str  # Working directory where skill output is generated
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +80,7 @@ def _send_fire_and_forget(url: str, data: bytes, log_context: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Generic webhook sender
+# Helpers
 # ---------------------------------------------------------------------------
 
 def _get_execution_scope() -> list:
@@ -168,14 +148,28 @@ def xml_str_to_flow_data_dict(xml_str: str) -> dict:
     return result
 
 
-def send_webhook_event(webhook_type: WebhookType, webhook_payload: dict | str, log_context: str) -> bool:
-    """Send a webhook to FlowPad (fire-and-forget).
+# ---------------------------------------------------------------------------
+# Core resource sync sender
+# ---------------------------------------------------------------------------
 
-    Handles discovery, rate limiting, and envelope wrapping.
+def send_resource_sync(
+    type: str,
+    id: str,
+    operation: SyncOperation,
+    data: dict | str,
+    ref_type: RefType = RefType.DATA,
+    log_context: str = "",
+) -> bool:
+    """Send a resource sync event to FlowPad (fire-and-forget).
+
+    All notifications flow through this single envelope format.
 
     Args:
-        webhook_type: A WebhookType enum value.
-        webhook_payload: Type-specific payload dict.
+        type: A RecordType value (e.g. "task", "skill_event").
+        id: Unique identifier for the resource.
+        operation: create / update / delete.
+        data: Resource payload.
+        ref_type: Whether data is inline ("data") or a path reference ("path").
         log_context: Context string for logging.
 
     Returns:
@@ -186,19 +180,25 @@ def send_webhook_event(webhook_type: WebhookType, webhook_payload: dict | str, l
         return False
 
     report_url = _get_report_url()
-    print(f"[notify] webhook url: {report_url} | type: {webhook_type} | {log_context}")
+    ctx = log_context or f"{type}/{operation}"
+    print(f"[notify] webhook url: {report_url} | type: {type} | op: {operation} | {ctx}")
     if not report_url:
-        skill_log(f"Notification skipped: Flowpad not running ({log_context})")
+        skill_log(f"Notification skipped: Flowpad not running ({ctx})")
         return False
 
     payload = {
-        "webhook_type": webhook_type,
-        "webhook_payload": webhook_payload,
+        "webhook_type": "resource_sync",
+        "webhook_payload": {
+            "type": type,
+            "id": id,
+            "operation": str(operation),
+            "ref_type": str(ref_type),
+            "data": data,
+        },
     }
 
-    data = json.dumps(payload).encode("utf-8")
-
-    _send_fire_and_forget(report_url, data, log_context)
+    raw = json.dumps(payload).encode("utf-8")
+    _send_fire_and_forget(report_url, raw, ctx)
     return True
 
 
@@ -206,7 +206,7 @@ def send_webhook_event(webhook_type: WebhookType, webhook_payload: dict | str, l
 # Typed convenience senders
 # ---------------------------------------------------------------------------
 
-def send_skill_notification(
+def send_skill_activation(
     skill_name: str,
     matched_keyword: str,
     prompt: str,
@@ -225,25 +225,24 @@ def send_skill_notification(
     Returns:
         True if notification was queued, False if Flowpad not running
     """
-    notification = SkillNotification(
-        skill_name=skill_name,
-        matched_keyword=matched_keyword,
-        prompt=prompt,
-        handler_name=handler_name,
-        folder_path=folder_path,
-    )
-    return send_webhook_event(
-        webhook_type=WebhookType.SKILL_NOTIFICATION,
-        webhook_payload={
-            "notification": asdict(notification),
+    return send_resource_sync(
+        type=RecordType.SKILL_ACTIVATION,
+        id=str(uuid.uuid4()),
+        operation=SyncOperation.CREATE,
+        data={
+            "skill_name": skill_name,
+            "matched_keyword": matched_keyword,
+            "prompt": prompt,
+            "handler_name": handler_name,
+            "folder_path": folder_path,
             "execution_scope": _get_execution_scope(),
         },
         log_context=f"skill={skill_name}",
     )
 
 
-def send_skillit_notification(event_type: str, context: dict | str = None) -> bool:
-    """Send a skillit log event to FlowPad (fire-and-forget).
+def send_log_event(event_type: str, context: dict | str = None) -> bool:
+    """Send a log event to FlowPad (fire-and-forget).
 
     Args:
         event_type: Type of event (e.g., "skill_matched", "hook_triggered").
@@ -252,19 +251,20 @@ def send_skillit_notification(event_type: str, context: dict | str = None) -> bo
     Returns:
         True if notification was queued, False if Flowpad not running.
     """
-    return send_webhook_event(
-        webhook_type=WebhookType.SKILLIT_LOG,
-        webhook_payload={
-            "event": {
-                "type": event_type,
-                "context": context or {},
-            },
+    return send_resource_sync(
+        type=RecordType.LOG,
+        id=str(uuid.uuid4()),
+        operation=SyncOperation.CREATE,
+        data={
+            "event_type": event_type,
+            "context": context or {},
         },
-        log_context=f"skillit_log={event_type}",
+        log_context=f"log={event_type}",
     )
 
-def send_activation_event(event_type: str, context: dict = None) -> bool:
-    """Send activation rules event to FlowPad (fire-and-forget).
+
+def send_skill_event(event_type: str, context: dict = None) -> bool:
+    """Send a skill lifecycle event to FlowPad (fire-and-forget).
 
     Args:
         event_type: Type of event (e.g., "started_generating_skill", "skill_ready").
@@ -273,38 +273,54 @@ def send_activation_event(event_type: str, context: dict = None) -> bool:
     Returns:
         True if notification was queued, False if Flowpad not running.
     """
-    return send_webhook_event(
-        webhook_type=WebhookType.ACTIVATION_RULES,
-        webhook_payload={
-            "event": {
-                "type": event_type,
-                "context": context or {},
-            },
+    return send_resource_sync(
+        type=RecordType.SKILL_EVENT,
+        id=str(uuid.uuid4()),
+        operation=SyncOperation.CREATE,
+        data={
+            "event_type": event_type,
+            "context": context or {},
             "execution_scope": _get_execution_scope(),
         },
         log_context=f"event={event_type}",
     )
 
 
-
-def send_task_event(event_type: str, task_data: dict) -> bool:
-    """Send a task lifecycle event to FlowPad via MCP_WEBHOOK.
+def send_task_sync(operation: SyncOperation, task_data: dict) -> bool:
+    """Send a task lifecycle event to FlowPad.
 
     Args:
-        event_type: A TaskEventType value ("task_created" or "task_updated")
-        task_data: Full task entity dict (from TaskResource.model_dump())
+        operation: SyncOperation.CREATE or SyncOperation.UPDATE
+        task_data: Full task entity dict (from TaskResource.to_dict())
 
     Returns:
         True if notification was queued, False if Flowpad not running.
     """
-    return send_webhook_event(
-        webhook_type=WebhookType.MCP_WEBHOOK,
-        webhook_payload={
-            "element_type": event_type,
-            "data_type": "object",
-            "flow_value": task_data,
-        },
-        log_context=f"task_event={event_type} id={task_data.get('id', '?')}",
+    task_id = task_data.get("id", str(uuid.uuid4()))
+    return send_resource_sync(
+        type=RecordType.TASK,
+        id=task_id,
+        operation=operation,
+        data=task_data,
+        log_context=f"task {operation} id={task_id}",
+    )
+
+
+def send_flow_tag(flow_data: dict) -> bool:
+    """Send a flow tag event to FlowPad.
+
+    Args:
+        flow_data: Parsed flow tag dict (from xml_str_to_flow_data_dict).
+
+    Returns:
+        True if notification was queued, False if Flowpad not running.
+    """
+    return send_resource_sync(
+        type=RecordType.SKILL_EVENT,
+        id=str(uuid.uuid4()),
+        operation=SyncOperation.CREATE,
+        data=flow_data,
+        log_context=f"flow_tag={flow_data.get('element_type', 'unknown')}",
     )
 
 
@@ -317,7 +333,8 @@ def send_hello_skillit_notification(context: dict = None) -> bool:
     Returns:
         True if notification was queued, False if Flowpad not running.
     """
-    return send_skillit_notification("hello_skillit", context)
+    return send_log_event("hello_skillit", context)
+
 
 def main():
     if len(sys.argv) < 3:
@@ -333,7 +350,7 @@ def main():
     handler_name = sys.argv[4] if len(sys.argv) > 4 else "unknown"
     folder_path = sys.argv[5] if len(sys.argv) > 5 else ""
 
-    success = send_skill_notification(skill_name, matched_keyword, prompt, handler_name, folder_path)
+    success = send_skill_activation(skill_name, matched_keyword, prompt, handler_name, folder_path)
     if success:
         print(f"Notification queued for skill: {skill_name}")
         import time
@@ -345,4 +362,3 @@ if __name__ == "__main__":
     # CLI interface for testing
     send_hello_skillit_notification()
     # main() # Uncomment to test skill notification with CLI args
-

@@ -8,7 +8,7 @@ from log import skill_log
 sys.path.insert(0, str(Path(__file__).parent))
 
 from fastmcp import FastMCP
-from notify import WebhookType, send_webhook_event, xml_str_to_flow_data_dict
+from notify import send_flow_tag, xml_str_to_flow_data_dict
 from conf import get_session_dir
 from fs_store import FsRecord
 
@@ -38,11 +38,7 @@ def flow_tag(flow_tag_xml: str) -> str:
 
     skill_log(f"MCP parsed flow data: {flow_data}")
 
-    success = send_webhook_event(
-        webhook_type=WebhookType.MCP_WEBHOOK,
-        webhook_payload=flow_data,
-        log_context=f"mcp_flow_tag={flow_data.get('element_type', 'unknown')}",
-    )
+    success = send_flow_tag(flow_data)
 
     status = "sent" if success else "skipped (FlowPad unavailable)"
     return f"Flow tag {flow_data.get('element_type', 'unknown')}: {status}"
@@ -81,7 +77,7 @@ def flow_context(session_id: str, action: str, key: str, value: str = None) -> s
     # Get session directory and initialize store
     try:
         session_dir = get_session_dir(session_id)
-        store_path = session_dir / "flow_context.json"
+        store_path = session_dir / "record.json"
         store = FsRecord.from_json(store_path)
     except Exception as e:
         return f"Error initializing context store: {e}"

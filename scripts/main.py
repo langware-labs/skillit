@@ -15,8 +15,9 @@ from memory import create_rule_engine
 from modifiers.analyze_and_create_activation_rules import handle_analyze
 from modifiers.create_test import handle_create_test
 from modifiers.test import handle_test
-from notify import send_skill_notification, send_activation_event, send_task_event
-from task_resource import TaskEventType, TaskResource, TaskStatus, TaskType
+from fs_store import SyncOperation
+from notify import send_skill_activation, send_skill_event, send_task_sync
+from task_resource import TaskResource, TaskStatus, TaskType
 
 # =============================================================================
 # KEYWORD MAPPINGS
@@ -169,8 +170,8 @@ def _send_analysis_task_created(data: dict) -> None:
             "analysisJsonPath": str(output_dir / "analysis.json"),
         },
     )
-    task.save_to(get_session_dir(session_id) / "task.json")
-    send_task_event(TaskEventType.TASK_CREATED, task.model_dump(mode="json"))
+    task.save_to(get_session_dir(session_id))
+    send_task_sync(SyncOperation.CREATE, task.to_dict())
 
 
 def main():
@@ -203,7 +204,7 @@ def main():
         "pid": os.getpid(),
         "cwd": os.getcwd(),
     }
-    send_activation_event("skillit called", event_context)
+    send_skill_event("skillit called", event_context)
 
     prompt = data.get("prompt", "")
     skill_log(f"Prompt: {prompt}")
@@ -219,7 +220,7 @@ def main():
         if handler:
             skill_log(f"Keyword matched: '{matched_keyword}', invoking handler {handler.__name__}")
             # Send notification to FlowPad backend (fire-and-forget)
-            send_skill_notification(
+            send_skill_activation(
                 skill_name="skillit",
                 matched_keyword=matched_keyword,
                 prompt=prompt,

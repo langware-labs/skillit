@@ -212,7 +212,7 @@ import sys; sys.path.insert(0, "{SCRIPT_DIR}")
 import os
 os.environ["FLOWPAD_EXECUTION_SCOPE"] = '[{{"type": "flow", "id": "test-123"}}]'
 
-from notify import get_flowpad_status, send_skill_notification
+from notify import get_flowpad_status, send_skill_activation
 from flowpad_discovery import FlowpadStatus
 
 status = get_flowpad_status()
@@ -220,7 +220,7 @@ if status != FlowpadStatus.RUNNING:
     print("FAIL:flowpad_status=" + status)
     sys.exit(1)
 
-success = send_skill_notification(
+success = send_skill_activation(
     skill_name="skillit",
     matched_keyword="test-keyword",
     prompt="test prompt",
@@ -322,7 +322,7 @@ print("AD_EMPTY:" + str(ad == ""))
         result = subprocess.run(
             ["python", "-c", f"""
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
-from notify import get_flowpad_status, send_activation_event
+from notify import get_flowpad_status, send_skill_event
 from flowpad_discovery import FlowpadStatus
 
 status = get_flowpad_status()
@@ -330,7 +330,7 @@ if status != FlowpadStatus.RUNNING:
     print("FAIL:flowpad_status=" + status)
     sys.exit(1)
 
-success = send_activation_event("skill_ready", {{"skill_name": "test-skill", "session_id": "test-123"}})
+success = send_skill_event("skill_ready", {{"skill_name": "test-skill", "session_id": "test-123"}})
 print("SENT:" + str(success))
 import time; time.sleep(0.5)
 """],

@@ -1,4 +1,4 @@
-"""Inject session_id into flow_context.json on SessionStart."""
+"""Inject session_id into session record on SessionStart."""
 from conf import get_session_output_dir
 from memory.rule_engine.trigger_executor import Action
 
@@ -14,11 +14,14 @@ def evaluate(hooks_data: dict, transcript: list) -> Action | None:
 
     # Write session_id directly to the JSON store
     from conf import get_session_dir
-    from fs_store import FsRecord
+    from fs_store import FsRecord, RecordType
 
     session_dir = get_session_dir(session_id)
-    store = FsRecord.from_json(session_dir / "flow_context.json")
+    store = FsRecord.from_json(session_dir / "record.json")
     store["session_id"] = session_id
+    if not store.type:
+        store.type = RecordType.SESSION
+        store.id = session_id
     store.persist()
     session_output_dir = get_session_output_dir(session_id)
 
