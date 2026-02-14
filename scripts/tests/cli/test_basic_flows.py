@@ -3,11 +3,9 @@ from pathlib import Path
 import json
 
 from agent_manager import SubAgent, get_subagent_launch_prompt
+from analysis import start_new_analysis, complete_analysis
 from conf import get_session_dir, get_session_output_dir
 from log import skill_log_print, skill_log_clear
-from fs_store import SyncOperation
-from notify import send_task_sync
-from task_resource import TaskResource, TaskStatus, TaskType
 from fs_store import FsRecord
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
 
@@ -21,24 +19,9 @@ def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
         The analysis output text (stdout from the analyzer subagent).
     """
     session_id = env.session_id
-    output_dir = get_session_output_dir(session_id)
 
-    # Create "In Progress" task and reflect to FlowPad
-    task = TaskResource(
-        id=f"analysis-{session_id}",
-        title="Analyzing session",
-        status=TaskStatus.IN_PROGRESS,
-        task_type=TaskType.ANALYSIS,
-        tags=["analysis", "skillit"],
-        metadata={
-            "session_id": session_id,
-            "output_dir": str(output_dir),
-            "analysisPath": str(output_dir / "analysis.md"),
-            "analysisJsonPath": str(output_dir / "analysis.json"),
-        },
-    )
-    task.save_to(get_session_dir(session_id))
-    send_task_sync(SyncOperation.CREATE, task.to_dict())
+    # Create "In Progress" task + agentic process and reflect to FlowPad
+    resources = start_new_analysis(session_id)
 
     transcript = ClaudeTranscript.load(TRANSCRIPT_PATH)
     prompt_transcript_entry = transcript.get_entries("user")[0]
@@ -58,10 +41,8 @@ def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
     result = env.launch_claude(context_add, mode=mode)
     assert result.returncode == 0
 
-    # Update task to "Done" and reflect to FlowPad
-    task.status = TaskStatus.DONE
-    task.save_to(get_session_dir(session_id))
-    send_task_sync(SyncOperation.UPDATE, task.to_dict())
+    # Update task + process to "Done" and reflect to FlowPad
+    complete_analysis(resources, session_id)
 
     return result.stdout
 

@@ -14,7 +14,7 @@ You receive an issue to create a trigger for, your task is to create a rule with
 
 your todo list:
 1. Review the provided issue details, including its name, description, and classification.
-2. Copy the template folder from C:\Users\gadi\projects\skillit/templates/rule_template to the rules folder and rename it to match the issue name.
+2. Copy the template folder from /Users/shlom/Documents/dev/skillit/templates/rule_template to the rules folder and rename it to match the issue name.
 3. Edit the rule.md file to include the issue details and your analysis of how to address it.
 4. Edit the trigger.py file to implement the logic for detecting the issue based on the transcript context.
 5. Build an eval case, run it, and verify it passes, fix treigger.py as needed.
@@ -30,12 +30,12 @@ Create a subdirectory under `<rule_dir>/eval/` for each test scenario:
   expected_output.json   # Expected trigger result
 ```
 
-**transcript.jsonl** — Must contain at least one user entry:
+**transcript.jsonl** â€” Must contain at least one user entry:
 ```json
 {"type":"user","message":{"role":"user","content":"the user prompt"},"cwd":"/project/path"}
 ```
 
-**expected_output.json** — The expected trigger/action result:
+**expected_output.json** â€” The expected trigger/action result:
 ```json
 {"trigger": true, "actions": [{"type": "add_context"}]}
 ```

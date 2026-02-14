@@ -11,6 +11,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, ClassVar, TypeVar
 
+from .fs_record_ref import FsRecordRef
 from .scope import Scope
 
 T = TypeVar("T", bound="ResourceRecord")
@@ -71,8 +72,9 @@ class ResourceRecord:
     # Extra fields (replaces Pydantic extra="allow")
     extra: dict = field(default_factory=dict)
 
-    # Nested children (like filesystem nesting)
-    children: list[ResourceRecord] = field(default_factory=list)
+    # Relationships (flat refs, never embedded objects)
+    children_refs: list[FsRecordRef] = field(default_factory=list)
+    parent_ref: FsRecordRef | None = None
 
     # -- Naming helpers --
 
@@ -124,15 +126,18 @@ class ResourceRecord:
         data = asdict(self)
         result = {}
         for key, value in data.items():
-            if key in ("extra", "children"):
+            if key in ("extra", "children_refs", "parent_ref"):
                 continue
             result[key] = _convert(value)
         # Merge extra fields at the top level
         for key, value in data.get("extra", {}).items():
             result[key] = _convert(value)
-        # Recursively serialize children
-        if self.children:
-            result["children"] = [c.to_dict() for c in self.children]
+        # Serialize children refs
+        if self.children_refs:
+            result["children"] = [c.to_dict() for c in self.children_refs]
+        # Serialize parent ref
+        if self.parent_ref is not None:
+            result["parent"] = self.parent_ref.to_dict()
         return result
 
     @classmethod
@@ -143,17 +148,24 @@ class ResourceRecord:
         extra: dict[str, Any] = {}
 
         for key, value in data.items():
-            if key == "children":
+            if key in ("children", "children_refs", "parent", "parent_ref", "parent_id"):
                 continue  # handled below
             elif key in known_fields and key != "extra":
                 kwargs[key] = value
             else:
                 extra[key] = value
 
-        # Recursively deserialize children
+        # Deserialize children as FsRecordRef
         raw_children = data.get("children", [])
         if raw_children:
-            kwargs["children"] = [cls.from_dict(c) for c in raw_children]
+            kwargs["children_refs"] = [FsRecordRef.from_dict(c) for c in raw_children]
+
+        # Deserialize parent ref (new format: dict, old format: parent_id string)
+        raw_parent = data.get("parent")
+        if isinstance(raw_parent, dict):
+            kwargs["parent_ref"] = FsRecordRef.from_dict(raw_parent)
+        elif "parent_id" in data and data["parent_id"] is not None:
+            kwargs["parent_ref"] = FsRecordRef(id=data["parent_id"], type="")
 
         # Coerce scope to Scope enum when possible
         if "scope" in kwargs and isinstance(kwargs["scope"], str):

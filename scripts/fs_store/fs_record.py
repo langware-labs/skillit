@@ -17,8 +17,34 @@ class FsRecord(ResourceRecord):
     """A ResourceRecord that can persist itself to a JSON file.
 
     Adds ``from_json`` / ``to_json`` / ``persist`` on top of the base
-    data-contract class.
+    data-contract class.  The ``parent`` and ``children`` properties
+    resolve refs to live records loaded from disk.
     """
+
+    # -- Live relationship properties --
+
+    @property
+    def parent(self) -> FsRecord | None:
+        """Load the parent record from disk via parent_ref.record_path."""
+        if self.parent_ref is None or not self.parent_ref.record_path:
+            return None
+        p = Path(self.parent_ref.record_path)
+        if not p.exists():
+            return None
+        return FsRecord.from_json(p)
+
+    @property
+    def children(self) -> list[FsRecord]:
+        """Load child records from disk via each ref's record_path."""
+        result: list[FsRecord] = []
+        for ref in self.children_refs:
+            if not ref.record_path:
+                continue
+            p = Path(ref.record_path)
+            if not p.exists():
+                continue
+            result.append(FsRecord.from_json(p))
+        return result
 
     @classmethod
     def from_json(cls, path: str | Path) -> FsRecord:

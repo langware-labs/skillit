@@ -3,6 +3,11 @@
 from enum import StrEnum
 
 
+class ResourceType(StrEnum):
+    ENTITY = "entity"
+    RELATIONSHIP = "relationship"
+
+
 class SyncOperation(StrEnum):
     CREATE = "create"
     UPDATE = "update"

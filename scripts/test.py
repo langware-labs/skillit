@@ -238,9 +238,20 @@ import time; time.sleep(0.5)
         time.sleep(0.3)
 
         if TestServerHandler.received:
-            notif = TestServerHandler.received[0]["webhook_payload"]["notification"]
-            print(f"✓ Notification received: skill={notif['skill_name']}, handler={notif['handler_name']}")
-            passed = True
+            payload = TestServerHandler.received[0]["webhook_payload"]
+            event = payload["data"]
+            notif = event.get("event_data", {})
+            passed = (
+                payload.get("resource_type") == "entity"
+                and payload.get("type") == "skill"
+                and payload.get("operation") == "event"
+                and event.get("event_name") == "skill_activated"
+                and notif.get("handler_name") == "test_handler"
+            )
+            print(
+                f"{'✓' if passed else '✗'} Notification received: "
+                f"event={event.get('event_name')}, handler={notif.get('handler_name')}"
+            )
         else:
             print("✗ No notification received")
             passed = False
@@ -339,9 +350,18 @@ import time; time.sleep(0.5)
         time.sleep(0.3)
 
         if TestServerHandler.received:
-            event = TestServerHandler.received[0]["webhook_payload"]["event"]
-            test2_passed = event["type"] == "skill_ready"
-            print(f"{'✓' if test2_passed else '✗'} Notification received: type={event['type']}")
+            payload = TestServerHandler.received[0]["webhook_payload"]
+            event = payload["data"]
+            test2_passed = (
+                payload.get("resource_type") == "entity"
+                and payload.get("type") == "skill"
+                and payload.get("operation") == "event"
+                and event.get("event_name") == "skill_ready"
+            )
+            print(
+                f"{'✓' if test2_passed else '✗'} Notification received: "
+                f"event={event.get('event_name')}"
+            )
         else:
             print("✗ No notification received")
             if result.stderr:

@@ -345,8 +345,13 @@ class TestPluginProjectEnvironment:
         self._env_vars.pop(key, None)
 
     def _build_env(self) -> dict[str, str]:
-        """Return a copy of os.environ merged with custom env vars."""
+        """Return a copy of os.environ merged with custom env vars.
+
+        Strips ``CLAUDECODE`` so child ``claude`` processes don't refuse
+        to start with a nested-session guard error.
+        """
         env = os.environ.copy()
+        env.pop("CLAUDECODE", None)
         env.update(self._env_vars)
         return env
 
@@ -413,17 +418,20 @@ class TestPluginProjectEnvironment:
         SkillitPluginManager().build()
 
         plugin_name, marketplace_name, _ = self._read_plugin_meta()
+        env = self._build_env()
 
         # Ensure marketplace points at the local repo
         subprocess.run(
             ["claude", "plugin", "marketplace", "remove", marketplace_name],
             capture_output=True,
+            env=env,
         )
         rel_path = os.path.relpath(SKILLIT_ROOT, os.getcwd())
         local_path = f"./{rel_path.replace(os.sep, '/')}"
         subprocess.run(
             ["claude", "plugin", "marketplace", "add", local_path],
             check=True,
+            env=env,
         )
 
         # Install plugin
@@ -432,6 +440,7 @@ class TestPluginProjectEnvironment:
             ["claude", "plugin", "install", plugin_ref, "--scope", "project"],
             cwd=str(self.temp_dir),
             check=True,
+            env=env,
         )
 
         # Enable plugin at project scope (may already be enabled after install)
@@ -440,6 +449,7 @@ class TestPluginProjectEnvironment:
             cwd=str(self.temp_dir),
             capture_output=True,
             text=True,
+            env=env,
         )
         if result.returncode != 0 and "already enabled" not in result.stderr:
             raise RuntimeError(

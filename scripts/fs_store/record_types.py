@@ -9,3 +9,5 @@ class RecordType(StrEnum):
     RULE = "rule"
     SKILL = "skill"
     LOG = "log"
+    AGENTIC_PROCESS = "agentic_process"
+    ARTIFACT = "artifact"

@@ -22,7 +22,7 @@ from flowpad_discovery import (
     is_webhook_rate_limited,
     record_webhook_failure,
 )
-from fs_store import RecordType, RefType, SyncOperation
+from fs_store import RecordType, RefType, ResourceType, SyncOperation
 from log import skill_log
 
 
@@ -157,6 +157,7 @@ def send_resource_sync(
     id: str,
     operation: SyncOperation,
     data: dict | str,
+    resource_type: ResourceType = ResourceType.ENTITY,
     ref_type: RefType = RefType.DATA,
     log_context: str = "",
 ) -> bool:
@@ -171,6 +172,7 @@ def send_resource_sync(
         {
             "webhook_type": "resource_sync",
             "webhook_payload": {
+                "resource_type":    "entity" | "relationship",
                 "type":             <RecordType>,
                 "id":               <uuid>,
                 "operation":        "create" | "update" | "delete" | "event",
@@ -188,10 +190,11 @@ def send_resource_sync(
         {"event_name": "...", "event_data": {...}}
 
     Args:
-        type: A RecordType value (e.g. "task", "skill_event").
+        type: Entity type (e.g. "task") or relationship kind (e.g. "child").
         id: Unique identifier for the resource or event.
         operation: create / update / delete / event.
         data: Resource payload (CRUD) or event payload (EVENT).
+        resource_type: Whether this sync is for an entity or a relationship.
         ref_type: Whether data is inline ("data") or a path reference ("path").
         log_context: Context string for logging.
 
@@ -212,6 +215,7 @@ def send_resource_sync(
     payload = {
         "webhook_type": "resource_sync",
         "webhook_payload": {
+            "resource_type": str(resource_type),
             "type": type,
             "id": id,
             "operation": str(operation),
@@ -327,7 +331,51 @@ def send_task_sync(operation: SyncOperation, task_data: dict) -> bool:
         id=task_id,
         operation=operation,
         data=task_data,
+        resource_type=ResourceType.ENTITY,
         log_context=f"task {operation} id={task_id}",
+    )
+
+
+def send_process_sync(operation: SyncOperation, process_data: dict) -> bool:
+    """Send an agentic process CRUD sync to FlowPad.
+
+    Args:
+        operation: SyncOperation.CREATE or SyncOperation.UPDATE
+        process_data: Full AgenticProcess ResourceRecord dict (from AgenticProcess.to_dict())
+
+    Returns:
+        True if notification was queued, False if Flowpad not running.
+    """
+    process_id = process_data.get("id", str(uuid.uuid4()))
+    return send_resource_sync(
+        type=RecordType.AGENTIC_PROCESS,
+        id=process_id,
+        operation=operation,
+        data=process_data,
+        resource_type=ResourceType.ENTITY,
+        log_context=f"process {operation} id={process_id}",
+    )
+
+
+def send_relationship_sync(operation: SyncOperation, relationship_data: dict) -> bool:
+    """Send a relationship CRUD sync to FlowPad.
+
+    Args:
+        operation: SyncOperation.CREATE / UPDATE / DELETE.
+        relationship_data: Full RelationshipRecord dict.
+
+    Returns:
+        True if notification was queued, False if Flowpad not running.
+    """
+    relationship_id = relationship_data.get("id", str(uuid.uuid4()))
+    relationship_type = relationship_data.get("type", "relationship")
+    return send_resource_sync(
+        type=relationship_type,
+        id=relationship_id,
+        operation=operation,
+        data=relationship_data,
+        resource_type=ResourceType.RELATIONSHIP,
+        log_context=f"relationship {operation} id={relationship_id}",
     )
 
 

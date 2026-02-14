@@ -9,15 +9,13 @@ import re
 import sys
 from pathlib import Path
 
-from conf import get_session_dir, get_session_output_dir
+from analysis import start_new_analysis
 from log import skill_log
 from memory import create_rule_engine
 from modifiers.analyze_and_create_activation_rules import handle_analyze
 from modifiers.create_test import handle_create_test
 from modifiers.test import handle_test
-from fs_store import SyncOperation
-from notify import send_skill_activation, send_skill_event, send_task_sync
-from task_resource import TaskResource, TaskStatus, TaskType
+from notify import send_skill_activation, send_skill_event
 
 # =============================================================================
 # KEYWORD MAPPINGS
@@ -155,23 +153,7 @@ def _send_analysis_task_created(data: dict) -> None:
     if not session_id:
         skill_log("No session_id in hook data, skipping task_created event")
         return
-
-    output_dir = get_session_output_dir(session_id)
-    task = TaskResource(
-        id=f"analysis-{session_id}",
-        title="Analyzing session",
-        status=TaskStatus.IN_PROGRESS,
-        task_type=TaskType.ANALYSIS,
-        tags=["analysis", "skillit"],
-        metadata={
-            "session_id": session_id,
-            "output_dir": str(output_dir),
-            "analysisPath": str(output_dir / "analysis.md"),
-            "analysisJsonPath": str(output_dir / "analysis.json"),
-        },
-    )
-    task.save_to(get_session_dir(session_id))
-    send_task_sync(SyncOperation.CREATE, task.to_dict())
+    start_new_analysis(session_id)
 
 
 def main():

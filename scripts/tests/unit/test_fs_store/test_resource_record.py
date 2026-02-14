@@ -6,7 +6,7 @@ from datetime import datetime
 
 import pytest
 
-from fs_store import ResourceRecord, Scope
+from fs_store import FsRecordRef, ResourceRecord, Scope
 from fs_store.resource_record import parse_record_stem, record_stem
 
 
@@ -200,21 +200,22 @@ class TestKeyValueAccess:
 
 
 # ---------------------------------------------------------------------------
-# Children (nested records)
+# Children refs (FsRecordRef list)
 # ---------------------------------------------------------------------------
 
-class TestChildren:
+class TestChildrenRefs:
     def test_no_children_by_default(self):
         r = ResourceRecord()
-        assert r.children == []
+        assert r.children_refs == []
 
-    def test_add_children(self):
+    def test_add_children_refs(self):
         parent = ResourceRecord(id="p", type="folder", name="parent")
-        child1 = ResourceRecord(id="c1", type="file", name="child1")
-        child2 = ResourceRecord(id="c2", type="file", name="child2")
-        parent.children = [child1, child2]
-        assert len(parent.children) == 2
-        assert parent.children[0].uid == "c1"
+        parent.children_refs = [
+            FsRecordRef(id="c1", type="file"),
+            FsRecordRef(id="c2", type="file"),
+        ]
+        assert len(parent.children_refs) == 2
+        assert parent.children_refs[0].id == "c1"
 
     def test_to_dict_excludes_empty_children(self):
         r = ResourceRecord(id="no-kids")
@@ -223,66 +224,97 @@ class TestChildren:
 
     def test_to_dict_includes_children(self):
         parent = ResourceRecord(id="p", type="folder")
-        parent.children = [
-            ResourceRecord(id="c1", type="file", name="a"),
-            ResourceRecord(id="c2", type="file", name="b"),
+        parent.children_refs = [
+            FsRecordRef(id="c1", type="file"),
+            FsRecordRef(id="c2", type="file"),
         ]
         d = parent.to_dict()
         assert "children" in d
         assert len(d["children"]) == 2
         assert d["children"][0]["id"] == "c1"
-        assert d["children"][1]["name"] == "b"
 
     def test_from_dict_with_children(self):
         data = {
             "id": "p",
             "type": "folder",
             "children": [
-                {"id": "c1", "type": "file", "name": "a"},
-                {"id": "c2", "type": "file", "name": "b"},
+                {"id": "c1", "type": "file"},
+                {"id": "c2", "type": "file"},
             ],
         }
         r = ResourceRecord.from_dict(data)
-        assert len(r.children) == 2
-        assert r.children[0].id == "c1"
-        assert r.children[1].name == "b"
+        assert len(r.children_refs) == 2
+        assert isinstance(r.children_refs[0], FsRecordRef)
+        assert r.children_refs[0].id == "c1"
 
     def test_from_dict_no_children_key(self):
         r = ResourceRecord.from_dict({"id": "solo"})
-        assert r.children == []
+        assert r.children_refs == []
 
     def test_children_round_trip(self):
         parent = ResourceRecord(id="p", type="folder", scope=Scope.PROJECT)
-        parent.children = [
-            ResourceRecord(
-                id="c1", type="file", name="child",
-                created_at=datetime(2025, 6, 1),
-                extra={"tag": "v"},
-            ),
+        parent.children_refs = [
+            FsRecordRef(id="c1", type="file", record_path="/tmp/c1.json"),
         ]
         d = parent.to_dict()
         r2 = ResourceRecord.from_dict(d)
-        assert len(r2.children) == 1
-        c = r2.children[0]
+        assert len(r2.children_refs) == 1
+        c = r2.children_refs[0]
+        assert isinstance(c, FsRecordRef)
         assert c.id == "c1"
-        assert isinstance(c.created_at, datetime)
-        assert c.extra["tag"] == "v"
+        assert c.record_path == "/tmp/c1.json"
 
-    def test_deeply_nested_children(self):
-        grandchild = ResourceRecord(id="gc", type="leaf")
-        child = ResourceRecord(id="c", type="node", children=[grandchild])
-        root = ResourceRecord(id="r", type="root", children=[child])
-
-        d = root.to_dict()
-        assert d["children"][0]["children"][0]["id"] == "gc"
-
-        r2 = ResourceRecord.from_dict(d)
-        assert r2.children[0].children[0].uid == "gc"
-
-    def test_children_in_subclass(self):
-        child = CloudRecord(entity_id="ce-1", type="cloud")
-        parent = CloudRecord(entity_id="pe-1", type="cloud", children=[child])
+    def test_children_refs_are_flat(self):
+        """Children are FsRecordRef — they don't embed full record data."""
+        parent = ResourceRecord(id="p", type="folder")
+        parent.children_refs = [FsRecordRef(id="c", type="file")]
         d = parent.to_dict()
-        r2 = CloudRecord.from_dict(d)
-        assert len(r2.children) == 1
-        assert r2.children[0].uid == "ce-1"
+        child_dict = d["children"][0]
+        assert set(child_dict.keys()) == {"id", "type"}
+
+    def test_children_with_record_path(self):
+        ref = FsRecordRef(id="c", type="file", record_path="/data/c.json")
+        parent = ResourceRecord(id="p", children_refs=[ref])
+        d = parent.to_dict()
+        assert d["children"][0]["record_path"] == "/data/c.json"
+
+
+# ---------------------------------------------------------------------------
+# Parent ref (FsRecordRef)
+# ---------------------------------------------------------------------------
+
+class TestParentRef:
+    def test_parent_ref_defaults_to_none(self):
+        r = ResourceRecord()
+        assert r.parent_ref is None
+
+    def test_parent_ref_round_trip(self):
+        r = ResourceRecord(id="child-1", parent_ref=FsRecordRef(id="parent-1", type="task"))
+        d = r.to_dict()
+        assert d["parent"] == {"id": "parent-1", "type": "task"}
+        r2 = ResourceRecord.from_dict(d)
+        assert isinstance(r2.parent_ref, FsRecordRef)
+        assert r2.parent_ref.id == "parent-1"
+        assert r2.parent_ref.type == "task"
+
+    def test_parent_ref_coexists_with_children_refs(self):
+        r = ResourceRecord(
+            id="mid",
+            type="node",
+            parent_ref=FsRecordRef(id="root", type="root"),
+            children_refs=[FsRecordRef(id="leaf", type="leaf")],
+        )
+        d = r.to_dict()
+        assert d["parent"]["id"] == "root"
+        assert len(d["children"]) == 1
+        r2 = ResourceRecord.from_dict(d)
+        assert r2.parent_ref.id == "root"
+        assert r2.children_refs[0].id == "leaf"
+
+    def test_backward_compat_parent_id_string(self):
+        """Old serialized data with parent_id string should deserialize to FsRecordRef."""
+        data = {"id": "child-1", "parent_id": "parent-1"}
+        r = ResourceRecord.from_dict(data)
+        assert isinstance(r.parent_ref, FsRecordRef)
+        assert r.parent_ref.id == "parent-1"
+        assert r.parent_ref.type == ""
