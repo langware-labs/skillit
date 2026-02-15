@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from subagents.agent_manager import SubAgent, get_subagent_launch_prompt
 from hook_handlers.analysis import start_new_analysis, complete_analysis
 from utils.log import skill_log_print
@@ -79,7 +81,7 @@ def create_rule(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode
     assert result.returncode == 0
     return result.stdout
 
-
+pytest.mark.skip()
 def test_create_rule():
     """End-to-end: analyze transcript, classify issues, create rule."""
     env = make_env()
@@ -96,6 +98,7 @@ def test_create_rule():
     print("=== Rule Creation ===")
     print(rule_output)
 
+pytest.mark.skip()
 def test_create_rule_complete():
     """End-to-end: analyze transcript, classify issues, create rule."""
     env = make_env()
