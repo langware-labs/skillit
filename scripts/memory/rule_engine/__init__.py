@@ -3,7 +3,6 @@
 from .activation_rule import (
     ActivationRule,
     ActivationRuleCase,
-    ActivationRuleHeader,
     EvalCaseResult,
     RuleEvaluation,
 )
@@ -45,7 +44,6 @@ __all__ = [
     # Core classes
     "ActivationRule",
     "ActivationRuleCase",
-    "ActivationRuleHeader",
     "EvalCaseResult",
     "RuleEvaluation",
     "RulesPackage",

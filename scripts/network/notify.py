@@ -207,9 +207,9 @@ def send_resource_sync(
 
     report_url = _get_report_url()
     ctx = log_context or f"{type}/{operation}"
-    print(f"[notify] webhook url: {report_url} | type: {type} | op: {operation} | {ctx}")
+    skill_log(f"[notify] webhook url: {report_url} | type: {type} | op: {operation} | {ctx}")
     if not report_url:
-        skill_log(f"Notification skipped: Flowpad not running ({ctx})")
+        skill_log(f" Notification skipped: Flowpad not running ({ctx})")
         return False
 
     payload = {

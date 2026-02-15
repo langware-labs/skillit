@@ -59,5 +59,20 @@ class SkillitRecords:
         self._config = None
         self._sessions = None
 
+    def get_session(self, claude_session_id: str) -> SkillitSession | None:
+        """Get a session by ID, or None if it doesn't exist."""
+        session = self.sessions.get(claude_session_id)
+        return session
+
+    def create_session(self, claude_session_id: str) -> SkillitSession | None:
+        """Create a new session with the given ID.
+
+        Raises if a session with that ID already exists.
+        """
+        session = SkillitSession(session_id=claude_session_id)
+        self.sessions.save(session)
+        return session
+
+
 
 skillit_records = SkillitRecords()

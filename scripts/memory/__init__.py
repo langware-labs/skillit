@@ -10,7 +10,6 @@ from .types import (
 from .rule_engine import (
     # Core classes
     ActivationRule,
-    ActivationRuleHeader,
     RulesPackage,
     RuleEngine,
     # Trigger/Action system
@@ -60,7 +59,6 @@ __all__ = [
     "HookEventType",
     # Rule engine classes (rule_engine/)
     "ActivationRule",
-    "ActivationRuleHeader",
     "RulesPackage",
     "RuleEngine",
     # Trigger/Action system

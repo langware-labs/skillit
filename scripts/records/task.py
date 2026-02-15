@@ -46,4 +46,4 @@ class TaskResource(FsRecord):
         record_path = session_dir / "record.json"
         session = FsRecord.from_json(record_path)
         session["task"] = self.to_dict()
-        session.persist()
+        session.save()

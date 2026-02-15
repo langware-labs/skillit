@@ -4,7 +4,6 @@ import json
 
 from subagents.agent_manager import SubAgent, get_subagent_launch_prompt
 from hook_handlers.analysis import start_new_analysis, complete_analysis
-from utils.conf import get_session_dir, get_session_output_dir
 from utils.log import skill_log_print, skill_log_clear
 from plugin_records.skillit_records import skillit_records
 from plugin_records.skillit_session import SkillitSession
@@ -60,10 +59,7 @@ def test_mcp_session_id_injection():
     assert env.session_id in result.stdout, "session_id should be included in the prompt response"
 
     # Verify session was created in skillit_records
-    sessions = skillit_records.sessions
-    sessions.load()
-    session = sessions.get(env.session_id)
-    assert session is not None, "session should be created by SESSION_START hook"
+    session = skillit_records.get_session(env.session_id)
     assert session.session_id == env.session_id
     skill_log_print()
 
@@ -80,10 +76,7 @@ def test_mcp_session_flow_context_usage():
     assert "1566" in result.stdout, "Claude should confirm the value was stored"
 
     # Verify session was created with the key-value pair
-    sessions = skillit_records.sessions
-    sessions.load()
-    session = sessions.get(env.session_id)
-    assert session is not None, "session should be created by SESSION_START hook"
+    session = skillit_records.get_session(env.session_id)
     assert session.session_id == env.session_id
     assert "the key" in session
     assert session["the key"] == "1566"
@@ -91,7 +84,7 @@ def test_mcp_session_flow_context_usage():
     # Write a timestamp directly via skillit_records
     timestamp = str(int(time.time()))
     session["the key"] = timestamp
-    sessions.save()
+    session.save()
 
     # Second launch (resumes session): ask Claude to retrieve the value via MCP
     instruction = (
@@ -112,7 +105,8 @@ def test_output_dir():
     env.install_plugin()
     skill_log_clear()
     analyze_hook(env, mode=LaunchMode.HEADLESS)
-    output_dir = get_session_output_dir(env.session_id)
+    session = skillit_records.get_session(env.session_id)
+    output_dir = session.output_dir
     assert output_dir.exists()
     assert any(output_dir.iterdir()), "Output directory should not be empty"
     analysis_doc = output_dir / "analysis.md"

@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pytest
 
+import plugin_records
+from plugin_records import SkillitSession
 from subagents.agent_manager import SubAgent, get_subagent_launch_prompt
 from hook_handlers.analysis import start_new_analysis, complete_analysis
 from utils.log import skill_log_print
@@ -81,7 +83,7 @@ def create_rule(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode
     assert result.returncode == 0
     return result.stdout
 
-pytest.mark.skip()
+
 def test_create_rule():
     """End-to-end: analyze transcript, classify issues, create rule."""
     env = make_env()
@@ -90,11 +92,14 @@ def test_create_rule():
     print(f"Environment set up at: {env.path}")
     # analysis = analyze_hook(env, mode=LaunchMode.INTERACTIVE)
     # analysis = analyze_hook(env, mode=LaunchMode.HEADLESS)
-    env._resume_session_id = '53058fd8-a437-4532-853a-e0bc4f98f87f'
-    classification = classify_analysis(env, mode=LaunchMode.INTERACTIVE)
-    return
-    env._resume_session_id ='ecc0171f-80d7-4fed-a694-cc3c481ddb94'
+    #env._resume_session_id = 'dc617ce9-1ae5-4cf2-a091-a487230f8797'
+    #classification = classify_analysis(env, mode=LaunchMode.INTERACTIVE)
+    # session: SkillitSession = plugin_records.skillit_records.get_session('dc617ce9-1ae5-4cf2-a091-a487230f8797')
+    env._resume_session_id ='c0b4cb5e-27bf-4e7c-b08c-cd8ebffcc278'
+    session: SkillitSession = plugin_records.skillit_records.get_session(env._resume_session_id)
     rule_output = create_rule(env, mode=LaunchMode.INTERACTIVE)
+    session:SkillitSession = plugin_records.skillit_records.get_session(env.session_id)
+    assert session is not None
     print("=== Rule Creation ===")
     print(rule_output)
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 from fs_store import FsRecord, SkillitRecordType
 
@@ -26,12 +25,3 @@ class SkillitSession(FsRecord):
             self.id = self.session_id
             if not self.name:
                 self.name = self.session_id
-
-    # -- Convenience helpers --
-
-    @classmethod
-    def load_session(cls, session_dir: Path) -> SkillitSession:
-        """Load (or create) the session record from a session directory."""
-        record_path = session_dir / "record.json"
-        base = FsRecord.from_json(record_path)
-        return cls.from_dict(base.to_dict())

@@ -9,8 +9,15 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from fastmcp import FastMCP
 from network.notify import send_flow_tag, xml_str_to_flow_data_dict
+from mcp_server import session_store, known_rules_store
 
 mcp = FastMCP("skillit")
+
+_STORES = {
+    "known_rules": known_rules_store,
+}
+_DEFAULT_STORE = session_store
+
 
 @mcp.tool()
 def flow_tag(flow_tag_xml: str) -> str:
@@ -41,15 +48,16 @@ def flow_tag(flow_tag_xml: str) -> str:
     status = "sent" if success else "skipped (FlowPad unavailable)"
     return f"Flow tag {flow_data.get('element_type', 'unknown')}: {status}"
 
+
 @mcp.tool()
-def flow_context(session_id: str, action: str, key: str, value: str = None) -> str:
+def flow_context(claude_session_id: str, action: str, key: str, value: str = None) -> str:
     """Manage session-specific context storage using key-value pairs.
 
     This tool provides persistent storage for each session. All operations require
     the session_id to ensure data isolation between sessions.
 
     Args:
-        session_id: The session ID (provided in context at session start)
+        claude_session_id: The session ID (provided in context at session start)
         action: Operation to perform - "get" or "set"
         key: The context key to get or set
         value: The value to set (required for "set" action, ignored for "get")
@@ -62,56 +70,26 @@ def flow_context(session_id: str, action: str, key: str, value: str = None) -> s
         flow_context(session_id="abc-123", action="set", key="theme", value="dark")
         flow_context(session_id="abc-123", action="get", key="theme")
     """
-    # Validate inputs
-    if not session_id:
+    if not claude_session_id:
         return "Error: session_id is required"
-
     if action not in ("get", "set"):
         return f"Error: action must be 'get' or 'set', got '{action}'"
-
     if not key:
         return "Error: key is required"
+    if action == "set" and value is None:
+        return "Error: value is required for 'set' action"
 
-    # Load session from skillit_records
+    store = _STORES.get(key, _DEFAULT_STORE)
+
     try:
-        from plugin_records.skillit_records import skillit_records
-        from plugin_records.skillit_session import SkillitSession
-
-        sessions = skillit_records.sessions
-        sessions.load()  # reload from disk for cross-process visibility
-        session = sessions.get(session_id)
-        if session is None:
-            session = sessions.create(SkillitSession(session_id=session_id))
+        if action == "set":
+            return store.set(claude_session_id, key, value)
+        else:
+            return store.get(claude_session_id, key)
     except Exception as e:
-        return f"Error initializing context store: {e}"
+        skill_log(f"MCP ERROR: {action} context ERROR {e}")
+        return f"Error {action}ing context: {e}"
 
-    # Perform action
-    if action == "set":
-        skill_log(f"MCP: Setting context for session {session_id}: {key} = {value}")
-        if value is None:
-            skill_log("MCP: Set action missing value")
-            return "Error: value is required for 'set' action"
-        try:
-            session[key] = value
-            sessions.save()
-            skill_log(f"MCP: Set context with {value}")
-            return f"Context set: {key} = {value}"
-        except Exception as e:
-            skill_log(f"MCP ERROR: Set context ERROR {e}")
-            return f"Error setting context: {e}"
-
-    else:  # action == "get"
-        try:
-            skill_log(f"MCP: Getting context for session {session_id}: {key}")
-            if key not in session:
-                skill_log(f"MCP: Get context key '{key}' not found")
-                return f"Key '{key}' not found in session context"
-            val = str(session[key])
-            skill_log(f"MCP: Get context read record key:{key}, value: {val}")
-            return val
-        except Exception as e:
-            skill_log(f"MCP ERROR: Get context ERROR {e}")
-            return f"Error getting context: {e}"
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")

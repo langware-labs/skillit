@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+import platform
+import subprocess
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import TypeVar
 
@@ -34,18 +36,37 @@ class FsRecord(ResourceRecord):
             and getattr(self, "fs_sync", False)
             and getattr(self, "source_file", None)
         ):
-            self.persist()
+            self.save()
 
     def __setitem__(self, key: str, value):
-        known = {f.name for f in self.__dataclass_fields__.values()}
+        known = {f.name for f in fields(self)}
         super().__setitem__(key, value)
         if key not in known and self.fs_sync and self.source_file:
-            self.persist()
+            self.save()
 
     def to_dict(self) -> dict:
         d = super().to_dict()
         d.pop("fs_sync", None)
         return d
+
+    @property
+    def record_dir(self) -> Path | None:
+        """The directory containing this record on disk."""
+        if self.path:
+            return Path(self.path)
+        if self.source_file:
+            return Path(self.source_file).parent
+        return None
+
+    @property
+    def output_dir(self) -> Path:
+        """The output subdirectory for this record. Creates it if needed."""
+        d = self.record_dir
+        if d is None:
+            raise ValueError("No path or source_file set")
+        out = d / "output"
+        out.mkdir(parents=True, exist_ok=True)
+        return out
 
     # -- Live relationship properties --
 
@@ -94,8 +115,21 @@ class FsRecord(ResourceRecord):
         )
         self.source_file = str(p)
 
-    def persist(self) -> None:
-        """Save to ``source_file``. Convenience wrapper around ``to_json``."""
+    def save(self) -> None:
+        """Save to ``source_file``."""
         if not self.source_file:
             raise ValueError("source_file not set; use to_json(path) first")
         self.to_json()
+
+    def open(self) -> None:
+        """Open this record's folder in the native OS file explorer."""
+        folder = self.record_dir
+        if folder is None:
+            raise ValueError("No path or source_file set")
+        system = platform.system()
+        if system == "Darwin":
+            subprocess.Popen(["open", str(folder)])
+        elif system == "Windows":
+            subprocess.Popen(["explorer", str(folder)])
+        else:
+            subprocess.Popen(["xdg-open", str(folder)])

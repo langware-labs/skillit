@@ -70,7 +70,7 @@ class TestPersist:
         fp = tmp_path / "rec.json"
         r = FsRecord.from_json(fp)
         r["key"] = "val"
-        r.persist()
+        r.save()
         assert fp.exists()
         data = json.loads(fp.read_text())
         assert data["key"] == "val"
@@ -79,7 +79,7 @@ class TestPersist:
         r = FsRecord()
         r.source_file = None
         with pytest.raises(ValueError):
-            r.persist()
+            r.save()
 
 
 # ---------------------------------------------------------------------------

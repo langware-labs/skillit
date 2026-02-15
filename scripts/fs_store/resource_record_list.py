@@ -1,31 +1,34 @@
-"""A typed collection of ResourceRecords backed by JSONL, flat files, or folders."""
+"""A typed collection of FsRecords backed by flat files or folders.
+
+Every operation goes directly to disk — no in-memory list, no bulk load.
+"""
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+import shutil
+from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Any, Iterator, TypeVar
+from typing import Any, Iterator
 
-from .resource_record import ResourceRecord, parse_record_stem
+from .fs_record import FsRecord
+from .resource_record import record_stem
 from .storage_layout import StorageLayout
-
-T = TypeVar("T", bound=ResourceRecord)
 
 _RECORD_JSON = "record.json"
 
 
 @dataclass
 class ResourceRecordList:
-    """Ordered collection of records persisted to disk.
+    """Typed collection of records persisted to disk.
 
     ``storage_layout`` controls how individual records are stored:
 
-    * ``LIST_ITEM`` – all records in one JSONL file (``list_path`` is the file).
-    * ``FILE``      – one ``<type>-@<uid>.json`` file per record inside ``list_path/``.
-    * ``FOLDER``    – one ``<type>-@<uid>/record.json`` directory per record inside ``list_path/``.
+    * ``FILE``   – one ``<type>-@<uid>.json`` file per record inside ``list_path/``.
+    * ``FOLDER`` – one ``<type>-@<uid>/record.json`` directory per record inside ``list_path/``.
 
-    All lookups use the record's ``uid`` property.
+    All operations read/write individual files directly — there is no
+    bulk ``load()`` or in-memory cache.
 
     When ``list_path`` is omitted the collection path is computed as
     ``records_path / <record_type>``, where *records_path* defaults to
@@ -34,16 +37,14 @@ class ResourceRecordList:
     """
 
     list_path: Path | None = None
-    record_class: type[ResourceRecord] = field(default=ResourceRecord)
-    storage_layout: StorageLayout = field(default=StorageLayout.LIST_ITEM)
+    record_class: type[FsRecord] = field(default=FsRecord)
+    storage_layout: StorageLayout = field(default=StorageLayout.FOLDER)
     records_path: Path | None = None
-    _records: list[ResourceRecord] = field(default_factory=list, init=False, repr=False)
-    _loaded: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self):
+        self._record_type = self.record_class().type
         if self.list_path is None:
-            record_type = self.record_class().type
-            if not record_type:
+            if not self._record_type:
                 raise ValueError(
                     "list_path is required when record_class has no default type"
                 )
@@ -51,188 +52,117 @@ class ResourceRecordList:
             if base is None:
                 from utils.conf import RECORDS_PATH
                 base = RECORDS_PATH
-            self.list_path = base / record_type
+            self.list_path = base / self._record_type
 
-    # -- Persistence --
+    # -- Path helpers --
 
-    def load(self) -> list[ResourceRecord]:
-        """Read all records from disk into memory."""
-        loader = {
-            StorageLayout.LIST_ITEM: self._load_jsonl,
-            StorageLayout.FILE: self._load_files,
-            StorageLayout.FOLDER: self._load_folders,
-        }
-        self._records = loader[self.storage_layout]()
-        self._loaded = True
-        return list(self._records)
-
-    def save(self) -> None:
-        """Persist all in-memory records to disk."""
-        saver = {
-            StorageLayout.LIST_ITEM: self._save_jsonl,
-            StorageLayout.FILE: self._save_files,
-            StorageLayout.FOLDER: self._save_folders,
-        }
-        saver[self.storage_layout]()
+    def _record_file(self, uid: str, record_type: str | None = None) -> Path:
+        """Return the on-disk path for a record with the given uid."""
+        rtype = record_type or self._record_type
+        stem = record_stem(rtype, uid)
+        if self.storage_layout == StorageLayout.FOLDER:
+            return self.list_path / stem / _RECORD_JSON
+        return self.list_path / f"{stem}.json"
 
     # -- CRUD --
 
-    def create(self, record_or_dict: ResourceRecord | dict) -> ResourceRecord:
-        """Add a new record. Accepts a ResourceRecord instance or a raw dict."""
-        self._ensure_loaded()
-        if isinstance(record_or_dict, dict):
-            record = self.record_class.from_dict(record_or_dict)
-        else:
-            record = record_or_dict
-        if self._find(record.uid) is not None:
+    def get(self, uid: str) -> FsRecord | None:
+        """Read a single record from disk by uid."""
+        fp = self._record_file(uid)
+        if not fp.exists():
+            return None
+        rec = self.record_class.from_json(fp)
+        if self.storage_layout == StorageLayout.FOLDER:
+            rec.path = str(fp.parent)
+        return rec
+
+    def create(self, record: FsRecord | dict) -> FsRecord:
+        """Persist a new record to disk. Raises if uid already exists."""
+        if isinstance(record, dict):
+            record = self.record_class.from_dict(record)
+        fp = self._record_file(record.uid, record.type)
+        if fp.exists():
             raise ValueError(f"Record with uid {record.uid!r} already exists")
-        self._records.append(record)
+        self._write(record, fp)
         return record
 
-    def get(self, uid: str) -> ResourceRecord | None:
-        """Look up a record by uid."""
-        self._ensure_loaded()
-        return self._find(uid)
+    def save(self, record: FsRecord) -> None:
+        """Persist a record to disk (create or overwrite)."""
+        fp = self._record_file(record.uid, record.type)
+        self._write(record, fp)
 
-    def update(self, uid: str, data: dict[str, Any]) -> ResourceRecord:
-        """Update fields on an existing record. Returns the updated record."""
-        self._ensure_loaded()
-        record = self._find(uid)
+    def update(self, uid: str, data: dict[str, Any]) -> FsRecord:
+        """Read a record, apply field updates, and persist. Raises if missing."""
+        record = self.get(uid)
         if record is None:
             raise KeyError(f"No record with uid {uid!r}")
-        known_fields = {f.name for f in record.__dataclass_fields__.values()}
+        known_fields = {f.name for f in fields(record)}
         for key, value in data.items():
             if key in known_fields:
                 setattr(record, key, value)
             else:
                 record.extra[key] = value
+        self.save(record)
         return record
 
     def delete(self, uid: str) -> bool:
-        """Remove a record by uid. Returns True if found and removed."""
-        self._ensure_loaded()
-        before = len(self._records)
-        self._records = [r for r in self._records if r.uid != uid]
-        return len(self._records) < before
+        """Remove a record from disk. Returns True if it existed."""
+        fp = self._record_file(uid)
+        if not fp.exists():
+            return False
+        if self.storage_layout == StorageLayout.FOLDER:
+            shutil.rmtree(fp.parent, ignore_errors=True)
+        else:
+            fp.unlink(missing_ok=True)
+        return True
 
-    # -- Collection access --
+    # -- Collection access (lazy iteration from disk) --
 
-    @property
-    def records(self) -> list[ResourceRecord]:
-        self._ensure_loaded()
-        return list(self._records)
-
-    def __iter__(self) -> Iterator[ResourceRecord]:
-        self._ensure_loaded()
-        return iter(self._records)
-
-    def __len__(self) -> int:
-        self._ensure_loaded()
-        return len(self._records)
-
-    # -- LIST_ITEM backend (JSONL) --
-
-    def _load_jsonl(self) -> list[ResourceRecord]:
-        if not self.list_path.exists():
-            return []
-        records: list[ResourceRecord] = []
-        with open(self.list_path, "r", encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
+    def __iter__(self) -> Iterator[FsRecord]:
+        """Iterate all records, reading each from disk one at a time."""
+        if not self.list_path or not self.list_path.is_dir():
+            return
+        if self.storage_layout == StorageLayout.FOLDER:
+            for entry in sorted(self.list_path.iterdir()):
+                if not entry.is_dir() or "-@" not in entry.name:
+                    continue
+                rj = entry / _RECORD_JSON
+                if not rj.exists():
                     continue
                 try:
-                    data = json.loads(line)
-                except json.JSONDecodeError:
+                    rec = self.record_class.from_json(rj)
+                    rec.path = str(entry)
+                    yield rec
+                except (json.JSONDecodeError, OSError):
                     continue
-                records.append(self.record_class.from_dict(data))
-        return records
+        else:
+            for fp in sorted(self.list_path.glob("*-@*.json")):
+                try:
+                    yield self.record_class.from_json(fp)
+                except (json.JSONDecodeError, OSError):
+                    continue
 
-    def _save_jsonl(self) -> None:
-        self.list_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.list_path, "w", encoding="utf-8") as fh:
-            for record in self._records:
-                fh.write(json.dumps(record.to_dict(), ensure_ascii=False) + "\n")
-
-    # -- FILE backend (<type>-@<uid>.json) --
-
-    def _load_files(self) -> list[ResourceRecord]:
-        if not self.list_path.is_dir():
-            return []
-        records: list[ResourceRecord] = []
-        for fp in sorted(self.list_path.glob("*-@*.json")):
-            try:
-                data = json.loads(fp.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
-                continue
-            records.append(self.record_class.from_dict(data))
-        return records
-
-    def _save_files(self) -> None:
-        self.list_path.mkdir(parents=True, exist_ok=True)
-        existing = {fp.stem for fp in self.list_path.glob("*-@*.json")}
-        current_stems: set[str] = set()
-        for record in self._records:
-            current_stems.add(record.stem)
-            fp = self.list_path / f"{record.stem}.json"
-            fp.write_text(
-                json.dumps(record.to_dict(), indent=2, ensure_ascii=False),
-                encoding="utf-8",
+    def __len__(self) -> int:
+        """Count records on disk without loading them."""
+        if not self.list_path or not self.list_path.is_dir():
+            return 0
+        if self.storage_layout == StorageLayout.FOLDER:
+            return sum(
+                1 for e in self.list_path.iterdir()
+                if e.is_dir() and "-@" in e.name and (e / _RECORD_JSON).exists()
             )
-        for orphan in existing - current_stems:
-            (self.list_path / f"{orphan}.json").unlink(missing_ok=True)
+        return sum(1 for _ in self.list_path.glob("*-@*.json"))
 
-    # -- FOLDER backend (<type>-@<uid>/record.json) --
+    @property
+    def records(self) -> list[FsRecord]:
+        """Return all records as a list (reads every file from disk)."""
+        return list(self)
 
-    def _load_folders(self) -> list[ResourceRecord]:
-        if not self.list_path.is_dir():
-            return []
-        records: list[ResourceRecord] = []
-        for entry in sorted(self.list_path.iterdir()):
-            if not entry.is_dir() or "-@" not in entry.name:
-                continue
-            rj = entry / _RECORD_JSON
-            if not rj.exists():
-                continue
-            try:
-                data = json.loads(rj.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
-                continue
-            rec = self.record_class.from_dict(data)
-            rec.path = str(entry)
-            records.append(rec)
-        return records
+    # -- Internal --
 
-    def _save_folders(self) -> None:
-        self.list_path.mkdir(parents=True, exist_ok=True)
-        existing = {
-            entry.name
-            for entry in self.list_path.iterdir()
-            if entry.is_dir() and "-@" in entry.name
-        }
-        current_stems: set[str] = set()
-        for record in self._records:
-            current_stems.add(record.stem)
-            rec_dir = self.list_path / record.stem
-            rec_dir.mkdir(parents=True, exist_ok=True)
-            record.path = str(rec_dir)
-            (rec_dir / _RECORD_JSON).write_text(
-                json.dumps(record.to_dict(), indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
-        # Clean up orphaned directories (only remove record.json, leave dir if non-empty)
-        import shutil
-        for orphan in existing - current_stems:
-            shutil.rmtree(self.list_path / orphan, ignore_errors=True)
-
-    # -- Internals --
-
-    def _find(self, uid: str) -> ResourceRecord | None:
-        for r in self._records:
-            if r.uid == uid:
-                return r
-        return None
-
-    def _ensure_loaded(self) -> None:
-        if not self._loaded:
-            self.load()
+    def _write(self, record: FsRecord, fp: Path) -> None:
+        """Write a single record to its file path."""
+        fp.parent.mkdir(parents=True, exist_ok=True)
+        if self.storage_layout == StorageLayout.FOLDER:
+            record.path = str(fp.parent)
+        record.to_json(fp)

@@ -141,11 +141,10 @@ def discover_rules(project_dir: str | None = None) -> list[dict[str, Any]]:
 
 
 def _is_valid_rule_dir(path: Path) -> bool:
-    """Check if a path is a valid rule directory (has trigger.py)."""
+    """Check if a path is a valid rule directory (has record.json)."""
     if not path.is_dir():
         return False
-    trigger_file = path / "trigger.py"
-    return trigger_file.exists()
+    return (path / "record.json").exists()
 
 
 def load_rule_metadata(rule_name: str, rules_dir: Path) -> dict[str, Any]:

@@ -46,6 +46,14 @@ class TestConfig:
 
 
 class TestSessions:
+    def test_create_and_get_session(self, tmp_path):
+        mgr = SkillitRecords(records_path=tmp_path)
+        assert mgr.get_session("s1") is None
+        s = mgr.create_session("s1")
+        assert s.session_id == "s1"
+        found = mgr.get_session("s1")
+        assert found.session_id == "s1"
+
     def test_sessions_collection_works(self, tmp_path):
         mgr = SkillitRecords(records_path=tmp_path)
         s = mgr.sessions.create(SkillitSession(session_id="s1"))

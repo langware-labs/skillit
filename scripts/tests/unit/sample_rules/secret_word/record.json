@@ -1,0 +1,8 @@
+{
+  "name": "secret_word",
+  "type": "rule",
+  "description": "Returns a secret number when the user prompt contains '42'",
+  "hook_events": ["UserPromptSubmit"],
+  "actions": ["add_context"],
+  "if_condition": "prompt contains '42'"
+}

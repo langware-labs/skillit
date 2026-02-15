@@ -26,7 +26,6 @@ Example::
     from plugin_records.skillit_records import skillit_records
 
     session = skillit_records.sessions.create(SkillitSession(session_id="abc-123"))
-    skillit_records.sessions.save()
 """
 
 from .skillit_config import SkillitConfig

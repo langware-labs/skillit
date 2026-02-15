@@ -25,7 +25,9 @@ def sample_rule_path() -> Path:
 @pytest.fixture
 def sample_rule(sample_rule_path: Path) -> ActivationRule:
     """Load ActivationRule from the sample rule directory."""
-    return ActivationRule.from_md(sample_rule_path)
+    rule = ActivationRule.from_json(sample_rule_path / "record.json")
+    rule.path = str(sample_rule_path)
+    return rule
 
 
 @pytest.fixture
@@ -47,7 +49,7 @@ def sample_transcript() -> list[dict]:
 
 
 def test_load_rule_from_folder(sample_rule: ActivationRule):
-    """Verify ActivationRule.from_md() loads rule correctly from folder."""
+    """Verify ActivationRule loads correctly from record.json."""
     assert sample_rule is not None
     assert sample_rule.name == "test_rule"
     assert sample_rule.is_valid()

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from utils.conf import get_session_dir, get_session_output_dir
+import plugin_records
 from fs_store import FsRecordRef, SyncOperation
 from fs_store.record_types import RecordType
+from plugin_records import skillit_records
 from utils.log import skill_log
 from network.notify import send_process_sync, send_relationship_sync, send_task_sync
 from records import (
@@ -37,8 +38,12 @@ def start_new_analysis(session_id: str) -> AnalysisResources | None:
     if not session_id:
         skill_log("No session_id provided, skipping analysis start")
         return None
+    session = skillit_records.get_session(session_id)
+    if session is None:
+        skill_log(f"Session {session_id} not found, skipping analysis start")
+        session = skillit_records.create_session(session_id)
 
-    output_dir = get_session_output_dir(session_id)
+    output_dir = session.output_dir
     task_id = f"analysis-{session_id}"
 
     task = TaskResource(
@@ -67,7 +72,7 @@ def start_new_analysis(session_id: str) -> AnalysisResources | None:
     )
 
     task.children_refs = [child_ref]
-    task.save_to(get_session_dir(session_id))
+    task.save_to(session.record_dir)
 
     send_task_sync(SyncOperation.CREATE, task.to_dict())
     send_process_sync(SyncOperation.CREATE, process.to_dict())
@@ -81,7 +86,9 @@ def complete_analysis(resources: AnalysisResources, session_id: str) -> None:
     resources.task.status = TaskStatus.DONE
     resources.process.state = ProcessorStatus.COMPLETE
 
-    resources.task.save_to(get_session_dir(session_id))
+    from plugin_records.skillit_records import skillit_records
+    session = skillit_records.get_session(session_id)
+    resources.task.save_to(session.record_dir)
 
     send_task_sync(SyncOperation.UPDATE, resources.task.to_dict())
     send_process_sync(SyncOperation.UPDATE, resources.process.to_dict())
