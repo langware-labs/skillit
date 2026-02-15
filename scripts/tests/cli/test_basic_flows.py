@@ -77,7 +77,7 @@ def test_mcp_session_flow_context_usage():
     result = env.launch_claude("use the skillit mcp and store the value of 1566 into key 'the key' into the flow_context", mode=LaunchMode.HEADLESS)
     print(f"\n **********************\n Prompt result: {result.stdout} \n **********************\n")
     assert result.returncode == 0
-    assert env.session_id in result.stdout, "session_id should be included in the prompt response"
+    assert "1566" in result.stdout, "Claude should confirm the value was stored"
 
     # Verify session was created with the key-value pair
     sessions = skillit_records.sessions

@@ -61,12 +61,13 @@ def test_patch_installs_new_version():
     """Bumping the patch version and reinstalling should update the cache."""
     plugin_mgr = SkillitPluginManager()
     old_version = plugin_mgr.version
-    new_version = plugin_mgr.patch()
-    print(f"old_version={old_version}, new_version={new_version}")
-    assert new_version != old_version
 
     env = TestPluginProjectEnvironment()
-    env.install_plugin()
+    env.install_plugin()  # patches + builds + installs
+
+    new_version = plugin_mgr.version
+    print(f"old_version={old_version}, new_version={new_version}")
+    assert new_version != old_version
 
     result:PromptResult = env.launch_claude('use the skillit sugagent  and ask for its version, make sure to invoken it', LaunchMode.HEADLESS)
     assert new_version in result.stdout
