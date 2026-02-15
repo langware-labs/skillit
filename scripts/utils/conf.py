@@ -25,7 +25,7 @@ USER_HOME = Path.home()
 FLOW_HOME = USER_HOME / ".flow"
 SKILLIT_HOME = FLOW_HOME / "skillit"
 
-SCRIPT_DIR = Path(__file__).parent.resolve()
+SCRIPT_DIR = Path(__file__).resolve().parent.parent
 PLUGIN_DIR = SCRIPT_DIR.parent
 
 SERVER_JSON_PATH = FLOW_HOME / "server.json"

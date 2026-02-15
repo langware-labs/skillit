@@ -16,14 +16,14 @@ import uuid
 import xml.etree.ElementTree as ET
 from typing import Optional
 
-from flowpad_discovery import (
+from network.flowpad_discovery import (
     FlowpadStatus,  # re-exported for consumers (e.g., activation_rules)
     discover_flowpad,
     is_webhook_rate_limited,
     record_webhook_failure,
 )
 from fs_store import RecordType, RefType, ResourceType, SyncOperation
-from log import skill_log
+from utils.log import skill_log
 
 
 # ---------------------------------------------------------------------------

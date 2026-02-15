@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from log import skill_log
+from utils.log import skill_log
 from .trigger_executor import TriggerResult, Action, _convert_actions_to_result
 
 

@@ -1,6 +1,5 @@
 """Type definitions for memory module."""
 
-from .records import Note
 from .hooks import HookEvent, HookEventType
 from .claude import (
     # Base types
@@ -73,7 +72,6 @@ from .claude import (
 
 __all__ = [
     # Core types
-    "Note",
     "HookEvent",
     "HookEventType",
     # Base types

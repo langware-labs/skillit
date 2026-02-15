@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from conf import SCRIPT_DIR
-from log import skill_log
+from utils.conf import SCRIPT_DIR
+from utils.log import skill_log
 
 
 @dataclass

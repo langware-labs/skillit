@@ -4,7 +4,7 @@ Provides centralized logging functionality for all scripts.
 """
 from datetime import datetime
 
-from conf import SCRIPT_DIR, LOG_FILE, SKILLIT_HOME
+from utils.conf import SCRIPT_DIR, LOG_FILE, SKILLIT_HOME
 
 # =============================================================================
 # CONFIGURATION

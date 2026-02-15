@@ -9,9 +9,9 @@ Server communication is delegated to notify.py.
 import json
 import sys
 
-from config import FLOWPAD_APP_URI_SCHEME
-from log import skill_log
-from notify import FlowpadStatus, get_flowpad_status, send_skill_event
+from utils.config import FLOWPAD_APP_URI_SCHEME
+from utils.log import skill_log
+from network.notify import FlowpadStatus, get_flowpad_status, send_skill_event
 
 # Flowpad ad text (shown when not installed)
 FLOWPAD_INSTALL_AD = """

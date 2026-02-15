@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from conf import get_session_dir, get_session_output_dir
+from utils.conf import get_session_dir, get_session_output_dir
 from fs_store import FsRecordRef, SyncOperation
 from fs_store.record_types import RecordType
-from log import skill_log
-from notify import send_process_sync, send_relationship_sync, send_task_sync
+from utils.log import skill_log
+from network.notify import send_process_sync, send_relationship_sync, send_task_sync
 from records import (
     AgenticProcess,
     ProcessorStatus,

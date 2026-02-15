@@ -3,10 +3,10 @@ Utility functions for building skill creation instructions.
 """
 from pathlib import Path
 
-from activation_rules import get_ad_if_needed
-from conf import PLUGIN_DIR, SCRIPT_DIR
+from rules_engine.activation_rules import get_ad_if_needed
+from utils.conf import PLUGIN_DIR, SCRIPT_DIR
 
-ACTIVATION_RULES_SCRIPT = SCRIPT_DIR / "activation_rules.py"
+ACTIVATION_RULES_SCRIPT = SCRIPT_DIR / "rules_engine" / "activation_rules.py"
 INSTRUCTIONS_FILE = PLUGIN_DIR / "subagent_instructions.md"
 
 def get_skills_dir(cwd: str) -> Path:

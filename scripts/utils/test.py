@@ -26,7 +26,7 @@ from pathlib import Path
 # CONFIGURATION - Match hooks.json exactly
 # =============================================================================
 
-SCRIPT_DIR = Path(__file__).parent.resolve()
+SCRIPT_DIR = Path(__file__).parent.parent.resolve()
 PLUGIN_DIR = SCRIPT_DIR.parent
 STATE_FILE = PLUGIN_DIR / "global_state.json"
 
@@ -166,7 +166,7 @@ def _start_test_server(port: int) -> HTTPServer:
     TestServerHandler.received.clear()
 
     # Write server.json so discover_flowpad() finds our test server
-    from flowpad_discovery import get_flowpad_data_dir
+    from network.flowpad_discovery import get_flowpad_data_dir
     data_dir = get_flowpad_data_dir()
     data_dir.mkdir(parents=True, exist_ok=True)
     port_file = data_dir / "server.json"
@@ -212,8 +212,8 @@ import sys; sys.path.insert(0, "{SCRIPT_DIR}")
 import os
 os.environ["FLOWPAD_EXECUTION_SCOPE"] = '[{{"type": "flow", "id": "test-123"}}]'
 
-from notify import get_flowpad_status, send_skill_activation
-from flowpad_discovery import FlowpadStatus
+from network.notify import get_flowpad_status, send_skill_activation
+from network.flowpad_discovery import FlowpadStatus
 
 status = get_flowpad_status()
 if status != FlowpadStatus.RUNNING:
@@ -305,9 +305,9 @@ def test_activation_rules():
         result = subprocess.run(
             ["python", "-c", f"""
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
-from notify import get_flowpad_status
-from flowpad_discovery import FlowpadStatus
-from activation_rules import get_ad_if_needed
+from network.notify import get_flowpad_status
+from network.flowpad_discovery import FlowpadStatus
+from rules_engine.activation_rules import get_ad_if_needed
 
 status = get_flowpad_status()
 if status != FlowpadStatus.RUNNING:
@@ -333,8 +333,8 @@ print("AD_EMPTY:" + str(ad == ""))
         result = subprocess.run(
             ["python", "-c", f"""
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
-from notify import get_flowpad_status, send_skill_event
-from flowpad_discovery import FlowpadStatus
+from network.notify import get_flowpad_status, send_skill_event
+from network.flowpad_discovery import FlowpadStatus
 
 status = get_flowpad_status()
 if status != FlowpadStatus.RUNNING:

@@ -3,7 +3,7 @@
 import json
 import pytest
 
-from notify import xml_str_to_flow_data_dict
+from network.notify import xml_str_to_flow_data_dict
 
 
 class TestXmlStrToFlowDataDict:

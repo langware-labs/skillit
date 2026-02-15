@@ -9,12 +9,12 @@ from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from claude_utils import (  # noqa: E402
+from utils.claude_utils import (  # noqa: E402
     build_subagent_instructions,
     get_skills_dir,
     PLUGIN_DIR,
 )
-from log import skill_log
+from utils.log import skill_log
 
 INSTRUCTIONS_FILE = PLUGIN_DIR / "create_test_instructions.md"
 

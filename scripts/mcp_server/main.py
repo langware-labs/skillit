@@ -3,13 +3,13 @@
 import sys
 from pathlib import Path
 
-from log import skill_log
+from utils.log import skill_log
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from fastmcp import FastMCP
-from notify import send_flow_tag, xml_str_to_flow_data_dict
-from conf import get_session_dir
+from network.notify import send_flow_tag, xml_str_to_flow_data_dict
+from utils.conf import get_session_dir
 from fs_store import FsRecord
 
 mcp = FastMCP("skillit")

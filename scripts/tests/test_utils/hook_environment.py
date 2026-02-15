@@ -17,9 +17,9 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
-from agent_manager import SubAgent
-from conf import Platform, CURRENT_PLATFORM
-from log import skill_log_clear
+from subagents.agent_manager import SubAgent
+from utils.conf import Platform, CURRENT_PLATFORM
+from utils.log import skill_log_clear
 from memory.rule_engine.engine import RulesPackage, RuleEngine
 
 TEMP_DIR = Path(tempfile.gettempdir()) / "skillit_test"
@@ -414,7 +414,7 @@ class TestPluginProjectEnvironment:
         Renders templates (so agents carry the current version), ensures the
         marketplace is registered, then enables with ``--scope project``.
         """
-        from plugin_manager import SkillitPluginManager
+        from utils.plugin_manager import SkillitPluginManager
         SkillitPluginManager().build()
 
         plugin_name, marketplace_name, _ = self._read_plugin_meta()
@@ -578,7 +578,7 @@ class TestPluginProjectEnvironment:
 
     def _plugin_skill_log_path(self) -> Path | None:
         """Return the path to skill.log."""
-        from conf import LOG_FILE
+        from utils.conf import LOG_FILE
         return LOG_FILE
 
     def prompt(self, text: str, verbose: bool = True, timeout: int = 180) -> PromptResult:

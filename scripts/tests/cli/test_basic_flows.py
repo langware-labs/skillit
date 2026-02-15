@@ -2,14 +2,14 @@ import time
 from pathlib import Path
 import json
 
-from agent_manager import SubAgent, get_subagent_launch_prompt
-from analysis import start_new_analysis, complete_analysis
-from conf import get_session_dir, get_session_output_dir
-from log import skill_log_print, skill_log_clear
+from subagents.agent_manager import SubAgent, get_subagent_launch_prompt
+from hook_handlers.analysis import start_new_analysis, complete_analysis
+from utils.conf import get_session_dir, get_session_output_dir
+from utils.log import skill_log_print, skill_log_clear
 from fs_store import FsRecord
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
 
-TRANSCRIPT_PATH = Path(__file__).parent / "unit" / "resources" / "jira_acli_fail.jsonl"
+TRANSCRIPT_PATH = Path(__file__).parent.parent / "unit" / "resources" / "jira_acli_fail.jsonl"
 
 
 def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str:

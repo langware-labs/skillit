@@ -2,7 +2,7 @@
 
 import json
 
-import notify
+import network.notify as notify
 from fs_store import ResourceType, SyncOperation
 
 

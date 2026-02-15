@@ -1,99 +1,17 @@
 #!/usr/bin/env python3
 """
 Skillit - Main Entry Point
-Routes prompts to appropriate skill modifiers based on keyword matching.
+Thin dispatcher: reads stdin, evaluates rules, routes to hook handlers.
 """
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
-from analysis import start_new_analysis
-from log import skill_log
-from memory import create_rule_engine
-from modifiers.analyze_and_create_activation_rules import handle_analyze
-from modifiers.create_test import handle_create_test
-from modifiers.test import handle_test
-from notify import send_skill_activation, send_skill_event
-
-# =============================================================================
-# KEYWORD MAPPINGS
-# Order matters - more specific patterns should come first
-# =============================================================================
-
-KEYWORD_MAPPINGS = [
-    ("skillit:create-test", handle_create_test),
-    ("skillit:test", handle_test),
-    ("skillit", handle_analyze),
-]
-
-# =============================================================================
-# MAIN LOGIC
-# =============================================================================
-
-def find_matching_modifier(prompt: str):
-    """
-    Find the first matching modifier for the prompt.
-    Returns (handler_function, matched_keyword) or (None, None).
-
-    Matches keywords that are:
-    - The first word in the prompt (leading whitespace ignored)
-    - Optionally prefixed with / as a command (e.g., /skillit create test)
-    - Not inside file paths like /path/to/skillit/file.txt
-    """
-    for keyword, handler in KEYWORD_MAPPINGS:
-        # Match keyword only at the start of the prompt (ignoring leading whitespace),
-        # optionally prefixed with /
-        pattern = r'^\s*/?'+ re.escape(keyword) + r'(?![/\\])'
-        if re.search(pattern, prompt, re.IGNORECASE):
-            return handler, keyword
-
-    return None, None
-
-
-def _evaluate_file_rules(data: dict) -> dict:
-    """Evaluate file-based rules from .flow/skill_rules/.
-
-    Args:
-        data: The hook input data.
-
-    Returns:
-        Hook output dict from triggered rules, or empty dict if no triggers.
-    """
-    project_dir = data.get("cwd")
-    engine = create_rule_engine(project_dir=project_dir)
-
-    # Build hooks_data from input
-    hooks_data = {
-        "hookEvent": data.get("hookEvent") or data.get("hook_event") or data.get("hook_event_name") or "UserPromptSubmit",
-        "hookName": data.get("hookName") or data.get("hook_name") or "",
-        "prompt": data.get("prompt") or data.get("command") or "",
-        "tool_name": data.get("toolName") or data.get("tool_name"),
-        "tool_input": data.get("toolInput") or data.get("tool_input"),
-        "toolUseID": data.get("toolUseID") or data.get("tool_use_id"),
-        "parentToolUseID": data.get("parentToolUseID") or data.get("parent_tool_use_id"),
-        "timestamp": data.get("timestamp"),
-        "session_id": data.get("session_id", ""),
-        "cwd": project_dir,
-    }
-
-    # Get transcript if available (for now, empty list)
-    # TODO: Load transcript from JSONL if needed
-    transcript: list = []
-
-    result = engine.evaluate_rules(hooks_data, transcript)
-
-    # Handle exit code if set
-    exit_code = result.pop("_exit_code", None)
-    if exit_code == 2:
-        skill_log("Rule requested exit code 2 (block)")
-
-    # Remove internal metadata for output
-    result.pop("_triggered_rules", None)
-    result.pop("_chain_requests", None)
-
-    return result
+from hook_handlers import prompt_submitted, session_start
+from utils.log import skill_log
+from network.notify import send_skill_event
+from rules_engine.rules import evaluate_rules
 
 
 def _emit_hook_output(output: dict) -> None:
@@ -147,98 +65,6 @@ def _dump_stdin(raw: str) -> None:
         skill_log(f"ERROR: Failed to dump stdin: {e}")
 
 
-def _send_analysis_task_created(data: dict) -> None:
-    """Create a TaskResource and send task_created event to FlowPad."""
-    session_id = data.get("session_id", "")
-    if not session_id:
-        skill_log("No session_id in hook data, skipping task_created event")
-        return
-    start_new_analysis(session_id)
-
-
-def main():
-    skill_log(" skillit ".center(60, "="))
-
-    # Read input from stdin
-    try:
-        raw = sys.stdin.read()
-        _dump_stdin(raw)
-        if not raw or not raw.strip():
-          ERROR_MSG = "ERROR: No input received on stdin"
-          skill_log(ERROR_MSG)
-          sys.stdout.write(ERROR_MSG + "\n")
-          sys.exit(1)
-        data = json.loads(raw)
-        skill_log(f"Input received: {json.dumps(data)}")
-    except json.JSONDecodeError as e:
-        skill_log(f"ERROR: Invalid JSON input: {e}")
-        sys.exit(1)
-
-    # Determine hook event from stdin data
-    hookEvent = data.get("hook_event_name") or data.get("hookEvent") or "UserPromptSubmit"
-    data["hookEvent"] = hookEvent  # normalize for downstream
-
-    skill_log(f"Hook triggered: {hookEvent}, path: {__file__}, pid: {os.getpid()}")
-    skill_log("Working directory: " + str(os.getcwd()))
-    event_context = {
-        "hookEvent": hookEvent,
-        "scriptPath": __file__,
-        "pid": os.getpid(),
-        "cwd": os.getcwd(),
-    }
-    send_skill_event("skillit called", event_context)
-
-    prompt = data.get("prompt", "")
-    skill_log(f"Prompt: {prompt}")
-
-    # Evaluate file-based rules from .flow/skill_rules/
-    file_rules_output = _evaluate_file_rules(data)
-    if file_rules_output:
-        skill_log(f"File rules triggered: {json.dumps(file_rules_output)}")
-
-    # Keyword matching only applies to UserPromptSubmit
-    if hookEvent == "UserPromptSubmit":
-        handler, matched_keyword = find_matching_modifier(prompt)
-        if handler:
-            skill_log(f"Keyword matched: '{matched_keyword}', invoking handler {handler.__name__}")
-            # Send notification to FlowPad backend (fire-and-forget)
-            send_skill_activation(
-                skill_name="skillit",
-                matched_keyword=matched_keyword,
-                prompt=prompt,
-                handler_name=handler.__name__,
-                folder_path=data.get("cwd", ""),
-            )
-            result = handler(prompt, data)
-
-            # Send task_created for analysis handler
-            if handler is handle_analyze:
-                _send_analysis_task_created(data)
-
-            if result:
-                # Merge file rules output
-                if file_rules_output:
-                    result = _merge_hook_outputs(file_rules_output, result)
-                skill_log(f"Handler result: {json.dumps(result)}")
-                _emit_hook_output(result)
-            else:
-                skill_log("Handler returned no result")
-                # Still emit file rules output if triggered
-                if file_rules_output:
-                    _emit_hook_output(file_rules_output)
-        else:
-            skill_log("No keyword matched, passing through unchanged")
-            if file_rules_output:
-                _emit_hook_output(file_rules_output)
-    else:
-        # Non-UserPromptSubmit events: just emit file rules output
-        if file_rules_output:
-            _emit_hook_output(file_rules_output)
-
-    skill_log("Hook completed")
-    sys.exit(0)
-
-
 def _merge_hook_outputs(base: dict, overlay: dict) -> dict:
     """Merge two hook output dicts, combining contexts and respecting blocks.
 
@@ -281,6 +107,60 @@ def _merge_hook_outputs(base: dict, overlay: dict) -> dict:
             result["reason"] = base["reason"]
 
     return result
+
+
+def main():
+    skill_log(" skillit ".center(60, "="))
+
+    # Read input from stdin
+    try:
+        raw = sys.stdin.read()
+        _dump_stdin(raw)
+        if not raw or not raw.strip():
+          ERROR_MSG = "ERROR: No input received on stdin"
+          skill_log(ERROR_MSG)
+          sys.stdout.write(ERROR_MSG + "\n")
+          sys.exit(1)
+        data = json.loads(raw)
+        skill_log(f"Input received: {json.dumps(data)}")
+    except json.JSONDecodeError as e:
+        skill_log(f"ERROR: Invalid JSON input: {e}")
+        sys.exit(1)
+
+    # Determine hook event from stdin data
+    hookEvent = data.get("hook_event_name") or data.get("hookEvent") or "UserPromptSubmit"
+    data["hookEvent"] = hookEvent  # normalize for downstream
+
+    skill_log(f"Hook triggered: {hookEvent}, path: {__file__}, pid: {os.getpid()}")
+    skill_log("Working directory: " + str(os.getcwd()))
+    event_context = {
+        "hookEvent": hookEvent,
+        "scriptPath": __file__,
+        "pid": os.getpid(),
+        "cwd": os.getcwd(),
+    }
+    send_skill_event("skillit called", event_context)
+
+    prompt = data.get("prompt", "")
+    skill_log(f"Prompt: {prompt}")
+
+    # Evaluate file-based rules from .flow/skill_rules/
+    rules_output = evaluate_rules(data)
+    if rules_output:
+        skill_log(f"File rules triggered: {json.dumps(rules_output)}")
+
+    # Dispatch to handler
+    if hookEvent == "UserPromptSubmit":
+        output = prompt_submitted.handle(data, rules_output)
+    elif hookEvent == "SessionStart":
+        output = session_start.handle(data, rules_output)
+    else:
+        output = rules_output or None
+
+    _emit_hook_output(output)
+
+    skill_log("Hook completed")
+    sys.exit(0)
 
 
 if __name__ == "__main__":

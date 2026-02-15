@@ -3,7 +3,7 @@ import time
 import urllib.error
 import urllib.request
 
-from flowpad_discovery import read_server_info
+from network.flowpad_discovery import read_server_info
 from tests.test_utils import TestPluginProjectEnvironment, LaunchMode
 
 TASK_CREATION_TIMEOUT = 120  # seconds

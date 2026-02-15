@@ -5,7 +5,7 @@ import time
 import unittest
 from unittest.mock import MagicMock, patch
 
-from flowpad_discovery import (
+from network.flowpad_discovery import (
     HOUR_IN_SECONDS,
     MAX_FAILURES_PER_HOUR,
     FlowpadDiscoveryResult,
@@ -47,8 +47,8 @@ class TestServerStateCache(unittest.TestCase):
     def setUp(self):
         self.state = _ServerState()
 
-    @patch("flowpad_discovery._discover_flowpad_impl")
-    @patch("flowpad_discovery.get_port_file_path")
+    @patch("network.flowpad_discovery._discover_flowpad_impl")
+    @patch("network.flowpad_discovery.get_port_file_path")
     def test_cache_returns_same_result_when_port_file_unchanged(
         self, mock_path, mock_discover
     ):
@@ -67,8 +67,8 @@ class TestServerStateCache(unittest.TestCase):
         self.assertEqual(mock_discover.call_count, 1)  # Still 1
         self.assertEqual(result1, result2)
 
-    @patch("flowpad_discovery._discover_flowpad_impl")
-    @patch("flowpad_discovery.get_port_file_path")
+    @patch("network.flowpad_discovery._discover_flowpad_impl")
+    @patch("network.flowpad_discovery.get_port_file_path")
     def test_cache_invalidates_when_port_file_changes(self, mock_path, mock_discover):
         """Cache should invalidate when port file mtime changes."""
         mock_stat = MagicMock()
@@ -87,8 +87,8 @@ class TestServerStateCache(unittest.TestCase):
         self.state.get_discovery_result()
         self.assertEqual(mock_discover.call_count, 2)
 
-    @patch("flowpad_discovery._discover_flowpad_impl")
-    @patch("flowpad_discovery.get_port_file_path")
+    @patch("network.flowpad_discovery._discover_flowpad_impl")
+    @patch("network.flowpad_discovery.get_port_file_path")
     def test_cache_invalidates_when_rate_limited(self, mock_path, mock_discover):
         """Cache should invalidate when rate limit is reached."""
         mock_stat = MagicMock()
@@ -115,13 +115,13 @@ class TestRateLimiting(unittest.TestCase):
     def setUp(self):
         self.state = _ServerState()
 
-    @patch("flowpad_discovery.get_port_file_path")
+    @patch("network.flowpad_discovery.get_port_file_path")
     def test_not_rate_limited_initially(self, mock_path):
         """Should not be rate limited with no failures."""
         mock_path.return_value.stat.side_effect = OSError("No file")
         self.assertFalse(self.state.is_rate_limited())
 
-    @patch("flowpad_discovery.get_port_file_path")
+    @patch("network.flowpad_discovery.get_port_file_path")
     def test_rate_limited_after_max_failures(self, mock_path):
         """Should be rate limited after MAX_FAILURES_PER_HOUR failures."""
         mock_stat = MagicMock()
@@ -140,7 +140,7 @@ class TestRateLimiting(unittest.TestCase):
         # Now should be rate limited
         self.assertTrue(self.state.is_rate_limited())
 
-    @patch("flowpad_discovery.get_port_file_path")
+    @patch("network.flowpad_discovery.get_port_file_path")
     def test_rate_limit_expires_after_hour(self, mock_path):
         """Rate limit should expire after an hour."""
         mock_stat = MagicMock()
@@ -155,7 +155,7 @@ class TestRateLimiting(unittest.TestCase):
         # Should not be rate limited (failures are old)
         self.assertFalse(self.state.is_rate_limited())
 
-    @patch("flowpad_discovery.get_port_file_path")
+    @patch("network.flowpad_discovery.get_port_file_path")
     def test_rate_limit_clears_when_port_file_changes(self, mock_path):
         """Rate limit should clear when port file changes."""
         mock_stat = MagicMock()
@@ -183,8 +183,8 @@ class TestServerSimulation(unittest.TestCase):
     def setUp(self):
         self.state = _ServerState()
 
-    @patch("flowpad_discovery._discover_flowpad_impl")
-    @patch("flowpad_discovery.get_port_file_path")
+    @patch("network.flowpad_discovery._discover_flowpad_impl")
+    @patch("network.flowpad_discovery.get_port_file_path")
     def test_server_running(self, mock_path, mock_discover):
         """Simulate server is running."""
         mock_stat = MagicMock()
@@ -198,8 +198,8 @@ class TestServerSimulation(unittest.TestCase):
         self.assertIsNotNone(result.server_info)
         self.assertEqual(result.server_info.port, 3000)
 
-    @patch("flowpad_discovery._discover_flowpad_impl")
-    @patch("flowpad_discovery.get_port_file_path")
+    @patch("network.flowpad_discovery._discover_flowpad_impl")
+    @patch("network.flowpad_discovery.get_port_file_path")
     def test_server_not_running(self, mock_path, mock_discover):
         """Simulate server is not running."""
         mock_stat = MagicMock()
@@ -212,8 +212,8 @@ class TestServerSimulation(unittest.TestCase):
         self.assertEqual(result.status, FlowpadStatus.INSTALLED_NOT_RUNNING)
         self.assertIsNone(result.server_info)
 
-    @patch("flowpad_discovery._discover_flowpad_impl")
-    @patch("flowpad_discovery.get_port_file_path")
+    @patch("network.flowpad_discovery._discover_flowpad_impl")
+    @patch("network.flowpad_discovery.get_port_file_path")
     def test_server_wakes_up_after_rate_limit(self, mock_path, mock_discover):
         """Simulate server waking up after rate limit was reached."""
         mock_stat = MagicMock()
@@ -246,8 +246,8 @@ class TestServerSimulation(unittest.TestCase):
         # Failures should be cleared
         self.assertEqual(len(self.state._failure_timestamps), 0)
 
-    @patch("flowpad_discovery._discover_flowpad_impl")
-    @patch("flowpad_discovery.get_port_file_path")
+    @patch("network.flowpad_discovery._discover_flowpad_impl")
+    @patch("network.flowpad_discovery.get_port_file_path")
     def test_failures_cleared_when_server_becomes_running(
         self, mock_path, mock_discover
     ):
@@ -278,8 +278,8 @@ class TestServerSimulation(unittest.TestCase):
 class TestIntegration(unittest.TestCase):
     """Integration tests for the full notification flow."""
 
-    @patch("flowpad_discovery._discover_flowpad_impl")
-    @patch("flowpad_discovery.get_port_file_path")
+    @patch("network.flowpad_discovery._discover_flowpad_impl")
+    @patch("network.flowpad_discovery.get_port_file_path")
     def test_full_cycle_server_down_then_up(self, mock_path, mock_discover):
         """Test full cycle: server down, rate limit, server up, notifications resume."""
         state = _ServerState()

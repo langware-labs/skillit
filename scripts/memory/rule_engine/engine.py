@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterator
 
-from log import skill_log
+from utils.log import skill_log
 from .activation_rule import ActivationRule, ActivationRuleHeader
 from .rule_loader import (
     discover_rules,

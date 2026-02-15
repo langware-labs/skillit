@@ -1,5 +1,5 @@
 """Inject session_id into session record on SessionStart."""
-from conf import get_session_output_dir
+from utils.conf import get_session_output_dir
 from memory.rule_engine.trigger_executor import Action
 
 
@@ -13,7 +13,7 @@ def evaluate(hooks_data: dict, transcript: list) -> Action | None:
         return None
 
     # Write session_id directly to the JSON store
-    from conf import get_session_dir
+    from utils.conf import get_session_dir
     from fs_store import FsRecord, RecordType
 
     session_dir = get_session_dir(session_id)

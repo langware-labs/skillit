@@ -16,8 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from conf import Platform, CURRENT_PLATFORM, SERVER_JSON_PATH
-from config import FLOWPAD_APP_NAME
+from utils.conf import Platform, CURRENT_PLATFORM, SERVER_JSON_PATH
+from utils.config import FLOWPAD_APP_NAME
 
 # Rate limiting constants
 MAX_FAILURES_PER_HOUR = 3

@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from log import skill_log
+from utils.log import skill_log
 
 
 class IndexManager:

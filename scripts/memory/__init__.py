@@ -4,7 +4,6 @@
 from .types import (
     HookEvent,
     HookEventType,
-    Note,
 )
 
 # Rule engine (from rule_engine/)
@@ -59,7 +58,6 @@ __all__ = [
     # Core types (types/)
     "HookEvent",
     "HookEventType",
-    "Note",
     # Rule engine classes (rule_engine/)
     "ActivationRule",
     "ActivationRuleHeader",

@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from claude_utils import (  # noqa: E402
+from utils.claude_utils import (  # noqa: E402
     PLUGIN_DIR,
     build_subagent_instructions,
     get_skill_rules_dir,

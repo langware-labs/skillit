@@ -5,7 +5,7 @@ from pathlib import Path
 from tests.test_utils import ClaudeTranscript, TestPluginProjectEnvironment
 
 # Path to sample transcript
-TRANSCRIPT_PATH = Path(__file__).parent / "unit" / "resources" / "simple_jira_request_transcript.jsonl"
+TRANSCRIPT_PATH = Path(__file__).parent.parent / "unit" / "resources" / "simple_jira_request_transcript.jsonl"
 
 
 def test_jira_no_acli(isolated_hook_env):

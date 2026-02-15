@@ -6,7 +6,7 @@ import sys
 from dataclasses import dataclass
 from typing import Any
 
-from log import skill_log
+from utils.log import skill_log
 from ..types.hooks import HookEventType
 from .trigger_executor import Action, TriggerResult
 

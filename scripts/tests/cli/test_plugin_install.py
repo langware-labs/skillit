@@ -5,7 +5,7 @@ from pathlib import Path
 
 from tests.test_utils import PromptResult
 from tests.test_utils.hook_environment import TestPluginProjectEnvironment, SKILLIT_ROOT
-from plugin_manager import SkillitPluginManager
+from utils.plugin_manager import SkillitPluginManager
 
 
 def test_install_plugin_creates_project_settings():

@@ -3,10 +3,10 @@
 import json
 from pathlib import Path
 
-from conf import LOG_FILE, SKILLIT_HOME
-from template_render import render
+from utils.conf import LOG_FILE, SKILLIT_HOME
+from utils.template_render import render
 
-SKILLIT_ROOT = Path(__file__).resolve().parents[1]
+SKILLIT_ROOT = Path(__file__).resolve().parents[2]
 TEMPLATES_DIR = SKILLIT_ROOT / "templates"
 AGENTS_DIR = SKILLIT_ROOT / "agents"
 
