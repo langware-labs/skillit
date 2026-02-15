@@ -469,12 +469,24 @@ class RuleEngine:
         """Get or create the underlying RulesPackage."""
         if self._package is None:
             project_path = get_project_rules_dir(self.project_dir) if self.project_dir else None
+            user_path = None
+            if self._user_rules_enabled():
+                user_path = get_user_rules_dir()
             self._package = RulesPackage.from_multiple_folders(
                 system_path=get_system_rules_dir(),
-                user_path=get_user_rules_dir(),
+                user_path=user_path,
                 project_path=project_path,
             )
         return self._package
+
+    @staticmethod
+    def _user_rules_enabled() -> bool:
+        """Check whether user rules are enabled via SkillitConfig."""
+        try:
+            from plugin_records.skillit_records import skillit_records
+            return skillit_records.config.user_rules_enabled
+        except Exception:
+            return True
 
     def discover_rules(self, force_refresh: bool = False) -> list[dict[str, Any]]:
         """Discover all available rules.

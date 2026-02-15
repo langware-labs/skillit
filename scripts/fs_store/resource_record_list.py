@@ -26,13 +26,32 @@ class ResourceRecordList:
     * ``FOLDER``    – one ``<type>-@<uid>/record.json`` directory per record inside ``list_path/``.
 
     All lookups use the record's ``uid`` property.
+
+    When ``list_path`` is omitted the collection path is computed as
+    ``records_path / <record_type>``, where *records_path* defaults to
+    ``~/.flow/records`` (the ``RECORDS_PATH`` constant from ``utils.conf``).
+    The record type is inferred from ``record_class``.
     """
 
-    list_path: Path
+    list_path: Path | None = None
     record_class: type[ResourceRecord] = field(default=ResourceRecord)
     storage_layout: StorageLayout = field(default=StorageLayout.LIST_ITEM)
+    records_path: Path | None = None
     _records: list[ResourceRecord] = field(default_factory=list, init=False, repr=False)
     _loaded: bool = field(default=False, init=False, repr=False)
+
+    def __post_init__(self):
+        if self.list_path is None:
+            record_type = self.record_class().type
+            if not record_type:
+                raise ValueError(
+                    "list_path is required when record_class has no default type"
+                )
+            base = self.records_path
+            if base is None:
+                from utils.conf import RECORDS_PATH
+                base = RECORDS_PATH
+            self.list_path = base / record_type
 
     # -- Persistence --
 

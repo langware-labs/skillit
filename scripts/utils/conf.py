@@ -32,6 +32,7 @@ SERVER_JSON_PATH = FLOW_HOME / "server.json"
 LOG_FILE = SKILLIT_HOME / "skill.log"
 
 SESSIONS_DIR = FLOW_HOME / "sessions"
+RECORDS_PATH = FLOW_HOME / "records"
 
 
 

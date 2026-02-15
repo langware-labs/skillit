@@ -11,3 +11,8 @@ class RecordType(StrEnum):
     LOG = "log"
     AGENTIC_PROCESS = "agentic_process"
     ARTIFACT = "artifact"
+
+
+class SkillitRecordType(StrEnum):
+    SKILLIT_SESSION = "skillit_session"
+    SKILLIT_CONFIG = "skillit_config"

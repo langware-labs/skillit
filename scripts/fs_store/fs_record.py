@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TypeVar
 
 from .resource_record import ResourceRecord
 
 T = TypeVar("T", bound="FsRecord")
+
+
+_FS_SYNC_SKIP = frozenset({"fs_sync", "source_file", "path"})
 
 
 @dataclass
@@ -20,6 +23,29 @@ class FsRecord(ResourceRecord):
     data-contract class.  The ``parent`` and ``children`` properties
     resolve refs to live records loaded from disk.
     """
+
+    fs_sync: bool = field(default=False, repr=False)
+
+    def __setattr__(self, name: str, value):
+        super().__setattr__(name, value)
+        if (
+            name not in _FS_SYNC_SKIP
+            and not name.startswith("_")
+            and getattr(self, "fs_sync", False)
+            and getattr(self, "source_file", None)
+        ):
+            self.persist()
+
+    def __setitem__(self, key: str, value):
+        known = {f.name for f in self.__dataclass_fields__.values()}
+        super().__setitem__(key, value)
+        if key not in known and self.fs_sync and self.source_file:
+            self.persist()
+
+    def to_dict(self) -> dict:
+        d = super().to_dict()
+        d.pop("fs_sync", None)
+        return d
 
     # -- Live relationship properties --
 

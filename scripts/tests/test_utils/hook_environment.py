@@ -209,6 +209,7 @@ class TestPluginProjectEnvironment:
         self._dump_activations = False
         self._clean = clean
         self._include_user_home = include_user_home
+        self._skillit_records = None
         if dump:
             self.dump_activations = True
         self._setup()
@@ -319,6 +320,23 @@ class TestPluginProjectEnvironment:
     def rule_engine(self) -> RuleEngine:
         """Return RuleEngine for this environment."""
         return RuleEngine(project_dir=str(self.temp_dir))
+
+    @property
+    def skillit_records(self):
+        if self._skillit_records is None:
+            from plugin_records.skillit_records import SkillitRecords
+            self._skillit_records = SkillitRecords(
+                records_path=self.temp_dir / ".flow" / "records"
+            )
+        return self._skillit_records
+
+    @property
+    def user_rules_enabled(self) -> bool:
+        return self.skillit_records.config.user_rules_enabled
+
+    @user_rules_enabled.setter
+    def user_rules_enabled(self, value: bool) -> None:
+        self.skillit_records.config.user_rules_enabled = value
 
     # ------------------------------------------------------------------
     # Environment variable helpers
