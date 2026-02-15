@@ -429,11 +429,14 @@ class TestPluginProjectEnvironment:
     def install_plugin(self) -> None:
         """Build templates and enable the skillit plugin at project scope.
 
-        Renders templates (so agents carry the current version), ensures the
-        marketplace is registered, then enables with ``--scope project``.
+        Bumps the patch version so the plugin cache is refreshed with
+        current source, renders templates, then installs with
+        ``--scope project``.
         """
         from utils.plugin_manager import SkillitPluginManager
-        SkillitPluginManager().build()
+        mgr = SkillitPluginManager()
+        mgr.patch()
+        mgr.build()
 
         plugin_name, marketplace_name, _ = self._read_plugin_meta()
         env = self._build_env()

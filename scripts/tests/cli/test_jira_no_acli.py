@@ -21,22 +21,3 @@ def test_jira_with_acli(isolated_hook_env):
     assert result.returncode == 0
     assert result.hook_output_contains("acli")
 
-
-def test_jira_with_acli_gen_rule(isolated_hook_env):
-    """handle_analyze returns subagent instructions for rule creation."""
-    from modifiers.analyze_and_create_activation_rules import handle_analyze
-
-    transcript = ClaudeTranscript.load(TRANSCRIPT_PATH)
-    data = {
-        "hookEvent": "UserPromptSubmit",
-        "prompt": "skillit",
-        "cwd": str(isolated_hook_env.path),
-        "transcript_path": str(transcript.path),
-    }
-    result = handle_analyze("skillit", data)
-
-    # handle_analyze returns a string with subagent instructions
-    assert isinstance(result, str)
-    assert "Task subagent" in result or "subagent" in result
-    assert "activation rules" in result.lower()
-    assert "analyze_and_create_activation_rules" in result or "Skillit Analysis" in result

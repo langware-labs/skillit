@@ -6,7 +6,8 @@ from subagents.agent_manager import SubAgent, get_subagent_launch_prompt
 from hook_handlers.analysis import start_new_analysis, complete_analysis
 from utils.conf import get_session_dir, get_session_output_dir
 from utils.log import skill_log_print, skill_log_clear
-from fs_store import FsRecord
+from plugin_records.skillit_records import skillit_records
+from plugin_records.skillit_session import SkillitSession
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
 
 TRANSCRIPT_PATH = Path(__file__).parent.parent / "unit" / "resources" / "jira_acli_fail.jsonl"
@@ -57,20 +58,17 @@ def test_mcp_session_id_injection():
     result = env.prompt("what is the session id ? ", verbose=False)
     assert result.returncode == 0
     assert env.session_id in result.stdout, "session_id should be included in the prompt response"
-    # Verify context file was created by the hook in session dir (not output dir)
-    session_dir = get_session_dir(env.session_id)
-    context_file = session_dir / "record.json"
-    assert context_file.exists(), "record.json should be created by SESSION_START hook"
 
-    # Verify it contains session_id
-    with open(context_file) as f:
-        data = json.load(f)
-    assert "session_id" in data
-    assert data["session_id"] == env.session_id
+    # Verify session was created in skillit_records
+    sessions = skillit_records.sessions
+    sessions.load()
+    session = sessions.get(env.session_id)
+    assert session is not None, "session should be created by SESSION_START hook"
+    assert session.session_id == env.session_id
     skill_log_print()
 
 def test_mcp_session_flow_context_usage():
-    """Verify that SESSION_START hook injects session ID into context."""
+    """Verify that flow_context MCP tool stores and retrieves values via skillit_records."""
     env = make_env()
     env.install_plugin()
     skill_log_clear()
@@ -80,26 +78,20 @@ def test_mcp_session_flow_context_usage():
     print(f"\n **********************\n Prompt result: {result.stdout} \n **********************\n")
     assert result.returncode == 0
     assert env.session_id in result.stdout, "session_id should be included in the prompt response"
-    # Verify context file was created by the hook in session dir (not output dir)
-    session_dir = get_session_dir(env.session_id)
-    context_file = session_dir / "record.json"
-    assert context_file.exists(), "record.json should be created by SESSION_START hook"
 
-    # Verify it contains session_id
-    with open(context_file) as f:
-        data = json.load(f)
-    assert "session_id" in data
-    assert data["session_id"] == env.session_id
-    assert "the key" in data
-    assert data["the key"] == "1566"
+    # Verify session was created with the key-value pair
+    sessions = skillit_records.sessions
+    sessions.load()
+    session = sessions.get(env.session_id)
+    assert session is not None, "session should be created by SESSION_START hook"
+    assert session.session_id == env.session_id
+    assert "the key" in session
+    assert session["the key"] == "1566"
 
-    # Write a timestamp directly using ResourceRecord
+    # Write a timestamp directly via skillit_records
     timestamp = str(int(time.time()))
-    session_dir = get_session_dir(env.session_id)
-    context_file = session_dir / "record.json"
-    store = FsRecord.from_json(context_file)
-    store["the key"] = timestamp
-    store.persist()
+    session["the key"] = timestamp
+    sessions.save()
 
     # Second launch (resumes session): ask Claude to retrieve the value via MCP
     instruction = (
@@ -126,5 +118,3 @@ def test_output_dir():
     analysis_doc = output_dir / "analysis.md"
     assert analysis_doc.exists(), "Analysis output file should exist"
     skill_log_print()
-
-

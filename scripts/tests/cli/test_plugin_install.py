@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from tests.test_utils import PromptResult
-from tests.test_utils.hook_environment import TestPluginProjectEnvironment, SKILLIT_ROOT
+from tests.test_utils.hook_environment import TestPluginProjectEnvironment, SKILLIT_ROOT, LaunchMode
 from utils.plugin_manager import SkillitPluginManager
 
 
@@ -68,7 +68,7 @@ def test_patch_installs_new_version():
     env = TestPluginProjectEnvironment()
     env.install_plugin()
 
-    result:PromptResult = env.launch_claude('use the skillit sugagent  and ask for its version, make sure to invoken it', False)
+    result:PromptResult = env.launch_claude('use the skillit sugagent  and ask for its version, make sure to invoken it', LaunchMode.HEADLESS)
     assert new_version in result.stdout
 
 def test_activation_dump():
@@ -77,7 +77,7 @@ def test_activation_dump():
     print(f"env path: {env.path}")
     env.install_plugin()
     env.dump_activations= True
-    no_secret_result:PromptResult = env.launch_claude('is 42', False)
+    no_secret_result:PromptResult = env.launch_claude('is 42', LaunchMode.HEADLESS)
     assert env.dump_file is not None
     assert env.dump_file.exists()
     print(f"env path: {env.dump_entries}")
@@ -91,7 +91,7 @@ def test_secret_word_install():
 
     # Without the rule loaded, 443216 should NOT appear
     no_secret_result: PromptResult = env.launch_claude(
-        'what is the project reference ID for 42? reply with just the number', False
+        'what is the project reference ID for 42? reply with just the number', LaunchMode.HEADLESS
     )
     log_before = SkillitPluginManager.print_log()
     print(f"hook log (no rule): {log_before}")
@@ -102,7 +102,7 @@ def test_secret_word_install():
     # Load the secret_word rule and re-prompt
     env.load_rule("secret_word")
     secret_result: PromptResult = env.launch_claude(
-        'what is the project reference ID for 42? reply with just the number', False
+        'what is the project reference ID for 42? reply with just the number', LaunchMode.HEADLESS
     )
     log_after = SkillitPluginManager.print_log()
     print(f"hook log (with rule): {log_after}")

@@ -9,8 +9,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from fastmcp import FastMCP
 from network.notify import send_flow_tag, xml_str_to_flow_data_dict
-from utils.conf import get_session_dir
-from fs_store import FsRecord
 
 mcp = FastMCP("skillit")
 
@@ -74,31 +72,45 @@ def flow_context(session_id: str, action: str, key: str, value: str = None) -> s
     if not key:
         return "Error: key is required"
 
-    # Get session directory and initialize store
+    # Load session from skillit_records
     try:
-        session_dir = get_session_dir(session_id)
-        store_path = session_dir / "record.json"
-        store = FsRecord.from_json(store_path)
+        from plugin_records.skillit_records import skillit_records
+        from plugin_records.skillit_session import SkillitSession
+
+        sessions = skillit_records.sessions
+        sessions.load()  # reload from disk for cross-process visibility
+        session = sessions.get(session_id)
+        if session is None:
+            session = sessions.create(SkillitSession(session_id=session_id))
     except Exception as e:
         return f"Error initializing context store: {e}"
 
     # Perform action
     if action == "set":
+        skill_log(f"MCP: Setting context for session {session_id}: {key} = {value}")
         if value is None:
+            skill_log("MCP: Set action missing value")
             return "Error: value is required for 'set' action"
         try:
-            store[key] = value
-            store.persist()
+            session[key] = value
+            sessions.save()
+            skill_log(f"MCP: Set context with {value}")
             return f"Context set: {key} = {value}"
         except Exception as e:
+            skill_log(f"MCP ERROR: Set context ERROR {e}")
             return f"Error setting context: {e}"
 
     else:  # action == "get"
         try:
-            if key not in store:
+            skill_log(f"MCP: Getting context for session {session_id}: {key}")
+            if key not in session:
+                skill_log(f"MCP: Get context key '{key}' not found")
                 return f"Key '{key}' not found in session context"
-            return str(store[key])
+            val = str(session[key])
+            skill_log(f"MCP: Get context read record key:{key}, value: {val}")
+            return val
         except Exception as e:
+            skill_log(f"MCP ERROR: Get context ERROR {e}")
             return f"Error getting context: {e}"
 
 if __name__ == "__main__":

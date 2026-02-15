@@ -12,17 +12,16 @@ def evaluate(hooks_data: dict, transcript: list) -> Action | None:
     if not session_id:
         return None
 
-    # Write session_id directly to the JSON store
-    from utils.conf import get_session_dir
-    from fs_store import FsRecord, RecordType
+    from plugin_records.skillit_records import skillit_records
+    from plugin_records.skillit_session import SkillitSession
 
-    session_dir = get_session_dir(session_id)
-    store = FsRecord.from_json(session_dir / "record.json")
-    store["session_id"] = session_id
-    if not store.type:
-        store.type = RecordType.SESSION
-        store.id = session_id
-    store.persist()
+    sessions = skillit_records.sessions
+    sessions.load()
+    session = sessions.get(session_id)
+    if session is None:
+        session = sessions.create(SkillitSession(session_id=session_id))
+    sessions.save()
+
     session_output_dir = get_session_output_dir(session_id)
 
     context = (
