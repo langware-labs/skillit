@@ -96,6 +96,7 @@ def invoke_main(prompt: str, verbose: bool = True) -> dict:
         input=json.dumps(stdin_payload),
         capture_output=True,
         text=True,
+        encoding="utf-8",
         env=env
     )
 
@@ -230,7 +231,7 @@ success = send_skill_activation(
 print("QUEUED:" + str(success))
 import time; time.sleep(0.5)
 """],
-            capture_output=True, text=True
+            capture_output=True, text=True, encoding="utf-8"
         )
         print(result.stdout)
         if result.stderr:
@@ -317,7 +318,7 @@ if status != FlowpadStatus.RUNNING:
 ad = get_ad_if_needed()
 print("AD_EMPTY:" + str(ad == ""))
 """],
-            capture_output=True, text=True
+            capture_output=True, text=True, encoding="utf-8"
         )
         test1_passed = "AD_EMPTY:True" in result.stdout
         print(f"{'✓' if test1_passed else '✗'} No ad returned when Flowpad is running")
@@ -345,7 +346,7 @@ success = send_skill_event("skill_ready", {{"skill_name": "test-skill", "session
 print("SENT:" + str(success))
 import time; time.sleep(0.5)
 """],
-            capture_output=True, text=True
+            capture_output=True, text=True, encoding="utf-8"
         )
         time.sleep(0.3)
 

@@ -82,7 +82,7 @@ def start_new_analysis(session_id: str) -> AnalysisResources | None:
 
 
 def complete_analysis(resources: AnalysisResources, session_id: str) -> None:
-    """Mark the analysis task and process as done and sync updates to FlowPad."""
+    """Mark the analysis task as done and sync update to FlowPad."""
     resources.task.status = TaskStatus.DONE
     resources.process.state = ProcessorStatus.COMPLETE
 
