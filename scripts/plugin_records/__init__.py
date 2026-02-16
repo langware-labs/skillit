@@ -30,4 +30,5 @@ Example::
 
 from .skillit_config import SkillitConfig
 from .skillit_session import SkillitSession
+from .skillit_skill import SkillitSkill
 from .skillit_records import skillit_records

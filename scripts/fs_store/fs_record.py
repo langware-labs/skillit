@@ -93,6 +93,20 @@ class FsRecord(ResourceRecord):
             result.append(FsRecord.from_json(p))
         return result
 
+    def get_chidren_by_type(self, type: str) -> list[FsRecord]:
+        """Load child records from disk and keep only records of the requested type."""
+        result: list[FsRecord] = []
+        for ref in self.children_refs:
+            if not ref.record_path:
+                continue
+            p = Path(ref.record_path)
+            if not p.exists():
+                continue
+            child = FsRecord.from_json(p)
+            if child.type == type:
+                result.append(child)
+        return result
+
     @classmethod
     def from_json(cls, path: str | Path) -> FsRecord:
         """Load a record from a JSON file, or create a new one if missing."""
