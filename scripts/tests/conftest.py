@@ -1,10 +1,25 @@
 """Pytest fixtures for hook testing."""
 
+import sys
 import pytest
 
 from plugin_records import skillit_records
 from utils.log import skill_log, skill_log_print, skill_log_clear
 from tests.test_utils import TestPluginProjectEnvironment
+
+
+@pytest.fixture(scope="session", autouse=True)
+def configure_utf8_output():
+    """Configure stdout/stderr to use UTF-8 encoding on Windows.
+
+    This is needed to handle emojis in print statements when running tests.
+    """
+    if sys.platform == "win32":
+        # Reconfigure stdout and stderr to use UTF-8 encoding
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8")
 
 
 @pytest.fixture(scope="function")

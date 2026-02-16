@@ -370,6 +370,8 @@ class TestPluginProjectEnvironment:
         """
         env = os.environ.copy()
         env.pop("CLAUDECODE", None)
+        # Ensure UTF-8 encoding for stdin/stdout/stderr to handle emojis on Windows
+        env["PYTHONIOENCODING"] = "utf-8"
         env.update(self._env_vars)
         return env
 
@@ -467,6 +469,7 @@ class TestPluginProjectEnvironment:
             cwd=str(self.temp_dir),
             capture_output=True,
             text=True,
+            encoding="utf-8",
             env=env,
         )
         if result.returncode != 0 and "already enabled" not in result.stderr:
@@ -624,6 +627,7 @@ class TestPluginProjectEnvironment:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
             env=self._build_env(),
         )
 
