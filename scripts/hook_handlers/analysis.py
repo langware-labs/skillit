@@ -66,22 +66,31 @@ def start_new_analysis(session_id: str) -> AnalysisResources | None:
         to_ref=child_ref,
     )
 
-    task.children_refs = [child_ref]
     task.save_to(get_session_dir(session_id))
 
+    # Only send task - process and relationship cause type mismatches with FlowPad
+    # FlowPad's AgenticProcess expects ProcessState object, not string
+    # TODO: Either align types or make FlowPad's AgenticProcess accept simple state strings
     send_task_sync(SyncOperation.CREATE, task.to_dict())
-    send_process_sync(SyncOperation.CREATE, process.to_dict())
-    send_relationship_sync(SyncOperation.CREATE, relationship.to_dict())
+
+    # Commented out: These cause type mismatches with FlowPad
+    # send_process_sync(SyncOperation.CREATE, process.to_dict())
+    # send_relationship_sync(SyncOperation.CREATE, relationship.to_dict())
+
+    print(f"[SKILLIT] ✓ Created analysis task: {task_id}")
 
     return AnalysisResources(task=task, process=process, relationship=relationship)
 
 
 def complete_analysis(resources: AnalysisResources, session_id: str) -> None:
-    """Mark the analysis task and process as done and sync updates to FlowPad."""
+    """Mark the analysis task as done and sync update to FlowPad."""
     resources.task.status = TaskStatus.DONE
-    resources.process.state = ProcessorStatus.COMPLETE
-
     resources.task.save_to(get_session_dir(session_id))
 
     send_task_sync(SyncOperation.UPDATE, resources.task.to_dict())
-    send_process_sync(SyncOperation.UPDATE, resources.process.to_dict())
+
+    # Commented out: Update process status when type mismatch is fixed
+    # resources.process.state = ProcessorStatus.COMPLETE
+    # send_process_sync(SyncOperation.UPDATE, resources.process.to_dict())
+
+    print(f"[SKILLIT] ✓ Completed analysis task: {resources.task.id}")
