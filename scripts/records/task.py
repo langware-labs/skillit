@@ -23,6 +23,7 @@ class TaskStatus(StrEnum):
 class TaskType(StrEnum):
     TASK = "Task"
     ANALYSIS = "analysis"
+    SKILL_CREATION = "skill_creation"
 
 
 @dataclass
@@ -44,6 +45,6 @@ class TaskResource(FsRecord):
     def save_to(self, session_dir: Path) -> None:
         """Save this task into the unified session record at session_dir/record.json."""
         record_path = session_dir / "record.json"
-        session = FsRecord.load_record(record_path)
+        session = FsRecord.init_record(record_path)
         session["task"] = self.to_dict()
         session.save()

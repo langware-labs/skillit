@@ -9,6 +9,7 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any, TypeVar
 
+from .fs_record_ref import FsRecordRef
 from .resource_record import ResourceRecord
 
 T = TypeVar("T", bound="FsRecord")
@@ -31,7 +32,10 @@ class FsRecord(ResourceRecord):
     fs_sync: bool = field(default=False, repr=False)
 
     def __setattr__(self, name: str, value):
+        old_status = getattr(self, "status", None) if name == "status" else None
         super().__setattr__(name, value)
+        if name == "status" and value != old_status:
+            self.on_status_change(old_status, value)
         if (
             name not in _FS_SYNC_SKIP
             and not name.startswith("_")
@@ -80,7 +84,7 @@ class FsRecord(ResourceRecord):
         p = Path(self.parent_ref.record_path)
         if not p.exists():
             return None
-        return FsRecord.load_record(p)
+        return FsRecord.init_record(p)
 
     @property
     def children(self) -> list[FsRecord]:
@@ -92,7 +96,7 @@ class FsRecord(ResourceRecord):
             p = Path(ref.record_path)
             if not p.exists():
                 continue
-            result.append(FsRecord.load_record(p))
+            result.append(FsRecord.init_record(p))
         return result
 
     def get_chidren_by_type(self, type: str) -> list[FsRecord]:
@@ -104,32 +108,61 @@ class FsRecord(ResourceRecord):
             p = Path(ref.record_path)
             if not p.exists():
                 continue
-            child = FsRecord.load_record(p)
+            child = FsRecord.init_record(p)
             if child.type == type:
                 result.append(child)
         return result
 
-    @classmethod
-    def init(cls: type[T], data: dict[str, Any], path: str | Path, indent: int = 2) -> T:
-        """Initialize a folder-layout record at path by creating ``record.json``."""
-        p = Path(path)
-        if p.name == _RECORD_JSON:
-            folder = p.parent
-        elif p.suffix == ".json":
-            folder = p.parent / p.stem
-        else:
-            folder = p
-
-        record_file = folder / _RECORD_JSON
-        rec = cls.from_dict(data)
-        rec.path = str(folder)
-        rec.save_record_json(record_file, indent=indent)
-        return rec
+    def add_child(self, child: FsRecord | FsRecordRef) -> FsRecordRef:
+        """Append a child ref to this record without creating/modifying child files."""
+        ref = child if isinstance(child, FsRecordRef) else FsRecordRef.from_record(child)
+        if not any(existing.id == ref.id and existing.type == ref.type for existing in self.children_refs):
+            self.children_refs.append(ref)
+            if self.source_file:
+                self.save()
+        return ref
 
     @classmethod
-    def load_record(cls, path: str | Path) -> FsRecord:
-        """Load a record from a JSON file, or create a new one if missing."""
-        p = Path(path)
+    def init(
+        cls: type[T],
+        data: dict[str, Any],
+        path: str | Path,
+        indent: int = 2,
+    ) -> T:
+        """Backward-compatible alias for ``init_record(data, path)``."""
+        return cls.init_record(data, path, indent=indent)
+
+    @classmethod
+    def init_record(
+        cls: type[T],
+        path_or_data: str | Path | dict[str, Any],
+        path: str | Path | None = None,
+        indent: int = 2,
+    ) -> T:
+        """Initialize or load a record.
+
+        Forms:
+        - ``init_record(path)`` -> load from ``path`` (or create empty in-memory record if missing)
+        - ``init_record(data, path)`` -> create folder-layout record at ``path/record.json``
+        """
+        if isinstance(path_or_data, dict):
+            if path is None:
+                raise ValueError("path is required when initializing from data")
+            p = Path(path)
+            if p.name == _RECORD_JSON:
+                folder = p.parent
+            elif p.suffix == ".json":
+                folder = p.parent / p.stem
+            else:
+                folder = p
+
+            record_file = folder / _RECORD_JSON
+            rec = cls.from_dict(path_or_data)
+            rec.path = str(folder)
+            rec.save_record_json(record_file, indent=indent)
+            return rec
+
+        p = Path(path_or_data)
         if p.is_dir():
             p = p / _RECORD_JSON
         if p.exists():

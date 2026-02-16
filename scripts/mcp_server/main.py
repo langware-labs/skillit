@@ -46,18 +46,18 @@ def flow_entity_crud(claude_session_id: str, crud: str, entity_json: str) -> str
         return f"Error: session {claude_session_id} not found"
     skill_log(f"MCP entity_crud OK, session found: {claude_session_id}, output dir {session.output_dir}")
     try:
-        entity = json.loads(entity_json)
+        entity_dict = json.loads(entity_json)
     except json.JSONDecodeError as e:
         return f"Error: invalid JSON — {e}"
 
     return skillit_records.entity_crud(
         session_id=claude_session_id,
         crud=crud,
-        entity=entity,
+        entity=entity_dict,
     )
 
 @mcp.tool()
-def flow_tag(flow_tag_xml: str) -> str:
+def flow_tag(flow_tag_xml: str, claude_session_id: str = None) -> str:
     """Call this whenever you encounter a <flow-[type]> tag in the flow XML. The outer xml of the tag will be passed as flow_tag_xml.
 
     Use this to report progress. Event types include:
@@ -66,6 +66,7 @@ def flow_tag(flow_tag_xml: str) -> str:
 
     Args:
         flow_tag_xml: The outer XML string of the flow tag.
+        claude_session_id: The session ID (provided in context at session start).
 
     Returns:
         Confirmation string with the received flow tag.
@@ -79,6 +80,18 @@ def flow_tag(flow_tag_xml: str) -> str:
         return f"Error parsing flow tag: {e}"
 
     skill_log(f"MCP parsed flow data: {flow_data}")
+
+    # Complete skill creation task when skill is ready
+    element_type = flow_data.get('element_type', '')
+    if element_type == 'skill_ready' and claude_session_id:
+        from plugin_records.crud_handlers.skill_creation_handler import skill_creation_handler
+        from plugin_records.skillit_records import skillit_records
+
+        session = skillit_records.get_session(claude_session_id)
+        if session:
+            skill_creation_handler.on_update(
+                claude_session_id, session, "skill", {"status": "done"}
+            )
 
     success = send_flow_tag(flow_data)
 

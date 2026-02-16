@@ -25,6 +25,12 @@ def test_flow_entity_crud_unknown_op():
     assert "Error" in result
 
 
+def _patch_skillit_records(monkeypatch, mgr):
+    """Replace the module-level singleton with a test instance."""
+    import sys
+    monkeypatch.setattr(sys.modules["plugin_records.skillit_records"], "skillit_records", mgr)
+
+
 def test_flow_entity_crud_dispatches(monkeypatch):
     from plugin_records.skillit_records import skillit_records
 
@@ -33,17 +39,19 @@ def test_flow_entity_crud_dispatches(monkeypatch):
         skillit_records, "entity_crud",
         lambda **kwargs: calls.append(kwargs) or "ok",
     )
+    monkeypatch.setattr(
+        skillit_records, "get_session",
+        lambda sid: type("S", (), {"session_id": sid, "output_dir": "/tmp"})(),
+    )
     result = _crud("s1", "create", json.dumps({"type": "skill", "name": "x"}))
     assert result == "ok"
     assert calls[0] == {"session_id": "s1", "crud": "create", "entity": {"type": "skill", "name": "x"}}
 
 
 def test_flow_entity_crud_create_skill(tmp_path, monkeypatch):
-    import sys
-    mod = sys.modules["plugin_records.skillit_records"]
-
     mgr = SkillitRecords(records_path=tmp_path)
-    monkeypatch.setattr(mod, "skillit_records", mgr)
+    mgr.create_session(_REAL_SESSION_ID)
+    _patch_skillit_records(monkeypatch, mgr)
 
     result = _crud(_REAL_SESSION_ID, "create", _REAL_ENTITY_JSON)
     assert "Created" in result
