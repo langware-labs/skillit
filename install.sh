@@ -14,7 +14,7 @@ MARKETPLACE_NAME=$(python3 -c "import json; print(json.load(open('.claude-plugin
 echo "Installing $PLUGIN_NAME@$MARKETPLACE_NAME v$PLUGIN_VERSION$( [ "$USE_SYMLINK" = true ] && echo " (symlink)" )..."
 
 # Build: render templates into agents/
-PYTHONPATH="$SOURCE_DIR/scripts" python3 "$SOURCE_DIR/scripts/build.py"
+PYTHONPATH="$SOURCE_DIR/scripts" python3 "$SOURCE_DIR/scripts/utils/build.py"
 
 # Check if claude CLI is available
 if ! command -v claude &> /dev/null; then
