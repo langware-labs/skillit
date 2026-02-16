@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from utils.conf import LOG_FILE, SKILLIT_HOME
+from utils.conf import LOG_FILE
 from utils.template_render import render
 
 SKILLIT_ROOT = Path(__file__).resolve().parents[2]
@@ -78,7 +78,6 @@ class SkillitPluginManager:
         agent_common = agent_common_path.read_text() if agent_common_path.exists() else ""
         context = {
             "version": self.version,
-            "skillit_home": str(SKILLIT_ROOT),
             "agent_common": agent_common,
         }
         AGENTS_DIR.mkdir(parents=True, exist_ok=True)

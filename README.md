@@ -157,8 +157,7 @@ Bump the patch version, build, commit, and push:
 
 ```bash
 cd scripts
-python -c "from utils.plugin_manager import SkillitPluginManager; SkillitPluginManager().patch()"
-python utils/build.py
+python -c "from utils.plugin_manager import SkillitPluginManager; SkillitPluginManager().buid(); SkillitPluginManager().patch()"
 ```
 
 Then commit and push the changes.
