@@ -4,9 +4,10 @@ import json
 import sys
 from pathlib import Path
 
-from utils.log import skill_log
+# Add scripts/ to sys.path before any local imports
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-sys.path.insert(0, str(Path(__file__).parent))
+from utils.log import skill_log
 
 from fastmcp import FastMCP
 from network.notify import send_flow_tag, xml_str_to_flow_data_dict
