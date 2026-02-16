@@ -16,6 +16,13 @@ from .scope import Scope
 
 T = TypeVar("T", bound="ResourceRecord")
 
+
+class ResourceStatus(str, Enum):
+    """Status of a resource record."""
+    CREATING = "creating"
+    NEW = "new"
+
+
 # Naming convention: <type>-@<uid>
 _NAME_SEP = "-@"
 
@@ -54,6 +61,7 @@ class ResourceRecord:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     type: str = ""
     name: str = ""
+    status: ResourceStatus | None = None
 
     # Audit
     created_at: datetime | None = None
@@ -171,6 +179,13 @@ class ResourceRecord:
         if "scope" in kwargs and isinstance(kwargs["scope"], str):
             try:
                 kwargs["scope"] = Scope(kwargs["scope"])
+            except ValueError:
+                pass  # keep as raw string
+
+        # Coerce status to ResourceStatus enum when possible
+        if "status" in kwargs and isinstance(kwargs["status"], str):
+            try:
+                kwargs["status"] = ResourceStatus(kwargs["status"])
             except ValueError:
                 pass  # keep as raw string
 

@@ -26,3 +26,9 @@ class AgenticProcess(FsRecord):
     def __post_init__(self):
         if not self.type:
             self.type = RecordType.AGENTIC_PROCESS
+
+    def to_dict(self) -> dict:
+        d = super().to_dict()
+        # FlowPad expects state as a ProcessorState dict, not a plain string
+        d["state"] = {"status": d.get("state", self.state)}
+        return d

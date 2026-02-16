@@ -23,6 +23,7 @@ class TaskStatus(StrEnum):
 class TaskType(StrEnum):
     TASK = "Task"
     ANALYSIS = "analysis"
+    SKILL_CREATION = "skill_creation"
 
 
 @dataclass
