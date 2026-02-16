@@ -11,6 +11,7 @@ class SubAgent(StrEnum):
     MAIN_AGENT = "skillit-agent"
     CLASSIFY = "skillit-classifier"
     CREATE = "skillit-create"
+    SKILL_CREATOR = "skillit-creator"
 
 
 def get_subagent_launch_prompt(agent: SubAgent, prompt: str, data: dict) -> str:

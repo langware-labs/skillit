@@ -10,7 +10,7 @@ from utils.log import skill_log_print
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
 
 TRANSCRIPT_PATH = Path(__file__).parent.parent / "unit" / "resources" / "jira_acli_fail.jsonl"
-
+ACLI_SESSION_ID = "d7dd8377-c888-40e5-98ea-899ed95c7eeb"
 
 def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str:
     """Build the analysis prompt from the transcript and launch the analyzer.
@@ -47,6 +47,26 @@ def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
     return result.stdout
 
 
+def create_skill(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str:
+    """Classify the issues found during analysis.
+
+    Args:
+        env: The test environment (session is resumed automatically).
+        mode: Launch mode for claude.
+
+    Returns:
+        The classification output text.
+    """
+
+    instruction = f"remember this fix"
+    all_rules_index = env.all_rules.rules_index
+    data = {"known_rules": all_rules_index}
+    context_add = get_subagent_launch_prompt(SubAgent.SKILL_CREATOR, instruction, data)
+
+    result = env.launch_claude(context_add, mode=mode)
+    assert result.returncode == 0
+    return result.stdout
+
 def classify_analysis(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str:
     """Classify the issues found during analysis.
 
@@ -69,12 +89,11 @@ def classify_analysis(env: TestPluginProjectEnvironment, mode: LaunchMode = Laun
     assert result.returncode == 0
     return result.stdout
 
-
 def create_rule(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str | None:
     transcript = ClaudeTranscript.load(TRANSCRIPT_PATH)
     prompt = transcript.get_entries("user")[0]["message"]["content"]
 
-    instruction = f"user original request: {prompt}"
+    instruction = f"user original request: {prompt}, given the issues classification, clear all known, make sure merged are merged into a single issue and new are passed as is"
     context_add = get_subagent_launch_prompt(SubAgent.CREATE, instruction, {})
 
     result = env.launch_claude(context_add, mode=mode)
@@ -83,7 +102,18 @@ def create_rule(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode
     assert result.returncode == 0
     return result.stdout
 
+def test_create_skill():
+    """End-to-end: analyze transcript, classify issues, create rule."""
+    env = make_env()
+    env.install_plugin()
+    env._fork = True
+    print(f"Environment set up at: {env.path}")
+    env._resume_session_id = ACLI_SESSION_ID
+    create_skill(env, mode=LaunchMode.HEADLESS)
+    session: SkillitSession = plugin_records.skillit_records.get_session(env.session_id)
+    assert session is not None
 
+@pytest.mark.skip()
 def test_create_rule():
     """End-to-end: analyze transcript, classify issues, create rule."""
     env = make_env()
@@ -92,11 +122,13 @@ def test_create_rule():
     print(f"Environment set up at: {env.path}")
     # analysis = analyze_hook(env, mode=LaunchMode.INTERACTIVE)
     # analysis = analyze_hook(env, mode=LaunchMode.HEADLESS)
-    #env._resume_session_id = 'dc617ce9-1ae5-4cf2-a091-a487230f8797'
-    #classification = classify_analysis(env, mode=LaunchMode.INTERACTIVE)
-    # session: SkillitSession = plugin_records.skillit_records.get_session('dc617ce9-1ae5-4cf2-a091-a487230f8797')
-    env._resume_session_id ='c0b4cb5e-27bf-4e7c-b08c-cd8ebffcc278'
-    session: SkillitSession = plugin_records.skillit_records.get_session(env._resume_session_id)
+    env._resume_session_id = 'dc617ce9-1ae5-4cf2-a091-a487230f8797'
+    classification = classify_analysis(env, mode=LaunchMode.HEADLESS)
+
+    session: SkillitSession = plugin_records.skillit_records.get_session('dc617ce9-1ae5-4cf2-a091-a487230f8797')
+
+    # env._resume_session_id ='c0b4cb5e-27bf-4e7c-b08c-cd8ebffcc278'
+    # session: SkillitSession = plugin_records.skillit_records.get_session(env._resume_session_id)
     rule_output = create_rule(env, mode=LaunchMode.INTERACTIVE)
     session:SkillitSession = plugin_records.skillit_records.get_session(env.session_id)
     assert session is not None
