@@ -12,7 +12,7 @@ from utils.log import skill_log
 
 def get_system_rules_dir() -> Path:
     """Return the system-level rules directory (ships with skillit)."""
-    return SCRIPT_DIR / "rules_engine" / "system_rules"
+    return SCRIPT_DIR / "system_rules"
 
 
 def get_user_rules_dir() -> Path:

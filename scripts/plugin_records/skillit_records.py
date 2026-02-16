@@ -107,7 +107,18 @@ class SkillitRecords:
             return f"Error: unknown CRUD operation '{crud}'"
 
     def _entity_create(self, session: SkillitSession, record_type: str, entity: dict) -> str:
-        raise NotImplementedError
+        from fs_store import type_registry
+
+        cls = type_registry.get(record_type)
+        if cls is None:
+            return f"Error: unknown entity type '{record_type}'"
+
+        if "id" not in entity:
+            entity = {**entity, "id": entity.get("name", "")}
+
+        record = cls.from_dict(entity)
+        self.skills.create(record)
+        return f"Created {record_type} '{record.uid}'"
 
     def _entity_read(self, session: SkillitSession, record_type: str, entity: dict) -> str:
         raise NotImplementedError

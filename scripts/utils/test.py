@@ -308,7 +308,7 @@ def test_activation_rules():
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
 from network.notify import get_flowpad_status
 from network.flowpad_discovery import FlowpadStatus
-from rules_engine.activation_rules import get_ad_if_needed
+from network.activation_rules import get_ad_if_needed
 
 status = get_flowpad_status()
 if status != FlowpadStatus.RUNNING:

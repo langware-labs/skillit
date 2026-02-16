@@ -4,6 +4,7 @@ import json
 
 import network.notify as notify
 from fs_store import ResourceType, SyncOperation
+from fs_store.record_types import RecordType
 
 
 def _setup_notify_monkeypatch(monkeypatch):
@@ -25,10 +26,10 @@ def test_send_resource_sync_includes_resource_type(monkeypatch):
     captured = _setup_notify_monkeypatch(monkeypatch)
 
     queued = notify.send_resource_sync(
-        type="task",
+        type=RecordType.TASK,
         id="task-1",
         operation=SyncOperation.CREATE,
-        data={"id": "task-1", "type": "task"},
+        data={"id": "task-1", "type": RecordType.TASK},
         resource_type=ResourceType.ENTITY,
     )
 

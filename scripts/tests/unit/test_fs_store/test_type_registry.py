@@ -38,4 +38,4 @@ def test_get_all_types():
 def test_get_returns_correct_class():
     cls = type_registry.get(RecordType.SKILL)
     record = cls(id="test-1")
-    assert record.type == "skill"
+    assert record.type == RecordType.SKILL

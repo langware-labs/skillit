@@ -11,7 +11,7 @@ from pathlib import Path
 from hook_handlers import prompt_submitted, session_start
 from utils.log import skill_log
 from network.notify import send_skill_event
-from rules_engine.rules import evaluate_rules
+from memory import create_rule_engine
 
 
 def _emit_hook_output(output: dict) -> None:
@@ -145,7 +145,11 @@ def main():
     skill_log(f"Prompt: {prompt}")
 
     # Evaluate file-based rules from .flow/skill_rules/
-    rules_output = evaluate_rules(data)
+    engine = create_rule_engine(project_dir=data.get("cwd"))
+    rules_output = engine.evaluate_rules(data, [])
+    rules_output.pop("_exit_code", None)
+    rules_output.pop("_triggered_rules", None)
+    rules_output.pop("_chain_requests", None)
     if rules_output:
         skill_log(f"File rules triggered: {json.dumps(rules_output)}")
 

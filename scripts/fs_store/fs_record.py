@@ -7,7 +7,7 @@ import platform
 import subprocess
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from .resource_record import ResourceRecord
 
@@ -15,6 +15,7 @@ T = TypeVar("T", bound="FsRecord")
 
 
 _FS_SYNC_SKIP = frozenset({"fs_sync", "source_file", "path"})
+_RECORD_JSON = "record.json"
 
 
 @dataclass
@@ -109,9 +110,28 @@ class FsRecord(ResourceRecord):
         return result
 
     @classmethod
+    def init(cls: type[T], data: dict[str, Any], path: str | Path, indent: int = 2) -> T:
+        """Initialize a folder-layout record at path by creating ``record.json``."""
+        p = Path(path)
+        if p.name == _RECORD_JSON:
+            folder = p.parent
+        elif p.suffix == ".json":
+            folder = p.parent / p.stem
+        else:
+            folder = p
+
+        record_file = folder / _RECORD_JSON
+        rec = cls.from_dict(data)
+        rec.path = str(folder)
+        rec.save_record_json(record_file, indent=indent)
+        return rec
+
+    @classmethod
     def load_record(cls, path: str | Path) -> FsRecord:
         """Load a record from a JSON file, or create a new one if missing."""
         p = Path(path)
+        if p.is_dir():
+            p = p / _RECORD_JSON
         if p.exists():
             data = json.loads(p.read_text(encoding="utf-8"))
             rec = cls.from_dict(data)

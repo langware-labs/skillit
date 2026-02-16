@@ -109,7 +109,7 @@ def test_create_skill():
     env._fork = True
     print(f"Environment set up at: {env.path}")
     env._resume_session_id = ACLI_SESSION_ID
-    create_skill(env, mode=LaunchMode.INTERACTIVE)
+    create_skill(env, mode=LaunchMode.HEADLESS)
     session: SkillitSession = plugin_records.skillit_records.get_session(env.session_id)
     skill_log_print()
     assert session is not None

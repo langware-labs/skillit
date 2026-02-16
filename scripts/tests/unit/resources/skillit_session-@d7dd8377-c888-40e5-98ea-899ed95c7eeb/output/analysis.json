@@ -1,0 +1,12 @@
+{
+  "session_id": "d7dd8377-c888-40e5-98ea-899ed95c7eeb",
+  "issues": [
+    {
+      "name": "acli-jira-subcommand-syntax",
+      "title": "Used incorrect acli --action flag syntax instead of subcommand-based syntax",
+      "description": "The assistant attempted 'acli jira --action getIssueList' which failed with 'unknown flag: --action'. The acli CLI uses a modern subcommand pattern: 'acli jira workitem search --jql <query> --fields <fields>'. This caused a command failure and required iterative troubleshooting to discover the correct pattern.",
+      "category": "mistake",
+      "occurrence": "initial failed command attempt"
+    }
+  ]
+}
