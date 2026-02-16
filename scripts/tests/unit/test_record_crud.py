@@ -192,3 +192,7 @@ def test_skill_copy_to_claude_user_home(tmp_path):
     finally:
         if home_skill_dir.exists():
             shutil.rmtree(home_skill_dir)
+
+    # missing lines:"
+    # task
+    # sync

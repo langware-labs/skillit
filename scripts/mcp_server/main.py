@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+from hook_handlers.skill_creation import start_skill_creation
+
 # Add scripts/ to sys.path before any local imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -50,6 +52,12 @@ def flow_entity_crud(claude_session_id: str, crud: str, entity_json: str) -> str
     except json.JSONDecodeError as e:
         return f"Error: invalid JSON — {e}"
 
+    # Complete skill creation task when skill entity is created
+    if crud == "create" and entity.get("type") == "skill":
+        start_skill_creation(session.session_id)
+    # except Exception as e:
+    #     skill_log(f"MCP: Failed to complete skill creation task: {e}")
+
     return skillit_records.entity_crud(
         session_id=claude_session_id,
         crud=crud,
@@ -57,7 +65,7 @@ def flow_entity_crud(claude_session_id: str, crud: str, entity_json: str) -> str
     )
 
 @mcp.tool()
-def flow_tag(flow_tag_xml: str) -> str:
+def flow_tag(flow_tag_xml: str, claude_session_id: str = None) -> str:
     """Call this whenever you encounter a <flow-[type]> tag in the flow XML. The outer xml of the tag will be passed as flow_tag_xml.
 
     Use this to report progress. Event types include:
@@ -66,6 +74,7 @@ def flow_tag(flow_tag_xml: str) -> str:
 
     Args:
         flow_tag_xml: The outer XML string of the flow tag.
+        claude_session_id: The session ID (provided in context at session start).
 
     Returns:
         Confirmation string with the received flow tag.
@@ -79,6 +88,43 @@ def flow_tag(flow_tag_xml: str) -> str:
         return f"Error parsing flow tag: {e}"
 
     skill_log(f"MCP parsed flow data: {flow_data}")
+
+    # Complete skill creation task when skill is ready
+    element_type = flow_data.get('element_type', '')
+    if element_type == 'skill_ready' and claude_session_id:
+        from hook_handlers.skill_creation import complete_skill_creation
+        from plugin_records.skillit_records import skillit_records
+
+        # Retrieve the skill creation resources from the session
+        session = skillit_records.get_session(claude_session_id)
+        if session:
+            # Load the task from disk
+            from records import TaskResource
+            task_id = f"skill-creation-{claude_session_id}"
+            try:
+                task = TaskResource.load_from(session.record_dir, task_id)
+                if task and task.children_refs:
+                    # Reconstruct resources from loaded task
+                    from records import AgenticProcess, RelationshipRecord
+                    from hook_handlers.skill_creation import SkillCreationResources
+
+                    process_ref = task.children_refs[0]
+                    process = AgenticProcess.load_from(session.record_dir, process_ref.id)
+
+                    # Relationship ID format: child:task:{task_id}:agentic_process:{process_id}
+                    rel_id = f"child:task:{task_id}:agentic_process:{process_ref.id}"
+                    relationship = RelationshipRecord.load_from(session.record_dir, rel_id)
+
+                    if process and relationship:
+                        resources = SkillCreationResources(
+                            task=task,
+                            process=process,
+                            relationship=relationship
+                        )
+                        complete_skill_creation(resources, claude_session_id)
+                        skill_log(f"MCP: Completed skill creation task for session {claude_session_id}")
+            except Exception as e:
+                skill_log(f"MCP: Failed to complete skill creation task: {e}")
 
     success = send_flow_tag(flow_data)
 

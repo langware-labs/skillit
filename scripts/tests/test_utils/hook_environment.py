@@ -820,7 +820,5 @@ def make_env() -> TestPluginProjectEnvironment:
     env = TestPluginProjectEnvironment()
     env.load_agent(SubAgent.MAIN_AGENT)
     env.load_agent(SubAgent.ANALYZE)
-    env.load_agent(SubAgent.CLASSIFY)
-    env.load_agent(SubAgent.CREATE)
     skill_log_clear()
     return env
