@@ -17,19 +17,13 @@ class SkillRecord(FsRecord):
     using the FOLDER storage layout.
     """
 
-    skill_name: str = ""
+    name: str = ""
     description: str = ""
-    version: str = ""
-    author: str = ""
-    license: str = ""
-    compatibility: str = ""
-    allowed_tools: str = ""
-    skill_path: str = ""
     status: str = "active"
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.type:
             self.type = RecordType.SKILL
-        if self.skill_name and not self.name:
-            self.name = self.skill_name
+        if self.name and not self.name:
+            self.name = self.name

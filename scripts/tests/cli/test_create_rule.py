@@ -111,9 +111,7 @@ def test_create_skill():
     env._resume_session_id = ACLI_SESSION_ID
     create_skill(env, mode=LaunchMode.INTERACTIVE)
     session: SkillitSession = plugin_records.skillit_records.get_session(env.session_id)
-    #skill= get skill from session.children
-    #skill@home = skill.copy_to_claude_home()
-    #notify(skill@home)
+    skill_log_print()
     assert session is not None
 
 @pytest.mark.skip()

@@ -315,67 +315,32 @@ def send_skill_event(event_type: str, context: dict = None) -> bool:
     )
 
 
-def send_task_sync(operation: SyncOperation, task_data: dict) -> bool:
-    """Send a task CRUD sync to FlowPad.
+def send_entity_sync(
+    operation: SyncOperation,
+    data: dict,
+    resource_type: ResourceType = ResourceType.ENTITY,
+) -> bool:
+    """Send an entity or relationship CRUD sync to FlowPad.
 
-    Args:
-        operation: SyncOperation.CREATE or SyncOperation.UPDATE
-        task_data: Full task ResourceRecord dict (from TaskResource.to_dict())
-
-    Returns:
-        True if notification was queued, False if Flowpad not running.
-    """
-    task_id = task_data.get("id", str(uuid.uuid4()))
-    return send_resource_sync(
-        type=RecordType.TASK,
-        id=task_id,
-        operation=operation,
-        data=task_data,
-        resource_type=ResourceType.ENTITY,
-        log_context=f"task {operation} id={task_id}",
-    )
-
-
-def send_process_sync(operation: SyncOperation, process_data: dict) -> bool:
-    """Send an agentic process CRUD sync to FlowPad.
-
-    Args:
-        operation: SyncOperation.CREATE or SyncOperation.UPDATE
-        process_data: Full AgenticProcess ResourceRecord dict (from AgenticProcess.to_dict())
-
-    Returns:
-        True if notification was queued, False if Flowpad not running.
-    """
-    process_id = process_data.get("id", str(uuid.uuid4()))
-    return send_resource_sync(
-        type=RecordType.AGENTIC_PROCESS,
-        id=process_id,
-        operation=operation,
-        data=process_data,
-        resource_type=ResourceType.ENTITY,
-        log_context=f"process {operation} id={process_id}",
-    )
-
-
-def send_relationship_sync(operation: SyncOperation, relationship_data: dict) -> bool:
-    """Send a relationship CRUD sync to FlowPad.
+    Extracts ``type`` and ``id`` from the data dict automatically.
 
     Args:
         operation: SyncOperation.CREATE / UPDATE / DELETE.
-        relationship_data: Full RelationshipRecord dict.
+        data: Full ResourceRecord dict (must contain "type" and "id").
+        resource_type: ENTITY (default) or RELATIONSHIP.
 
     Returns:
         True if notification was queued, False if Flowpad not running.
     """
-    relationship_id = relationship_data.get("id", str(uuid.uuid4()))
-    relationship_type = relationship_data.get("type", "relationship")
+    entity_type = data.get("type", "unknown")
+    entity_id = data.get("id", str(uuid.uuid4()))
     return send_resource_sync(
-        type=relationship_type,
-        id=relationship_id,
+        type=entity_type,
+        id=entity_id,
         operation=operation,
-        data=relationship_data,
-        resource_type=ResourceType.RELATIONSHIP,
-        log_context=f"relationship {operation} id={relationship_id}",
+        data=data,
+        resource_type=resource_type,
+        log_context=f"{entity_type} {operation} id={entity_id}",
     )
 
 

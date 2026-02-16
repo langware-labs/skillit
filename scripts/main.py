@@ -139,7 +139,7 @@ def main():
         "pid": os.getpid(),
         "cwd": os.getcwd(),
     }
-    send_skill_event("skillit called", event_context)
+    send_skill_event("skillit hook invoke", event_context)
 
     prompt = data.get("prompt", "")
     skill_log(f"Prompt: {prompt}")

@@ -320,7 +320,7 @@ class TestActivationRule:
                 "scope": "user",
             })
 
-            rule = ActivationRule.from_json(rule_dir / "record.json")
+            rule = ActivationRule.load_record(rule_dir / "record.json")
             rule.path = str(rule_dir)
 
             assert rule.name == "test_rule"
@@ -333,7 +333,7 @@ class TestActivationRule:
         with tempfile.TemporaryDirectory() as tmpdir:
             rule_dir = _make_rule_dir(Path(tmpdir), "test_rule")
 
-            rule = ActivationRule.from_json(rule_dir / "record.json")
+            rule = ActivationRule.load_record(rule_dir / "record.json")
             rule.path = str(rule_dir)
 
             rule.if_condition = "new condition"
@@ -352,7 +352,7 @@ class TestActivationRule:
                 "then_action": "test action",
             })
 
-            rule = ActivationRule.from_json(rule_dir / "record.json")
+            rule = ActivationRule.load_record(rule_dir / "record.json")
             rule.path = str(rule_dir)
             d = rule.to_dict()
 
@@ -364,7 +364,7 @@ class TestActivationRule:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Valid rule (has trigger.py)
             valid_dir = _make_rule_dir(Path(tmpdir), "valid_rule")
-            valid_rule = ActivationRule.from_json(valid_dir / "record.json")
+            valid_rule = ActivationRule.load_record(valid_dir / "record.json")
             valid_rule.path = str(valid_dir)
             assert valid_rule.is_valid()
 
@@ -375,7 +375,7 @@ class TestActivationRule:
                 json.dumps({"name": "invalid_rule", "type": "rule"}),
                 encoding="utf-8",
             )
-            invalid_rule = ActivationRule.from_json(invalid_dir / "record.json")
+            invalid_rule = ActivationRule.load_record(invalid_dir / "record.json")
             invalid_rule.path = str(invalid_dir)
             assert not invalid_rule.is_valid()
 
@@ -401,7 +401,7 @@ def evaluate(hooks_data: dict, transcript: list) -> Action | list[Action] | None
                 encoding="utf-8",
             )
 
-            rule = ActivationRule.from_json(rule_dir / "record.json")
+            rule = ActivationRule.load_record(rule_dir / "record.json")
             rule.path = str(rule_dir)
 
             # Should trigger

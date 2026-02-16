@@ -20,7 +20,7 @@ from fs_store import ResourceRecordList, StorageLayout
 
 from .skillit_config import SkillitConfig
 from .skillit_session import SkillitSession
-from .skillit_skill import SkillitSkill
+from records.skill_record import SkillRecord
 
 
 class SkillitRecords:
@@ -42,7 +42,7 @@ class SkillitRecords:
     def config(self) -> SkillitConfig:
         if self._config is None:
             path = self._get_records_path() / "skillit_config" / "record.json"
-            self._config = SkillitConfig.from_json(path)
+            self._config = SkillitConfig.load_record(path)
             self._config.fs_sync = True
         return self._config
 
@@ -60,19 +60,19 @@ class SkillitRecords:
     def skills(self) -> ResourceRecordList:
         if self._skills is None:
             self._skills = ResourceRecordList(
-                record_class=SkillitSkill,
+                record_class=SkillRecord,
                 records_path=self._get_records_path(),
                 storage_layout=StorageLayout.FOLDER,
             )
         return self._skills
 
-    def get_skill(self, skill_id: str) -> SkillitSkill | None:
+    def get_skill(self, skill_id: str) -> SkillRecord | None:
         """Get a skill by ID, or None if it doesn't exist."""
         return self.skills.get(skill_id)
 
-    def create_skill(self, skill_name: str, **kwargs) -> SkillitSkill:
+    def create_skill(self, skill_name: str, **kwargs) -> SkillRecord:
         """Create a new skill record with the given name."""
-        skill = SkillitSkill(skill_name=skill_name, **kwargs)
+        skill = SkillRecord(skill_name=skill_name, **kwargs)
         self.skills.save(skill)
         return skill
 

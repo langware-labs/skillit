@@ -25,7 +25,7 @@ def sample_rule_path() -> Path:
 @pytest.fixture
 def sample_rule(sample_rule_path: Path) -> ActivationRule:
     """Load ActivationRule from the sample rule directory."""
-    rule = ActivationRule.from_json(sample_rule_path / "record.json")
+    rule = ActivationRule.load_record(sample_rule_path / "record.json")
     rule.path = str(sample_rule_path)
     return rule
 

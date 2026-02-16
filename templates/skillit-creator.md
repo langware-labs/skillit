@@ -44,8 +44,14 @@ analysis.json:
     "occurrence": "the LAST entry id in the transcript where the issue occurred"
   },...
 }
+The skill folder you create should be named after the "name" property of the issue you identified, and should contain a SKILL.MD file that describes the rule you want to create to address this issue, including its trigger conditions and expected actions. You can also include any relevant resources or examples in the skill folder to help illustrate the rule.
 
 ## Reporting
-Once you are done 
+Once you are done with the analysis report the created skill to skillit mcp flow_entity_crud tool with the following details:
+- entity_type: "skill"
+- entity_path: the relative path to the skill folder you created
+- entity json:
+    name: str = ""
+    description: str = ""
 
 

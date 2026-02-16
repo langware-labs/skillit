@@ -4,8 +4,6 @@ import json
 import sys
 from pathlib import Path
 
-from fs_store import FsRecord
-from mcp_server.session_store import get_session_record
 from utils.log import skill_log
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -23,37 +21,35 @@ _DEFAULT_STORE = session_store
 
 
 @mcp.tool()
-def flow_entity_crud(claude_session_id, crud: str, entity_json: str,record_path:str) -> str:
-    session = get_session_record(claude_session_id)
-    entity = json.loads(entity_json)
-    record_type = entity.get("type", None)
-    record_class = FsRecord.get_class()
-    record = record_class(path)
-    if crud == "create":
-        record.update_from_dict(entity)
-        record.save()
-        session.add_child_ref(record)
-        session.save()
-        return f"Created {record_type} record with path {record.path}"
-    elif crud == "update":
-        if not record.path:
-            return f"Error: record_path is required for update"
-        if not Path(record.path).exists():
-            return f"Error: record_path {record.path} does not exist for update"
-        record.update_from_dict(entity)
-        record.save()
-        return f"Updated {record_type} record at path {record.path}"
-    elif crud == "delete":
-        if not record.path:
-            return f"Error: record_path is required for delete"
-        if not Path(record.path).exists():
-            return f"Error: record_path {record.path} does not exist for delete"
-        Path(record.path).unlink()
-        session.remove_child_ref(record)
-        session.save()
-        return f"Deleted {record_type} record at path {record.path}"
-    else:
-        return f"Error: unknown CRUD operation '{crud}'"
+def flow_entity_crud(claude_session_id: str, crud: str, entity_json: str) -> str:
+    """Perform a CRUD operation on a flow entity record.
+
+    Call this whenever you create, read, update, or delete a flow entity
+    (skill, task, rule, artifact, session, etc.).
+
+    Args:
+        claude_session_id: The session ID (provided in context at session start).
+        crud: The operation — "create", "read", "update", or "delete".
+        entity_json: JSON string with at least a "type" field, plus "id" for
+            read/update/delete.
+
+    Returns:
+        Result message string.
+    """
+    from plugin_records.skillit_records import skillit_records
+
+    skill_log(f"MCP entity_crud: {crud} | session={claude_session_id}")
+
+    try:
+        entity = json.loads(entity_json)
+    except json.JSONDecodeError as e:
+        return f"Error: invalid JSON — {e}"
+
+    return skillit_records.entity_crud(
+        session_id=claude_session_id,
+        crud=crud,
+        entity=entity,
+    )
 
 @mcp.tool()
 def flow_tag(flow_tag_xml: str) -> str:
