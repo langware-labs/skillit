@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -100,6 +101,22 @@ def _extract_frontmatter(text: str) -> str | None:
     return None
 
 
+def _load_skill_yaml_from_dir(skill_dir: Path) -> dict[str, Any]:
+    yaml_sources = [skill_dir / "skill.yaml", skill_dir / "skill.yml"]
+    for source in yaml_sources:
+        if source.exists():
+            return _yaml_load(source.read_text(encoding="utf-8"))
+
+    skill_md = skill_dir / "SKILL.md"
+    if not skill_md.exists():
+        return {}
+
+    frontmatter = _extract_frontmatter(skill_md.read_text(encoding="utf-8"))
+    if not frontmatter:
+        return {}
+    return _yaml_load(frontmatter)
+
+
 @dataclass
 class SkillRecord(FsRecord):
     """A skill record backed by FsRecord.
@@ -126,20 +143,82 @@ class SkillRecord(FsRecord):
         record_dir = self.record_dir
         if record_dir is None:
             return {}
+        return _load_skill_yaml_from_dir(record_dir)
 
-        yaml_sources = [record_dir / "skill.yaml", record_dir / "skill.yml"]
-        for source in yaml_sources:
-            if source.exists():
-                return _yaml_load(source.read_text(encoding="utf-8"))
+    @classmethod
+    def init_record(
+        cls,
+        path_or_data: str | Path | dict[str, Any],
+        path: str | Path | None = None,
+        indent: int = 2,
+    ) -> SkillRecord:
+        """Initialize or load a skill record.
 
-        skill_md = record_dir / "SKILL.md"
-        if not skill_md.exists():
-            return {}
+        Adds skill-aware bootstrap behavior: when loading from a folder that has
+        no ``record.json`` but has skill metadata (e.g. ``SKILL.md`` frontmatter),
+        create ``record.json`` from that metadata.
+        """
+        if isinstance(path_or_data, dict):
+            return super().init_record(path_or_data, path, indent=indent)  # type: ignore[return-value]
 
-        frontmatter = _extract_frontmatter(skill_md.read_text(encoding="utf-8"))
-        if not frontmatter:
-            return {}
-        return _yaml_load(frontmatter)
+        p = Path(path_or_data)
+        record_file = p / "record.json" if p.is_dir() else p
+        if record_file.exists():
+            return super().init_record(path_or_data, path, indent=indent)  # type: ignore[return-value]
+
+        if not p.is_dir():
+            return super().init_record(path_or_data, path, indent=indent)  # type: ignore[return-value]
+
+        yaml_fields = _load_skill_yaml_from_dir(p)
+        yaml_name = yaml_fields.get("name")
+        if isinstance(yaml_name, str) and yaml_name.strip():
+            skill_name = yaml_name.strip()
+        else:
+            skill_name = p.name.split("-@", 1)[-1] if "-@" in p.name else p.name
+
+        data: dict[str, Any] = {
+            "id": skill_name,
+            "name": skill_name,
+            "status": "active",
+        }
+        if isinstance(yaml_fields.get("description"), str):
+            data["description"] = yaml_fields["description"]
+        if yaml_fields:
+            data["metadata"] = yaml_fields
+        return super().init_record(data, p, indent=indent)  # type: ignore[return-value]
+
+    @classmethod
+    def load_record(cls, path: str | Path) -> SkillRecord:
+        """Backward-compatible alias for loading by path."""
+        return cls.init_record(path)
+
+    def copy_to_claude_user_home(self) -> Path:
+        """Copy this skill folder into ~/.claude/skills/<skill-name>/."""
+        source_dir = self.record_dir
+        if source_dir is None:
+            raise ValueError("Skill record has no source directory")
+        if not (source_dir / "SKILL.md").exists():
+            raise FileNotFoundError(f"Missing SKILL.md in {source_dir}")
+
+        yaml_name = self.yaml_fields.get("name")
+        if isinstance(yaml_name, str) and yaml_name.strip():
+            skill_name = yaml_name.strip()
+        else:
+            skill_name = self.name or self.id or source_dir.name
+
+        destination_root = Path.home() / ".claude" / "skills"
+        destination_root.mkdir(parents=True, exist_ok=True)
+        destination = destination_root / skill_name
+
+        if destination.exists():
+            shutil.rmtree(destination)
+
+        shutil.copytree(
+            source_dir,
+            destination,
+            ignore=shutil.ignore_patterns("record.json"),
+        )
+        return destination
 
     def __getattr__(self, item: str) -> Any:
         yaml_data = self.yaml_fields
