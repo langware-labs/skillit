@@ -72,12 +72,8 @@ def start_skill_creation(session_id: str) -> SkillCreationResources | None:
     task.children_refs = [child_ref]
     task.save_to(session.record_dir)
 
-    # Send CREATE webhooks with small delays to ensure sequential processing
-    import time
     send_entity_sync(SyncOperation.CREATE, task.to_dict())
-    time.sleep(0.1)  # Let task CREATE process first
     send_entity_sync(SyncOperation.CREATE, process.to_dict())
-    time.sleep(0.1)  # Let process CREATE process before relationship
     send_entity_sync(SyncOperation.CREATE, relationship.to_dict(), ResourceType.RELATIONSHIP)
 
     return SkillCreationResources(task=task, process=process, relationship=relationship)
@@ -85,11 +81,6 @@ def start_skill_creation(session_id: str) -> SkillCreationResources | None:
 
 def complete_skill_creation(resources: SkillCreationResources, session_id: str) -> None:
     """Mark the skill-creation task as done and sync update to FlowPad."""
-    import time
-
-    # Give FlowPad time to process CREATE webhooks before sending UPDATEs
-    time.sleep(0.5)
-
     resources.task.status = TaskStatus.DONE
     resources.process.state = ProcessorStatus.COMPLETE
 
