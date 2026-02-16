@@ -20,7 +20,7 @@ Your results will be generated as skill folder, containg SKILL.MD and all releva
 
 your todo list:
 1. Analyze the conversation according to the instrucitons below. 
-2. Copy the skill template folder from ../templates/skill_template to the rules folder and rename it to match the issue name.
+2. Copy the skill template folder from <skillit_home>/templates/skill_template to the rules folder and rename it to match the issue name.
 3. Read the template and fill in its instructions according to the issue you identified and the analysis you made.
 
 ## The analysis Outout files into the flow output directory
