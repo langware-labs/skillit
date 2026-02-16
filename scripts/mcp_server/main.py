@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Skillit MCP Server — exposes tools for reporting and notifications."""
+import json
 import sys
 from pathlib import Path
 
-from utils.log import skill_log
+# Add scripts/ to sys.path before any local imports
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-sys.path.insert(0, str(Path(__file__).parent))
+from utils.log import skill_log
 
 from fastmcp import FastMCP
 from network.notify import send_flow_tag, xml_str_to_flow_data_dict
@@ -18,6 +20,37 @@ _STORES = {
 }
 _DEFAULT_STORE = session_store
 
+
+@mcp.tool()
+def flow_entity_crud(claude_session_id: str, crud: str, entity_json: str) -> str:
+    """Perform a CRUD operation on a flow entity record.
+
+    Call this whenever you create, read, update, or delete a flow entity
+    (skill, task, rule, artifact, session, etc.).
+
+    Args:
+        claude_session_id: The session ID (provided in context at session start).
+        crud: The operation — "create", "read", "update", or "delete".
+        entity_json: JSON string with at least a "type" field, plus "id" for
+            read/update/delete.
+
+    Returns:
+        Result message string.
+    """
+    from plugin_records.skillit_records import skillit_records
+
+    skill_log(f"MCP entity_crud: {crud} | session={claude_session_id}")
+
+    try:
+        entity = json.loads(entity_json)
+    except json.JSONDecodeError as e:
+        return f"Error: invalid JSON — {e}"
+
+    return skillit_records.entity_crud(
+        session_id=claude_session_id,
+        crud=crud,
+        entity=entity,
+    )
 
 @mcp.tool()
 def flow_tag(flow_tag_xml: str) -> str:

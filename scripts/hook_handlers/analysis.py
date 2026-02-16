@@ -5,11 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import plugin_records
-from fs_store import FsRecordRef, SyncOperation
+from fs_store import FsRecordRef, ResourceType, SyncOperation
 from fs_store.record_types import RecordType
 from plugin_records import skillit_records
 from utils.log import skill_log
-from network.notify import send_process_sync, send_relationship_sync, send_task_sync
+from network.notify import send_entity_sync
 from records import (
     AgenticProcess,
     ProcessorStatus,
@@ -74,15 +74,15 @@ def start_new_analysis(session_id: str) -> AnalysisResources | None:
     task.children_refs = [child_ref]
     task.save_to(session.record_dir)
 
-    send_task_sync(SyncOperation.CREATE, task.to_dict())
-    send_process_sync(SyncOperation.CREATE, process.to_dict())
-    send_relationship_sync(SyncOperation.CREATE, relationship.to_dict())
+    send_entity_sync(SyncOperation.CREATE, task.to_dict())
+    send_entity_sync(SyncOperation.CREATE, process.to_dict())
+    send_entity_sync(SyncOperation.CREATE, relationship.to_dict(), ResourceType.RELATIONSHIP)
 
     return AnalysisResources(task=task, process=process, relationship=relationship)
 
 
 def complete_analysis(resources: AnalysisResources, session_id: str) -> None:
-    """Mark the analysis task and process as done and sync updates to FlowPad."""
+    """Mark the analysis task as done and sync update to FlowPad."""
     resources.task.status = TaskStatus.DONE
     resources.process.state = ProcessorStatus.COMPLETE
 
@@ -90,5 +90,5 @@ def complete_analysis(resources: AnalysisResources, session_id: str) -> None:
     session = skillit_records.get_session(session_id)
     resources.task.save_to(session.record_dir)
 
-    send_task_sync(SyncOperation.UPDATE, resources.task.to_dict())
-    send_process_sync(SyncOperation.UPDATE, resources.process.to_dict())
+    send_entity_sync(SyncOperation.UPDATE, resources.task.to_dict())
+    send_entity_sync(SyncOperation.UPDATE, resources.process.to_dict())

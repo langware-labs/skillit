@@ -40,17 +40,18 @@ def test_send_resource_sync_includes_resource_type(monkeypatch):
     assert webhook_payload["operation"] == "create"
 
 
-def test_send_relationship_sync_uses_relationship_resource_type(monkeypatch):
+def test_send_entity_sync_with_relationship_resource_type(monkeypatch):
     captured = _setup_notify_monkeypatch(monkeypatch)
 
-    queued = notify.send_relationship_sync(
+    queued = notify.send_entity_sync(
         operation=SyncOperation.CREATE,
-        relationship_data={
+        data={
             "id": "child:task:task-1:agentic_process:proc-1",
             "type": "child",
             "from_ref": {"id": "task-1", "type": "task"},
             "to_ref": {"id": "proc-1", "type": "agentic_process"},
         },
+        resource_type=ResourceType.RELATIONSHIP,
     )
 
     assert queued is True

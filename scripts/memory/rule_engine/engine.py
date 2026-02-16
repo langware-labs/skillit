@@ -31,7 +31,7 @@ def _load_dir(path: Path, source: str) -> list[ActivationRule]:
         if not rj.exists():
             continue
         try:
-            rec = ActivationRule.from_json(rj)
+            rec = ActivationRule.load_record(rj)
             rec.path = str(entry)
             rec.scope = source
             rules.append(rec)
@@ -127,7 +127,7 @@ class RulesPackage:
             fp = self._path / rule.name / "record.json"
             fp.parent.mkdir(parents=True, exist_ok=True)
             rule.path = str(fp.parent)
-            rule.to_json(fp)
+            rule.save_record_json(fp)
         self._rules.append(rule)
         return rule
 
@@ -140,7 +140,7 @@ class RulesPackage:
             fp = self._path / rule.name / "record.json"
             fp.parent.mkdir(parents=True, exist_ok=True)
             rule.path = str(fp.parent)
-            rule.to_json(fp)
+            rule.save_record_json(fp)
         self._rules.append(rule)
 
     def delete(self, name: str) -> bool:

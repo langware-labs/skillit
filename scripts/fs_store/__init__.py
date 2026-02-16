@@ -2,6 +2,7 @@
 
 from .fs_record import FsRecord
 from .fs_record_ref import FsRecordRef
+from .factory import type_registry
 from .record_types import RecordType, SkillitRecordType
 from .resource_record import ResourceRecord, parse_record_stem, record_stem
 from .resource_record_list import ResourceRecordList

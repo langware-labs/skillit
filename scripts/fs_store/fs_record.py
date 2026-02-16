@@ -24,6 +24,7 @@ class FsRecord(ResourceRecord):
     Adds ``from_json`` / ``to_json`` / ``persist`` on top of the base
     data-contract class.  The ``parent`` and ``children`` properties
     resolve refs to live records loaded from disk.
+
     """
 
     fs_sync: bool = field(default=False, repr=False)
@@ -78,7 +79,7 @@ class FsRecord(ResourceRecord):
         p = Path(self.parent_ref.record_path)
         if not p.exists():
             return None
-        return FsRecord.from_json(p)
+        return FsRecord.load_record(p)
 
     @property
     def children(self) -> list[FsRecord]:
@@ -90,11 +91,25 @@ class FsRecord(ResourceRecord):
             p = Path(ref.record_path)
             if not p.exists():
                 continue
-            result.append(FsRecord.from_json(p))
+            result.append(FsRecord.load_record(p))
+        return result
+
+    def get_chidren_by_type(self, type: str) -> list[FsRecord]:
+        """Load child records from disk and keep only records of the requested type."""
+        result: list[FsRecord] = []
+        for ref in self.children_refs:
+            if not ref.record_path:
+                continue
+            p = Path(ref.record_path)
+            if not p.exists():
+                continue
+            child = FsRecord.load_record(p)
+            if child.type == type:
+                result.append(child)
         return result
 
     @classmethod
-    def from_json(cls, path: str | Path) -> FsRecord:
+    def load_record(cls, path: str | Path) -> FsRecord:
         """Load a record from a JSON file, or create a new one if missing."""
         p = Path(path)
         if p.exists():
@@ -105,7 +120,7 @@ class FsRecord(ResourceRecord):
         rec.source_file = str(p)
         return rec
 
-    def to_json(self, path: str | Path | None = None, indent: int = 2) -> None:
+    def save_record_json(self, path: str | Path | None = None, indent: int = 2) -> None:
         """Write this record to a JSON file."""
         p = Path(path or self.source_file)
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -119,7 +134,7 @@ class FsRecord(ResourceRecord):
         """Save to ``source_file``."""
         if not self.source_file:
             raise ValueError("source_file not set; use to_json(path) first")
-        self.to_json()
+        self.save_record_json()
 
     def open(self) -> None:
         """Open this record's folder in the native OS file explorer."""

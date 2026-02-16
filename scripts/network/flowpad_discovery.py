@@ -147,8 +147,8 @@ def read_server_info() -> Optional[FlowpadServerInfo]:
         FlowpadServerInfo if port file exists and is valid, None otherwise.
     """
     port_file = get_port_file_path()
-    print(f"[flowpad_discovery] port_file path: {port_file}")
-    print(f"[flowpad_discovery] port_file exists: {port_file.exists()}")
+    print(f"[flowpad_discovery] port_file path: {port_file}", file=sys.stderr)
+    print(f"[flowpad_discovery] port_file exists: {port_file.exists()}", file=sys.stderr)
     if not port_file.exists():
         return None
     try:

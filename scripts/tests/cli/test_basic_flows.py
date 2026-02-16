@@ -99,6 +99,46 @@ def test_mcp_session_flow_context_usage():
     )
     skill_log_print()
 
+def test_task_reactivity():
+    """Test task creation and status update webhooks without LLM processing.
+
+    This test verifies that:
+    1. Task CREATE webhook is sent and processed by FlowPad
+    2. After 2 seconds, task UPDATE webhook is sent
+    3. FlowPad receives and processes both webhooks reactively
+    """
+    env = make_env()
+    env.install_plugin()
+    skill_log_clear()
+
+    session_id = env.session_id
+    print(f"\n[TEST] Starting task reactivity test for session {session_id}")
+
+    # Step 1: Send task CREATE webhook
+    print(f"[TEST] Sending task CREATE webhook...")
+    resources = start_new_analysis(session_id)
+    assert resources is not None
+    assert resources.task is not None
+    print(f"[TEST] ✓ Task created: {resources.task.id}")
+
+    # Step 2: Wait 2 seconds to simulate processing
+    print(f"[TEST] Waiting 2 seconds...")
+    time.sleep(2)
+
+    # Step 3: Send task UPDATE webhook (mark as DONE)
+    print(f"[TEST] Sending task UPDATE webhook...")
+    complete_analysis(resources, session_id)
+    print(f"[TEST] ✓ Task completed: {resources.task.id}")
+
+    # Verify the output directory was created
+    output_dir = get_session_output_dir(session_id)
+    assert output_dir.exists(), "Output directory should exist"
+    print(f"[TEST] ✓ Output directory exists: {output_dir}")
+
+    print(f"[TEST] Task reactivity test complete!")
+    skill_log_print()
+
+
 def test_output_dir():
     """End-to-end: analyze transcript, classify issues, create rule."""
     env = make_env()

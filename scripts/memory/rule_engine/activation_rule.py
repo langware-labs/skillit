@@ -296,7 +296,7 @@ class ActivationRule(FsRecord):
             shutil.rmtree(target_dir)
         shutil.copytree(rule_dir, target_dir)
 
-        deployed = ActivationRule.from_json(target_dir / "record.json")
+        deployed = ActivationRule.load_record(target_dir / "record.json")
         deployed.path = str(target_dir)
         deployed.scope = source
         deployed.save()
