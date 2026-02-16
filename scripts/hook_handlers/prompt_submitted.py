@@ -4,7 +4,6 @@ import json
 import re
 
 from hook_handlers.analysis import start_new_analysis
-from hook_handlers.skill_creation import start_skill_creation
 from utils.log import skill_log
 from modifiers.analyze_and_create_activation_rules import handle_analyze
 from modifiers.create_test import handle_create_test
@@ -44,12 +43,11 @@ def find_matching_modifier(prompt: str):
 
 
 def _send_analysis_task_created(data: dict) -> None:
-    """Create skill creation and analysis TaskResources and send to FlowPad."""
+    """Create a TaskResource and send task_created event to FlowPad."""
     session_id = data.get("session_id", "")
     if not session_id:
         skill_log("No session_id in hook data, skipping task_created event")
         return
-    start_skill_creation(session_id)
     start_new_analysis(session_id)
 
 
