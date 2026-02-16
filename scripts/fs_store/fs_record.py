@@ -32,7 +32,10 @@ class FsRecord(ResourceRecord):
     fs_sync: bool = field(default=False, repr=False)
 
     def __setattr__(self, name: str, value):
+        old_status = getattr(self, "status", None) if name == "status" else None
         super().__setattr__(name, value)
+        if name == "status" and value != old_status:
+            self.on_status_change(old_status, value)
         if (
             name not in _FS_SYNC_SKIP
             and not name.startswith("_")

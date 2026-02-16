@@ -6,7 +6,7 @@ import plugin_records
 from plugin_records import SkillitSession
 from subagents.agent_manager import SubAgent, get_subagent_launch_prompt
 from hook_handlers.analysis import start_new_analysis, complete_analysis
-from hook_handlers.skill_creation import start_skill_creation, complete_skill_creation
+from plugin_records.crud_handlers.skill_creation_handler import skill_creation_handler
 import time
 
 from utils.log import skill_log_print
@@ -115,10 +115,8 @@ def test_create_skill():
     env._fork = True
     print(f"Environment set up at: {env.path}")
     env._resume_session_id = ACLI_SESSION_ID
-    create_skill(env, mode=LaunchMode.INTERACTIVE)
-    # In INTERACTIVE mode, session is created during manual interaction
-    # Check the resumed session instead
-    session: SkillitSession = plugin_records.skillit_records.get_session(ACLI_SESSION_ID)
+    create_skill(env, mode=LaunchMode.HEADLESS)
+    session: SkillitSession = plugin_records.skillit_records.get_session(env.session_id)
     skill_log_print()
     # Session may not exist yet in interactive mode, so don't assert
     if session:
@@ -130,14 +128,20 @@ def test_create_skill_stub():
     env.install_plugin()
     session_id = env.session_id
 
-    resources = start_skill_creation(session_id)
+    session = plugin_records.skillit_records.get_session(session_id)
+    if session is None:
+        session = plugin_records.skillit_records.create_session(session_id)
+    resources = skill_creation_handler.on_create(session_id, session, "skill", {})
     assert resources is not None
     assert resources.task.status == TaskStatus.IN_PROGRESS
 
     time.sleep(2)  # give FlowPad time to render
 
-    complete_skill_creation(resources, session_id)
-    assert resources.task.status == TaskStatus.DONE
+    skill_creation_handler.on_update(session_id, session, "skill", {"status": "done"})
+    # Task completion is verified by loading from disk
+    from records import TaskResource
+    task = TaskResource.load_from(session.record_dir, f"skill-creation-{session_id}")
+    assert task.status == TaskStatus.DONE
 
 @pytest.mark.skip()
 def test_create_rule():

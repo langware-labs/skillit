@@ -46,88 +46,15 @@ def flow_entity_crud(claude_session_id: str, crud: str, entity_json: str) -> str
         return f"Error: session {claude_session_id} not found"
     skill_log(f"MCP entity_crud OK, session found: {claude_session_id}, output dir {session.output_dir}")
     try:
-        entity = json.loads(entity_json)
+        entity_dict = json.loads(entity_json)
     except json.JSONDecodeError as e:
         return f"Error: invalid JSON — {e}"
 
-    # Start skill creation task when skill entity is created with status="creating"
-    if crud == "create" and entity.get("type") == "skill":
-        skill_status = entity.get("status", "")
-        if skill_status == "creating":
-            try:
-                from hook_handlers.skill_creation import start_skill_creation
-                start_skill_creation(claude_session_id)
-                skill_log(f"MCP: Started skill creation task for session {claude_session_id}")
-            except Exception as e:
-                skill_log(f"MCP: Failed to start skill creation task: {e}")
-
-    result = skillit_records.entity_crud(
+    return skillit_records.entity_crud(
         session_id=claude_session_id,
         crud=crud,
-        entity=entity,
+        entity=entity_dict,
     )
-
-    # Complete skill creation task when skill is updated to status="new" (all artifacts ready)
-    if crud == "update" and entity.get("type") == "skill" and entity.get("status") == "new":
-        skill_log(f"MCP: Skill entity created, attempting to complete skill creation task")
-        try:
-            from hook_handlers.skill_creation import complete_skill_creation, SkillCreationResources
-            from records import TaskResource, AgenticProcess, RelationshipRecord
-            from fs_store import FsRecord
-
-            skill_log(f"MCP: Loading session record from {session.record_dir / 'record.json'}")
-            # Load the session record which contains the task
-            session_record = FsRecord.load_record(session.record_dir / "record.json")
-            skill_log(f"MCP: Session record loaded, extra keys: {list(session_record.extra.keys())}")
-
-            # FsRecord supports dict access - checks fields first, then extra dict
-            task_data = session_record["task"] if "task" in session_record else None
-            skill_log(f"MCP: Task data found: {task_data is not None}")
-
-            if task_data:
-                task = TaskResource.from_dict(task_data)
-                skill_log(f"MCP: Task deserialized: {task.id}, status: {task.status}")
-
-                if task.children_refs:
-                    skill_log(f"MCP: Task has {len(task.children_refs)} children")
-                    process_ref = task.children_refs[0]
-                    skill_log(f"MCP: Process ref: {process_ref.id}, type: {process_ref.type}")
-
-                    # AgenticProcess and RelationshipRecord are not persisted to disk
-                    # Reconstruct them from the refs for complete_skill_creation
-                    from records import ProcessorStatus
-                    from fs_store import FsRecordRef, RecordType
-
-                    process = AgenticProcess(
-                        id=process_ref.id,
-                        state=ProcessorStatus.RUNNING,  # Will be updated to COMPLETE
-                        worker_id=claude_session_id,
-                        parent_ref=FsRecordRef(id=task.id, type=RecordType.TASK),
-                    )
-
-                    relationship = RelationshipRecord.child(
-                        from_ref=FsRecordRef(id=task.id, type=RecordType.TASK),
-                        to_ref=process_ref,
-                    )
-
-                    skill_log(f"MCP: Resources reconstructed, calling complete_skill_creation")
-                    resources = SkillCreationResources(
-                        task=task,
-                        process=process,
-                        relationship=relationship
-                    )
-                    complete_skill_creation(resources, claude_session_id)
-                    skill_log(f"MCP: ✓ Completed skill creation task for session {claude_session_id}")
-                else:
-                    skill_log(f"MCP: Task has no children_refs")
-            else:
-                skill_log(f"MCP: No task data found in session record")
-        except Exception as e:
-            skill_log(f"MCP: ✗ Failed to complete skill creation task: {e}")
-            import traceback
-            skill_log(f"MCP: Traceback: {traceback.format_exc()}")
-
-    return result
 
 @mcp.tool()
 def flow_tag(flow_tag_xml: str, claude_session_id: str = None) -> str:
@@ -157,51 +84,14 @@ def flow_tag(flow_tag_xml: str, claude_session_id: str = None) -> str:
     # Complete skill creation task when skill is ready
     element_type = flow_data.get('element_type', '')
     if element_type == 'skill_ready' and claude_session_id:
-        skill_log(f"MCP: flow_tag 'skill_ready' received, attempting to complete skill creation task")
-        try:
-            from hook_handlers.skill_creation import complete_skill_creation, SkillCreationResources
-            from plugin_records.skillit_records import skillit_records
-            from records import TaskResource, AgenticProcess, RelationshipRecord, ProcessorStatus
-            from fs_store import FsRecord, FsRecordRef, RecordType
+        from plugin_records.crud_handlers.skill_creation_handler import skill_creation_handler
+        from plugin_records.skillit_records import skillit_records
 
-            # Retrieve the skill creation resources from the session
-            session = skillit_records.get_session(claude_session_id)
-            if session:
-                # Load the session record which contains the task
-                session_record = FsRecord.load_record(session.record_dir / "record.json")
-                task_data = session_record["task"] if "task" in session_record else None
-
-                if task_data:
-                    task = TaskResource.from_dict(task_data)
-                    skill_log(f"MCP: Task loaded via flow_tag: {task.id}, status: {task.status}")
-
-                    if task.children_refs:
-                        process_ref = task.children_refs[0]
-
-                        # Reconstruct AgenticProcess and RelationshipRecord
-                        process = AgenticProcess(
-                            id=process_ref.id,
-                            state=ProcessorStatus.RUNNING,
-                            worker_id=claude_session_id,
-                            parent_ref=FsRecordRef(id=task.id, type=RecordType.TASK),
-                        )
-
-                        relationship = RelationshipRecord.child(
-                            from_ref=FsRecordRef(id=task.id, type=RecordType.TASK),
-                            to_ref=process_ref,
-                        )
-
-                        resources = SkillCreationResources(
-                            task=task,
-                            process=process,
-                            relationship=relationship
-                        )
-                        complete_skill_creation(resources, claude_session_id)
-                        skill_log(f"MCP: ✓ Completed skill creation task via flow_tag for session {claude_session_id}")
-        except Exception as e:
-            skill_log(f"MCP: ✗ Failed to complete skill creation task via flow_tag: {e}")
-            import traceback
-            skill_log(f"MCP: Traceback: {traceback.format_exc()}")
+        session = skillit_records.get_session(claude_session_id)
+        if session:
+            skill_creation_handler.on_update(
+                claude_session_id, session, "skill", {"status": "done"}
+            )
 
     success = send_flow_tag(flow_data)
 

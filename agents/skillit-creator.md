@@ -23,15 +23,18 @@ Your results will be generated as skill folder, contain SKILL.MD and all relevan
 
 ## Skill json format
 As part of the analysis you will need to create a json for the skill in the following format:
-    name: str = ""
-    description: str = ""
+    name: str = "" -> a unique name for the skill that can be used as informative folder name for the rule you will create to address this issue. Use lowercase letters, numbers, and hyphens only. Max 64 chars. Must match the directory name.
+    description: str = "" -> a clear and concise description of the skill, its purpose, and when it should be used. This is the most important field as it helps Claude decide whether to load this skill at all. Include trigger keywords so Claude knows when to activate the skill.
     status: str = "creating" or "new"
+    estimate_time_save_secs: int = 0 -> an estimate of how many seconds this skill can save in future conversations by addressing all the identified issues. This is optional but can help prioritize which skills to create first.
+    esitmated_token_save: int = 0 -> an estimate of how many tokens this skill can save in future conversations by addressing all the identified issues. This is optional but can help prioritize which skills to create first.
+    esitmated_occurances_per_month: int = 0 -> an estimate of how many times per month this issue occurs in conversations for all issues. This is optional but can help prioritize which skills to create first.
 
 ## Task list 
 your todo list:
 1. Analyze the conversation according to the instructions below. 
 2. call the MCP flow_entity_crud tool notify on the creation of new skill and its name and description, status should be "creating" at this stage.
-3. Copy the skill template folder from C:\Users\gadi\projects\skillit/templates/skill_template to the rules folder and rename it to match the issue name.
+3. Copy the skill template folder from /Users/shlom/Documents/dev/skillit/templates/skill_template to the rules folder and rename it to match the issue name.
 4. Read the template and fill in its instructions according to the issue you identified and the analysis you made.
 5. Update the skill as ready and change its status to "new" using the MCP flow_entity_crud tool.
 

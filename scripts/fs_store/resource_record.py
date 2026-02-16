@@ -84,6 +84,9 @@ class ResourceRecord:
     children_refs: list[FsRecordRef] = field(default_factory=list)
     parent_ref: FsRecordRef | None = None
 
+    def on_status_change(self, old_status, new_status) -> None:
+        """Called when ``status`` changes. Override in subclasses to react."""
+
     # -- Naming helpers --
 
     @property

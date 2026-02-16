@@ -96,15 +96,23 @@ class SkillitRecords:
         record_type = entity.get("type")
 
         if crud == "create":
-            return self._entity_create(session, record_type, entity)
+            result = self._entity_create(session, record_type, entity)
         elif crud == "read":
-            return self._entity_read(session, record_type, entity)
+            result = self._entity_read(session, record_type, entity)
         elif crud == "update":
-            return self._entity_update(session, record_type, entity)
+            result = self._entity_update(session, record_type, entity)
         elif crud == "delete":
-            return self._entity_delete(session, record_type, entity)
+            result = self._entity_delete(session, record_type, entity)
         else:
             return f"Error: unknown CRUD operation '{crud}'"
+
+        from .crud_handlers import handlers
+
+        for handler in handlers:
+            method = getattr(handler, f"on_{crud}", None)
+            if method and (handler.record_type is None or handler.record_type == record_type):
+                method(session_id, session, record_type, entity)
+        return result
 
     def _entity_create(self, session: SkillitSession, record_type: str, entity: dict) -> str:
         from fs_store import type_registry
