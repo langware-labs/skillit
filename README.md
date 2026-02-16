@@ -6,16 +6,14 @@
 [![Claude Code Plugin](https://img.shields.io/badge/Claude%20Code-Plugin-blueviolet)](https://docs.anthropic.com/en/docs/claude-code)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/langware-labs/skillit/pulls)
 
-A powerful Claude Code plugin that enhances your prompts with intelligent keyword-based modifiers. Skillit automatically detects keywords in your prompts and augments them with specialized behaviors to improve Claude's responses.
+A Claude Code plugin that automatically learns from your sessions. Skillit analyzes conversations to identify mistakes, inefficiencies, and automation opportunities, then creates reusable skills to prevent them from recurring.
 
 ## Features
 
-- **Keyword-Based Activation**: Automatically triggers specialized behaviors when keywords are detected
-- **Extensible Architecture**: Easy to add new modifiers and skills
-- **Smart Cooldown System**: Prevents recursive activation with built-in cooldown mechanism
-- **Path-Aware Matching**: Won't trigger on keywords in file paths
-- **Multiple Skills**: Pre-built skills for analysis and testing workflows
-- **Logging Support**: Comprehensive logging for debugging and monitoring
+- **Session Analysis**: Identifies mistakes, misunderstandings, inefficiencies, and automation opportunities in Claude Code sessions
+- **Skill Creation**: Automatically generates activation rules to prevent recurring issues
+- **Agent-Based Architecture**: Specialized agents run as background tasks for non-blocking workflows
+- **Hook Integration**: Monitors sessions
 
 ## Prerequisites
 
@@ -88,120 +86,82 @@ If you want to develop or modify the plugin:
 
 ## Usage
 
-### Basic Usage
+### Commands
 
-Simply include the `skillit` keyword in your Claude Code prompts:
+| Command | Description |
+|---------|-------------|
+| `/skillit:create-skill` | Launches the skill creator agent to analyze the conversation and create activation rules |
+| `/skillit:analyze` | Launches the analyzer agent to identify issues and automation opportunities |
 
-```bash
-claude -p "skillit analyze this codebase"
+### Create Skill
+
+Run `/skillit:create-skill` in a Claude Code session to analyze the current conversation and generate skills that prevent recurring issues:
+
+```
+/skillit:create-skill
 ```
 
-This will activate the analyze_and_create_activation_rules modifier which enhances Claude's ability to understand and analyze code structures.
+### Analyze Session
 
-### Create Test
+Run `/skillit:analyze` to review a session for mistakes, misunderstandings, inefficiencies, or automation opportunities:
 
-Use `skillit:create-test` to generate reproducible test steps as a skill:
-
-```bash
-claude -p "skillit:create-test for the login flow"
+```
+/skillit:analyze
 ```
 
-This modifier analyzes the conversation and creates a test skill in `.claude/skills/`.
-
-### Test Mode
-
-Use `skillit:test` to activate testing-focused behavior:
-
-```bash
-claude -p "skillit:test check the authentication module"
-```
-
-This modifier optimizes Claude for test writing, debugging, and test coverage analysis.
-
-### Available Keywords
-
-| Keyword | Description | Use Case |
-|---------|-------------|----------|
-| `skillit` | Analyzes conversation and creates activation rules | Code analysis, understanding architecture |
-| `skillit:create-test` | Creates reproducible test steps as a skill | Generating test skills from conversation |
-| `skillit:test` | Activates the test modifier | Writing tests, debugging test failures |
-
-## Configuration
-
-Skillit uses a configuration file located at `scripts/plugin.json`. The plugin automatically manages state using `global_state.json` to track invocation timing and prevent recursive activation.
-
-### Cooldown Period
-
-By default, Skillit has a 3-second cooldown period to prevent recursive triggering. This is configured in `scripts/global_state.py`.
+Both commands launch their respective agents as background tasks, so you can continue working while they run.
 
 ## Architecture
 
 ```
 skillit/
-├── commands/           # Command definitions
-│   └── skillit.md     # Main command specification
-├── scripts/           # Core plugin logic
-│   ├── main.py        # Entry point and routing
-│   ├── modifiers/     # Skill modifier implementations
-│   │   ├── analyze_and_create_activation_rules.py
-│   │   ├── create_test.py
-│   │   └── test.py
-│   ├── global_state.py
-│   ├── log.py
-│   └── claude_utils.py
-├── hooks/             # Claude Code hooks
-├── install.sh         # Installation script
-├── uninstall.sh       # Uninstallation script
+├── agents/              # Built agent definitions (generated from templates)
+├── commands/            # Slash command definitions
+│   ├── create-skill.md  # /skillit:create-skill command
+│   └── analyze.md       # /skillit:analyze command
+├── templates/           # Agent templates (source of truth)
+│   ├── skillit-creator.md
+│   ├── skillit-analyzer.md
+│   ├── skillit-classifier.md
+│   └── skillit-agent.md
+├── hooks/               # Claude Code hooks (SessionStart, UserPromptSubmit)
+├── scripts/             # Build system and utilities
+│   └── utils/           # Plugin manager, build tools
+├── .claude-plugin/      # Plugin metadata and marketplace config
+├── install.sh           # Installation script
+├── uninstall.sh         # Uninstallation script
 └── README.md
 ```
 
-## Adding New Modifiers
+### Agents
 
-1. Create a new file in `scripts/modifiers/`:
-   ```python
-   def handle_myskill(prompt: str, data: dict):
-       """Your skill implementation"""
-       # Modify the prompt or add context
-       data["prompt"] = f"{prompt} [with your modifications]"
-       return data
-   ```
-
-2. Import it in `scripts/main.py`:
-   ```python
-   from modifiers.myskill import handle_myskill
-   ```
-
-3. Add it to the `KEYWORD_MAPPINGS`:
-   ```python
-   KEYWORD_MAPPINGS = [
-       ("skillit:myskill", handle_myskill),
-       ("skillit:test", handle_test),
-       ("skillit", handle_analyze),
-   ]
-   ```
-
-Note: More specific patterns should come first in the list.
+| Agent | Role |
+|-------|------|
+| `skillit-analyzer` | Analyzes conversations to identify issues and opportunities |
+| `skillit-creator` | Creates activation rules/skills from identified issues |
 
 ## Development
 
-### Running Tests
+### Building
+
+The build step renders agent templates (with version injection) into the `agents/` directory:
 
 ```bash
 cd scripts
-python test.py
+python utils/build.py
 ```
 
-### Viewing Logs
+### Deploying
 
-Logs are written to `skill.log` in the root directory:
+Bump the patch version, build, commit, and push:
 
 ```bash
-tail -f skill.log
+cd scripts
+python -c "from utils.plugin_manager import SkillitPluginManager; SkillitPluginManager().patch()"
+python utils/build.py
 ```
 
-### Debugging
-
-To enable verbose logging, modify the `log.py` file or check `skill.log` after each invocation.
+Then commit and push the changes.
 
 ## Uninstallation
 
@@ -216,37 +176,13 @@ This will:
 - Optionally remove the marketplace configuration
 - Clean up plugin registration
 
-## Troubleshooting
-
-### Plugin Not Triggering
-
-- Verify installation: `claude plugin list`
-- Check logs in `skill.log`
-- Ensure cooldown period has passed (3 seconds between invocations)
-
-### Claude Code Not Found
-
-Make sure Claude Code CLI is installed and in your PATH:
-```bash
-which claude
-```
-
-If not found, install from: https://docs.anthropic.com/en/docs/claude-code
-
-### Permission Errors
-
-Ensure scripts are executable:
-```bash
-chmod +x install.sh uninstall.sh scripts/main.py
-```
-
 ## How It Works
 
-1. **Hook Integration**: Skillit registers a `UserPromptSubmit` hook with Claude Code
-2. **Keyword Detection**: When you submit a prompt, the plugin scans for registered keywords
-3. **Modifier Activation**: If a keyword matches, the corresponding modifier is invoked
-4. **Prompt Enhancement**: The modifier augments your prompt with specialized instructions
-5. **Cooldown**: A timestamp is recorded to prevent recursive activation
+1. **Hooks**: Skillit registers `SessionStart` and `UserPromptSubmit` hooks that run on each session/prompt
+2. **Commands**: Slash commands (`/skillit:analyze`, `/skillit:create-skill`) launch specialized agents as background tasks
+3. **Analysis**: The analyzer agent reviews conversation transcripts and identifies issues
+4. **Classification**: Issues are classified as new or known against existing rules
+5. **Skill Creation**: New activation rules are generated and saved to prevent recurring issues
 
 ## Contributing
 
