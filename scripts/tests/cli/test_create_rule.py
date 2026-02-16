@@ -6,7 +6,11 @@ import plugin_records
 from plugin_records import SkillitSession
 from subagents.agent_manager import SubAgent, get_subagent_launch_prompt
 from hook_handlers.analysis import start_new_analysis, complete_analysis
+from hook_handlers.skill_creation import start_skill_creation, complete_skill_creation
+import time
+
 from utils.log import skill_log_print
+from records import TaskStatus
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
 
 TRANSCRIPT_PATH = Path(__file__).parent.parent / "unit" / "resources" / "jira_acli_fail.jsonl"
@@ -109,10 +113,25 @@ def test_create_skill():
     env._fork = True
     print(f"Environment set up at: {env.path}")
     env._resume_session_id = ACLI_SESSION_ID
-    create_skill(env, mode=LaunchMode.HEADLESS)
+    create_skill(env, mode=LaunchMode.INTERACTIVE)
     session: SkillitSession = plugin_records.skillit_records.get_session(env.session_id)
     skill_log_print()
     assert session is not None
+
+
+def test_create_skill_stub():
+    env = make_env()
+    env.install_plugin()
+    session_id = env.session_id
+
+    resources = start_skill_creation(session_id)
+    assert resources is not None
+    assert resources.task.status == TaskStatus.IN_PROGRESS
+
+    time.sleep(2)  # give FlowPad time to render
+
+    complete_skill_creation(resources, session_id)
+    assert resources.task.status == TaskStatus.DONE
 
 @pytest.mark.skip()
 def test_create_rule():

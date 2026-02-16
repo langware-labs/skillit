@@ -117,3 +117,7 @@ def test_session_restore(tmp_path, session_id, relative_session_dir):
     loaded_skill = SkillRecord.load_record(skill_dir)
     assert loaded_skill.id == skill.id
     assert loaded_skill.name == "acli-jira-subcommand-syntax"
+
+    # missing lines:"
+    # task
+    # sync
