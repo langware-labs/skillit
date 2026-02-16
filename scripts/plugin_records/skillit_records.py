@@ -42,7 +42,7 @@ class SkillitRecords:
     def config(self) -> SkillitConfig:
         if self._config is None:
             path = self._get_records_path() / "skillit_config" / "record.json"
-            self._config = SkillitConfig.load_record(path)
+            self._config = SkillitConfig.init_record(path)
             self._config.fs_sync = True
         return self._config
 

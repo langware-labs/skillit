@@ -71,7 +71,7 @@ class ResourceRecordList:
         fp = self._record_file(uid)
         if not fp.exists():
             return None
-        rec = self.record_class.load_record(fp)
+        rec = self.record_class.init_record(fp)
         if self.storage_layout == StorageLayout.FOLDER:
             rec.path = str(fp.parent)
         return rec
@@ -130,7 +130,7 @@ class ResourceRecordList:
                 if not rj.exists():
                     continue
                 try:
-                    rec = self.record_class.load_record(rj)
+                    rec = self.record_class.init_record(rj)
                     rec.path = str(entry)
                     yield rec
                 except (json.JSONDecodeError, OSError):
@@ -138,7 +138,7 @@ class ResourceRecordList:
         else:
             for fp in sorted(self.list_path.glob("*-@*.json")):
                 try:
-                    yield self.record_class.load_record(fp)
+                    yield self.record_class.init_record(fp)
                 except (json.JSONDecodeError, OSError):
                     continue
 

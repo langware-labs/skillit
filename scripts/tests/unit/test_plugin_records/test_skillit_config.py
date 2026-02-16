@@ -25,20 +25,20 @@ class TestJsonRoundTrip:
         fp = tmp_path / "config.json"
         c = SkillitConfig(user_rules_enabled=False)
         c.save_record_json(fp)
-        loaded = SkillitConfig.load_record(fp)
+        loaded = SkillitConfig.init_record(fp)
         assert loaded.user_rules_enabled is False
         assert loaded.type == SkillitRecordType.SKILLIT_CONFIG
 
     def test_from_json_missing_file_creates_defaults(self, tmp_path):
         fp = tmp_path / "missing.json"
-        c = SkillitConfig.load_record(fp)
+        c = SkillitConfig.init_record(fp)
         assert c.user_rules_enabled is True
         assert c.type == SkillitRecordType.SKILLIT_CONFIG
         assert c.source_file == str(fp)
 
     def test_fs_sync_auto_persist(self, tmp_path):
         fp = tmp_path / "config.json"
-        c = SkillitConfig.load_record(fp)
+        c = SkillitConfig.init_record(fp)
         c.save_record_json(fp)
         c.fs_sync = True
         c.user_rules_enabled = False
