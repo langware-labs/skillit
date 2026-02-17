@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fs_store import FsRecordRef, ResourceType, SyncOperation
+from fs_store import FsRecordRef, ResourceStatus, ResourceType, SyncOperation
 from fs_store.record_types import RecordType
-from plugin_records import skillit_records
 from utils.log import skill_log
 from network.notify import send_entity_sync
 from records import (
@@ -83,7 +82,7 @@ class SkillCreationHandler:
     @staticmethod
     def on_update(session_id, session, record_type, entity):
         """Complete skill-creation task when the skill status is updated to 'new'."""
-        if entity.get("status") != "new":
+        if entity.get("status") != ResourceStatus.NEW:
             return
 
         task_id = f"skill-creation-{session_id}"

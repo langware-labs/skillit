@@ -131,7 +131,8 @@ def test_task_reactivity():
     print(f"[TEST] ✓ Task completed: {resources.task.id}")
 
     # Verify the output directory was created
-    output_dir = get_session_output_dir(session_id)
+    session = skillit_records.get_session(session_id)
+    output_dir = session.output_dir
     assert output_dir.exists(), "Output directory should exist"
     print(f"[TEST] ✓ Output directory exists: {output_dir}")
 
