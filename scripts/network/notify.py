@@ -55,8 +55,14 @@ def _get_report_url() -> Optional[str]:
 # Low-level transport
 # ---------------------------------------------------------------------------
 
-def _send_fire_and_forget(url: str, data: bytes, log_context: str) -> None:
-    """Send HTTP POST in a detached subprocess that survives parent exit."""
+def _send_fire_and_forget(url: str, data: bytes, log_context: str, wait: bool = False) -> None:
+    """Send HTTP POST in a detached subprocess that survives parent exit.
+
+    Args:
+        wait: If True, block until the subprocess finishes (for long-running callers
+              like the MCP server where ordering matters). Defaults to False for
+              hook handlers that must return quickly.
+    """
     script = (
         "import urllib.request, sys; "
         "req = urllib.request.Request(sys.argv[1], data=sys.stdin.buffer.read(), "
@@ -69,10 +75,14 @@ def _send_fire_and_forget(url: str, data: bytes, log_context: str) -> None:
             stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            start_new_session=True,
+            # TODO - hack - fix this
+            start_new_session=not wait,
         )
         proc.stdin.write(data)
         proc.stdin.close()
+        # TODO - hack - fix this
+        if wait:
+            proc.wait(timeout=5)
         skill_log(f"Notification dispatched to {url}:\n {log_context}")
     except Exception as e:
         skill_log(f"Failed to dispatch notification: {e}")
@@ -160,6 +170,7 @@ def send_resource_sync(
     resource_type: ResourceType = ResourceType.ENTITY,
     ref_type: RefType = RefType.DATA,
     log_context: str = "",
+    wait: bool = False,
 ) -> bool:
     """Send a resource sync event to FlowPad (fire-and-forget).
 
@@ -226,7 +237,7 @@ def send_resource_sync(
     }
 
     raw = json.dumps(payload).encode("utf-8")
-    _send_fire_and_forget(report_url, raw, ctx)
+    _send_fire_and_forget(report_url, raw, ctx, wait=wait)
     return True
 
 
@@ -319,6 +330,7 @@ def send_entity_sync(
     operation: SyncOperation,
     data: dict,
     resource_type: ResourceType = ResourceType.ENTITY,
+    wait: bool = False,
 ) -> bool:
     """Send an entity or relationship CRUD sync to FlowPad.
 
@@ -341,6 +353,7 @@ def send_entity_sync(
         data=data,
         resource_type=resource_type,
         log_context=f"{entity_type} {operation} id={entity_id}",
+        wait=wait,
     )
 
 

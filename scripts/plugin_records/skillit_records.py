@@ -92,30 +92,45 @@ class SkillitRecords:
         Returns:
             Result message string.
         """
+        from utils.log import skill_log
+
         session = self._get_or_create_session(session_id)
         record_type = entity.get("type")
 
-        if crud == "create":
-            result = self._entity_create(session, record_type, entity)
-        elif crud == "read":
-            result = self._entity_read(session, record_type, entity)
-        elif crud == "update":
-            result = self._entity_update(session, record_type, entity)
-        elif crud == "delete":
-            result = self._entity_delete(session, record_type, entity)
-        else:
-            return f"Error: unknown CRUD operation '{crud}'"
+        skill_log(f"entity_crud: crud={crud}, record_type={record_type!r}, entity_keys={list(entity.keys())}")
+
+        if not record_type:
+            skill_log(f"entity_crud WARNING: entity missing 'type' field — entity keys: {list(entity.keys())}")
+
+        try:
+            if crud == "create":
+                result = self._entity_create(session, record_type, entity)
+            elif crud == "read":
+                result = self._entity_read(session, record_type, entity)
+            elif crud == "update":
+                result = self._entity_update(session, record_type, entity)
+            elif crud == "delete":
+                result = self._entity_delete(session, record_type, entity)
+            else:
+                return f"Error: unknown CRUD operation '{crud}'"
+        except Exception as e:
+            skill_log(f"entity_crud ERROR in _{crud}: {e}")
+            raise
+
+        skill_log(f"entity_crud result: {result!r}")
 
         from .crud_handlers import handlers
 
         for handler in handlers:
             method = getattr(handler, f"on_{crud}", None)
             if method and (handler.record_type is None or handler.record_type == record_type):
+                skill_log(f"entity_crud dispatching to {handler.__class__.__name__}.on_{crud}")
                 method(session_id, session, record_type, entity)
         return result
 
     def _entity_create(self, session: SkillitSession, record_type: str, entity: dict) -> str:
         from fs_store import type_registry
+        from utils.log import skill_log
 
         cls = type_registry.get(record_type)
         if cls is None:
@@ -125,14 +140,39 @@ class SkillitRecords:
             entity = {**entity, "id": entity.get("name", "")}
 
         record = cls.from_dict(entity)
-        self.skills.create(record)
+        try:
+            self.skills.create(record)
+        except Exception:
+            self.skills.save(record)
+            skill_log(f"entity_crud: record '{record.uid}' already existed — overwritten")
         return f"Created {record_type} '{record.uid}'"
 
     def _entity_read(self, session: SkillitSession, record_type: str, entity: dict) -> str:
         raise NotImplementedError
 
     def _entity_update(self, session: SkillitSession, record_type: str, entity: dict) -> str:
-        raise NotImplementedError
+        from fs_store import type_registry
+
+        cls = type_registry.get(record_type)
+        if cls is None:
+            return f"Error: unknown entity type '{record_type}'"
+
+        entity_id = entity.get("id") or entity.get("name", "")
+        if not entity_id:
+            return "Error: entity must have 'id' or 'name' field"
+
+        # Load existing record
+        existing = self.skills.get(entity_id)
+        if not existing:
+            return f"Error: {record_type} '{entity_id}' not found"
+
+        # Update fields from entity dict
+        for key, value in entity.items():
+            if key not in ("id", "type") and hasattr(existing, key):
+                setattr(existing, key, value)
+
+        self.skills.save(existing)
+        return f"Updated {record_type} '{entity_id}'"
 
     def _entity_delete(self, session: SkillitSession, record_type: str, entity: dict) -> str:
         raise NotImplementedError
