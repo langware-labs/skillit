@@ -3,6 +3,7 @@
 *.log
 __pycache__/
 settings.local.json
+rules/
 
 nul
 

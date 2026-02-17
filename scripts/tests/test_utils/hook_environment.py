@@ -631,6 +631,11 @@ class TestPluginProjectEnvironment:
         """
         import time
 
+        # Re-expand $CLAUDE_PLUGIN_ROOT right before launch in case new
+        # cache entries were created after install_plugin().
+        if CURRENT_PLATFORM == Platform.WINDOWS:
+            self._expand_plugin_root_in_cache()
+
         # Clear skill.log in the plugin cache before running
         log_path = self._plugin_skill_log_path()
         if log_path and log_path.exists():
@@ -720,6 +725,12 @@ class TestPluginProjectEnvironment:
             prompt: Prompt text. Required for headless mode.
             mode: How to launch claude (headless, terminal, interactive).
         """
+        # Re-expand $CLAUDE_PLUGIN_ROOT right before launch in case new
+        # cache entries were created after install_plugin() (e.g. by a
+        # background marketplace sync for local-dev).
+        if CURRENT_PLATFORM == Platform.WINDOWS:
+            self._expand_plugin_root_in_cache()
+
         if mode == LaunchMode.HEADLESS and prompt:
             return self.prompt(prompt)
 

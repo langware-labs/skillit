@@ -75,10 +75,12 @@ def _send_fire_and_forget(url: str, data: bytes, log_context: str, wait: bool = 
             stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            # TODO - hack - fix this
             start_new_session=not wait,
         )
         proc.stdin.write(data)
         proc.stdin.close()
+        # TODO - hack - fix this
         if wait:
             proc.wait(timeout=5)
         skill_log(f"Notification dispatched to {url}:\n {log_context}")

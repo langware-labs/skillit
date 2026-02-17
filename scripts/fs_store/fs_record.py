@@ -99,7 +99,7 @@ class FsRecord(ResourceRecord):
             result.append(FsRecord.init_record(p))
         return result
 
-    def get_chidren_by_type(self, type: str) -> list[FsRecord]:
+    def get_children_by_type(self, type: str) -> list[FsRecord]:
         """Load child records from disk and keep only records of the requested type."""
         result: list[FsRecord] = []
         for ref in self.children_refs:
