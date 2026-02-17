@@ -35,7 +35,7 @@ As part of the analysis you will need to create a json for the skill in the foll
 your todo list:
 1. Analyze the conversation according to the instructions below. 
 2. call the MCP flow_entity_crud tool notify on the creation of new skill and its name and description, status should be "creating" at this stage.
-3. Copy the skill template folder from C:\Users\gadi\projects\skillit/templates/skill_template to the rules folder and rename it to match the issue name.
+3. Copy the skill template folder from <skillit_home>/templates/skill_template to the output folder and rename it to match the issue name.
 4. Read the template and fill in its instructions according to the issue you identified and the analysis you made.
 5. Update the skill as ready and change its status to "new" using the MCP flow_entity_crud tool.
 
