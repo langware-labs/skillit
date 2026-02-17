@@ -822,7 +822,7 @@ class TestPluginProjectEnvironment:
 def make_env() -> TestPluginProjectEnvironment:
     """Create a test environment with all required agents loaded."""
     env = TestPluginProjectEnvironment()
+    env.load_agent(SubAgent.MAIN_AGENT)
     env.load_agent(SubAgent.ANALYZE)
-    env.load_agent(SubAgent.SKILL_CREATOR)
     skill_log_clear()
     return env
