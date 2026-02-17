@@ -74,9 +74,9 @@ class SkillCreationHandler:
         rec[relationship.id] = relationship.to_dict()
         rec.save()
 
-        send_entity_sync(SyncOperation.CREATE, task.to_dict())
-        send_entity_sync(SyncOperation.CREATE, process.to_dict())
-        send_entity_sync(SyncOperation.CREATE, relationship.to_dict(), ResourceType.RELATIONSHIP)
+        send_entity_sync(SyncOperation.CREATE, task.to_dict(), wait=True)
+        send_entity_sync(SyncOperation.CREATE, process.to_dict(), wait=True)
+        send_entity_sync(SyncOperation.CREATE, relationship.to_dict(), ResourceType.RELATIONSHIP, wait=True)
 
         return SkillCreationResources(task=task, process=process, relationship=relationship)
 

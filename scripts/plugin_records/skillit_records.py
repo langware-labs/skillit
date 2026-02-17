@@ -130,6 +130,7 @@ class SkillitRecords:
 
     def _entity_create(self, session: SkillitSession, record_type: str, entity: dict) -> str:
         from fs_store import type_registry
+        from utils.log import skill_log
 
         cls = type_registry.get(record_type)
         if cls is None:

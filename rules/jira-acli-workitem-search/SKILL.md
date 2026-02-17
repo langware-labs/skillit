@@ -1,11 +1,13 @@
 ---
 name: jira-acli-workitem-search
 description: >
-  Skill for listing and searching the user's Jira tickets using the Atlassian CLI (acli).
-  Use when the user asks to show, list, view, or find their Jira tickets, issues, or work
-  items using acli. Knows the correct acli jira workitem search command syntax, avoiding
-  the outdated --action flag pattern from the old Atlassian CLI v8.
-  Trigger keywords: jira tickets, jira issues, acli, show my tickets, list jira, my work items.
+  Show, list, search, or view Jira tickets using the Atlassian CLI (acli).
+  Use when the user asks to show their Jira tickets, list issues, view work items,
+  or search Jira via acli. Provides the correct command syntax to avoid the common
+  mistake of using legacy --action flags or wasting round-trips on --help discovery.
+  Do NOT use browser tools for Jira when acli is available.
+  Trigger keywords: jira, acli, tickets, issues, work items, show jira, list jira,
+  my tickets, open tickets, show my jira tickets.
 metadata:
   author: skillit
   version: "1.0"
