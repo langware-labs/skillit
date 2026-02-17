@@ -494,20 +494,36 @@ class TestPluginProjectEnvironment:
         Patches .json and .md files that Claude Code reads at runtime
         (hooks, commands, MCP config).  Only needed on Windows where
         cmd.exe does not expand $VAR syntax.
+
+        Expands ALL cached versions of this plugin across ALL marketplaces so
+        that user-scope installs from other marketplaces (e.g. local-dev) do
+        not leave unexpanded $CLAUDE_PLUGIN_ROOT in hooks.json.
         """
-        cache_dir = self._plugin_cache_dir()
-        replacement = str(cache_dir).replace("\\", "/")
-        for pattern in ("**/*.json", "**/*.md"):
-            for path in cache_dir.glob(pattern):
-                try:
-                    content = path.read_text(encoding="utf-8")
-                except (OSError, UnicodeDecodeError):
+        plugin_name, _marketplace_name, _version = self._read_plugin_meta()
+        base_cache = Path.home() / ".claude" / "plugins" / "cache"
+        if not base_cache.is_dir():
+            return
+        for marketplace_dir in base_cache.iterdir():
+            if not marketplace_dir.is_dir():
+                continue
+            plugin_dir = marketplace_dir / plugin_name
+            if not plugin_dir.is_dir():
+                continue
+            for version_dir in plugin_dir.iterdir():
+                if not version_dir.is_dir():
                     continue
-                if "$CLAUDE_PLUGIN_ROOT" in content:
-                    path.write_text(
-                        content.replace("$CLAUDE_PLUGIN_ROOT", replacement),
-                        encoding="utf-8",
-                    )
+                replacement = str(version_dir).replace("\\", "/")
+                for pattern in ("**/*.json", "**/*.md"):
+                    for path in version_dir.glob(pattern):
+                        try:
+                            content = path.read_text(encoding="utf-8")
+                        except (OSError, UnicodeDecodeError):
+                            continue
+                        if "$CLAUDE_PLUGIN_ROOT" in content:
+                            path.write_text(
+                                content.replace("$CLAUDE_PLUGIN_ROOT", replacement),
+                                encoding="utf-8",
+                            )
 
     def _plugin_cache_dir(self) -> Path:
         """Return the plugin cache directory."""

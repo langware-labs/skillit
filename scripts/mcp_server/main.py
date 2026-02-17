@@ -40,10 +40,13 @@ def flow_entity_crud(claude_session_id: str, crud: str, entity_json: str) -> str
     from plugin_records.skillit_records import skillit_records
 
     skill_log(f"MCP entity_crud: {crud} | session={claude_session_id}")
+    if not claude_session_id:
+        skill_log("MCP entity_crud ERROR: empty session ID")
+        return "Error: session ID is required"
     session = skillit_records.get_session(claude_session_id)
     if session is None:
-        skill_log(f"MCP entity_crud ERROR: session {claude_session_id} not found")
-        return f"Error: session {claude_session_id} not found"
+        skill_log(f"MCP entity_crud: session {claude_session_id} not found, creating it")
+        session = skillit_records.create_session(claude_session_id)
     skill_log(f"MCP entity_crud OK, session found: {claude_session_id}, output dir {session.output_dir}")
     try:
         entity_dict = json.loads(entity_json)
