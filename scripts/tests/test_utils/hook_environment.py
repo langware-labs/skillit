@@ -199,9 +199,9 @@ class TestPluginProjectEnvironment:
         resume_session_id: str | None = None,
         fork: bool = False,
     ):
-        self.temp_dir = TEMP_DIR
         self._resume_session_id = resume_session_id
         self._session_id = session_id or str(uuid.uuid4())
+        self.temp_dir = TEMP_DIR / self._session_id
         self._fork = fork
         self._session_started = False
         self._env_vars: dict[str, str] = {}
@@ -812,7 +812,11 @@ class TestPluginProjectEnvironment:
     def cleanup(self):
         """Remove temp folder."""
         if self.temp_dir.exists():
-            shutil.rmtree(self.temp_dir)
+            # Handle Windows reserved device names (nul, con, prn, etc.)
+            if CURRENT_PLATFORM == Platform.WINDOWS:
+                shutil.rmtree(self.temp_dir, onexc=_rmtree_onexc)
+            else:
+                shutil.rmtree(self.temp_dir)
 
 
 def make_env() -> TestPluginProjectEnvironment:

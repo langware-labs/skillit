@@ -32,6 +32,7 @@ class SkillCreationHandler:
     @staticmethod
     def on_create(session_id, session, record_type, entity):
         """Create a skill-creation TaskResource with a child AgenticProcess and sync both to FlowPad."""
+        skill_log(f"skill_creation_handler.on_create: session={session_id}, record_type={record_type}")
         if not session_id:
             skill_log("No session_id provided, skipping skill creation start")
             return None
@@ -65,6 +66,14 @@ class SkillCreationHandler:
         task.children_refs = [child_ref]
         task.save_to(session.record_dir)
 
+        # Also save process and relationship to session record
+        session_record = session.record_dir / "record.json"
+        from fs_store import FsRecord
+        rec = FsRecord.init_record(session_record)
+        rec[process.id] = process.to_dict()
+        rec[relationship.id] = relationship.to_dict()
+        rec.save()
+
         send_entity_sync(SyncOperation.CREATE, task.to_dict())
         send_entity_sync(SyncOperation.CREATE, process.to_dict())
         send_entity_sync(SyncOperation.CREATE, relationship.to_dict(), ResourceType.RELATIONSHIP)
@@ -73,28 +82,42 @@ class SkillCreationHandler:
 
     @staticmethod
     def on_update(session_id, session, record_type, entity):
-        """Complete skill-creation task when the skill status is updated to 'done'."""
-        if entity.get("status") != "done":
+        """Complete skill-creation task when the skill status is updated to 'new'."""
+        if entity.get("status") != "new":
             return
 
         task_id = f"skill-creation-{session_id}"
         try:
-            task = TaskResource.load_from(session.record_dir, task_id)
-            if not task or not task.children_refs:
+            from fs_store import FsRecord
+
+            session_record = FsRecord.init_record(session.record_dir / "record.json")
+            if "task" not in session_record:
+                return
+
+            task_data = session_record["task"]
+            task = TaskResource.from_dict(task_data)
+            if not task.children_refs:
                 return
 
             process_ref = task.children_refs[0]
-            process = AgenticProcess.load_from(session.record_dir, process_ref.id)
+            if process_ref.id not in session_record:
+                return
+            process_data = session_record[process_ref.id]
+            process = AgenticProcess.from_dict(process_data)
 
             rel_id = f"child:task:{task_id}:agentic_process:{process_ref.id}"
-            relationship = RelationshipRecord.load_from(session.record_dir, rel_id)
-
-            if not process or not relationship:
+            if rel_id not in session_record:
                 return
+            relationship_data = session_record[rel_id]
+            relationship = RelationshipRecord.from_dict(relationship_data)
 
             task.status = TaskStatus.DONE
             process.state = ProcessorStatus.COMPLETE
-            task.save_to(session.record_dir)
+
+            # Update in session record
+            session_record["task"] = task.to_dict()
+            session_record[process.id] = process.to_dict()
+            session_record.save()
 
             send_entity_sync(SyncOperation.UPDATE, task.to_dict())
             send_entity_sync(SyncOperation.UPDATE, process.to_dict())

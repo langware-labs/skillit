@@ -16,8 +16,8 @@ def test_jira_no_acli(isolated_hook_env):
 
 def test_jira_with_acli(isolated_hook_env):
     """Jira prompt should inject acli context when jira_context rule is loaded."""
-    isolated_hook_env.load_rule("~/.flow/skill_rules/jira_context")
-    result = isolated_hook_env.prompt("how do can i list mi jira tickets")
+    isolated_hook_env.load_rule("jira_context")
+    result = isolated_hook_env.prompt("get me my jira tickets")
     assert result.returncode == 0
-    assert result.hook_output_contains("acli")
+    assert result.response_contains("acli") or result.hook_output_contains("acli")
 

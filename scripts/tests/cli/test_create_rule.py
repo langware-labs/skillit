@@ -52,7 +52,7 @@ def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
 
 
 def create_skill(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str | None:
-    """Classify the issues found during analysis.
+    """Create a skill from the conversation transcript.
 
     Args:
         env: The test environment (session is resumed automatically).
@@ -62,9 +62,17 @@ def create_skill(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
         The classification output text, or None if in interactive mode.
     """
 
-    instruction = f"remember this fix"
+    transcript = ClaudeTranscript.load(TRANSCRIPT_PATH)
+    prompt_transcript_entry = transcript.get_entries("user")[0]
+
+    prompt = prompt_transcript_entry["message"]["content"]
+    instruction = f"Create a skill from this conversation where the user requested: {prompt}"
     all_rules_index = env.all_rules.rules_index
-    data = {"known_rules": all_rules_index}
+    data = {
+        "known_rules": all_rules_index,
+        "transcript_path": str(transcript.path),
+        "cwd": prompt_transcript_entry.get("cwd", str(env.path)),
+    }
     context_add = get_subagent_launch_prompt(SubAgent.SKILL_CREATOR, instruction, data)
 
     result = env.launch_claude(context_add, mode=mode)
@@ -113,9 +121,18 @@ def test_create_skill():
     env = make_env()
     env.install_plugin()
     env._fork = True
+
+    # Clean up any leftover skill records from previous runs so each run starts fresh
+    from utils.conf import RECORDS_PATH
+    import shutil
+    skills_path = RECORDS_PATH / "skill"
+    if skills_path.exists():
+        shutil.rmtree(skills_path)
+        print(f"Cleaned up previous skill records at: {skills_path}")
+
     print(f"Environment set up at: {env.path}")
     env._resume_session_id = ACLI_SESSION_ID
-    create_skill(env, mode=LaunchMode.HEADLESS)
+    create_skill(env, mode=LaunchMode.INTERACTIVE)
     session: SkillitSession = plugin_records.skillit_records.get_session(env.session_id)
     skill_log_print()
     # Session may not exist yet in interactive mode, so don't assert
@@ -137,10 +154,16 @@ def test_create_skill_stub():
 
     time.sleep(2)  # give FlowPad time to render
 
-    skill_creation_handler.on_update(session_id, session, "skill", {"status": "done"})
+    skill_creation_handler.on_update(session_id, session, "skill", {"status": "new"})
     # Task completion is verified by loading from disk
     from records import TaskResource
-    task = TaskResource.load_from(session.record_dir, f"skill-creation-{session_id}")
+    from fs_store import FsRecord
+
+    session_record = FsRecord.init_record(session.record_dir / "record.json")
+    task_data = session_record["task"] if "task" in session_record else None
+    assert task_data is not None, "Task data not found in session record"
+
+    task = TaskResource.from_dict(task_data)
     assert task.status == TaskStatus.DONE
 
 @pytest.mark.skip()
@@ -181,6 +204,63 @@ def test_create_rule_complete():
     print(rule_output)
     print(f"\n>>> Files preserved at: {env.path}")
     print(f">>> Check for created rules at: {env.path}/.flow/skill_rules")
+
+def test_skill_creation_via_entity_crud():
+    """Test skill creation task lifecycle via entity_crud (without launching Claude)."""
+    import uuid
+    env = make_env()
+    env.install_plugin()
+    session_id = env.session_id
+
+    session = plugin_records.skillit_records.get_session(session_id)
+    if session is None:
+        session = plugin_records.skillit_records.create_session(session_id)
+
+    # Simulate what Claude does: create skill entity with status="creating"
+    skill_name = f"test-skill-{uuid.uuid4().hex[:8]}"
+    skill_entity = {
+        "type": "skill",
+        "name": skill_name,
+        "description": "Test skill for verification",
+        "status": "creating",
+    }
+    result = plugin_records.skillit_records.entity_crud(
+        session_id=session_id,
+        crud="create",
+        entity=skill_entity,
+    )
+    print(f"Create result: {result}")
+
+    time.sleep(2)  # give FlowPad time to render
+
+    # Verify task was created
+    from fs_store import FsRecord
+    from records import TaskResource
+    session_record = FsRecord.init_record(session.record_dir / "record.json")
+    task_data = session_record["task"] if "task" in session_record else None
+    assert task_data is not None, "Task should be created when skill entity is created"
+
+    task = TaskResource.from_dict(task_data)
+    assert task.status == TaskStatus.IN_PROGRESS
+    print(f"✓ Task created with status: {task.status}")
+
+    # Simulate what Claude does: update skill entity to status="new"
+    skill_entity["status"] = "new"
+    result = plugin_records.skillit_records.entity_crud(
+        session_id=session_id,
+        crud="update",
+        entity=skill_entity,
+    )
+    print(f"Update result: {result}")
+
+    time.sleep(1)
+
+    # Verify task was completed
+    session_record = FsRecord.init_record(session.record_dir / "record.json")
+    task_data = session_record["task"]
+    task = TaskResource.from_dict(task_data)
+    assert task.status == TaskStatus.DONE
+    print(f"✓ Task completed with status: {task.status}")
 
 def test_notify_mcp():
     """End-to-end: analyze transcript, classify issues, create rule."""
