@@ -6,8 +6,6 @@ from dataclasses import dataclass
 
 from fs_store import FsRecordRef, ResourceType, SyncOperation
 from fs_store.record_types import RecordType
-from plugin_records import skillit_records
-from utils.log import skill_log
 from network.notify import send_entity_sync
 from records import (
     AgenticProcess,
@@ -17,6 +15,9 @@ from records import (
     TaskStatus,
     TaskType,
 )
+from utils.log import skill_log
+
+from scripts.records.skill_record import SkillRecord
 
 
 @dataclass
@@ -98,6 +99,11 @@ class SkillCreationHandler:
 
             send_entity_sync(SyncOperation.UPDATE, task.to_dict())
             send_entity_sync(SyncOperation.UPDATE, process.to_dict())
+            
+            skills: list[SkillRecord] = session.get_children_by_type(RecordType.SKILL)
+            for skill in skills:
+                skill.copy_to_claude_user_home()
+            
             skill_log(f"Completed skill creation task for session {session_id}")
         except Exception as e:
             skill_log(f"Failed to complete skill creation task: {e}")

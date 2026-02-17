@@ -3,10 +3,8 @@
 import json
 
 import pytest
-
 from fs_store import FsRecord, FsRecordRef, ResourceRecord, Scope
-from records import TaskResource, TaskStatus, TaskType, AgenticProcess, ProcessorStatus
-
+from records import AgenticProcess, ProcessorStatus, TaskResource, TaskStatus, TaskType
 
 # ---------------------------------------------------------------------------
 # from_json / to_json
@@ -314,7 +312,7 @@ class TestLiveChildrenProperty:
         assert len(kids) == 1
         assert kids[0].id == "c1"
 
-    def test_get_chidren_by_type_filters_children(self, tmp_path):
+    def test_get_children_by_type_filters_children(self, tmp_path):
         c1_fp = tmp_path / "step.json"
         c2_fp = tmp_path / "process.json"
         FsRecord(id="c1", type="step", name="Step One").save_record_json(c1_fp)
@@ -328,11 +326,11 @@ class TestLiveChildrenProperty:
             ],
         )
 
-        step_children = parent.get_chidren_by_type("step")
+        step_children = parent.get_children_by_type("step")
         assert len(step_children) == 1
         assert step_children[0].id == "c1"
 
-    def test_get_chidren_by_type_returns_empty_when_no_matches(self, tmp_path):
+    def test_get_children_by_type_returns_empty_when_no_matches(self, tmp_path):
         c1_fp = tmp_path / "step.json"
         FsRecord(id="c1", type="step").save_record_json(c1_fp)
 
@@ -341,7 +339,7 @@ class TestLiveChildrenProperty:
             children_refs=[FsRecordRef(id="c1", type="step", record_path=str(c1_fp))],
         )
 
-        assert parent.get_chidren_by_type("process") == []
+        assert parent.get_children_by_type("process") == []
 
 
 class TestAddChild:
