@@ -6,7 +6,6 @@ import uuid
 from pathlib import Path
 
 import pytest
-
 from fs_store.record_types import RecordType
 from plugin_records.skillit_records import SkillitRecords
 from records.skill_record import SkillRecord
@@ -134,7 +133,7 @@ def test_session_restore(tmp_path, session_id, relative_session_dir):
     child_record_text_after = (skill_dir / "record.json").read_text(encoding="utf-8")
     assert child_record_text_after == child_record_text_before
 
-    restored_skill = restored.get_chidren_by_type(RecordType.SKILL)[0]
+    restored_skill = restored.get_children_by_type(RecordType.SKILL)[0]
     assert restored_skill.id == skill.id
     assert restored_skill.name == skill.name
 
