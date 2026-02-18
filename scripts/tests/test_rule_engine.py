@@ -570,3 +570,95 @@ class TestRuleEngine:
         })
         assert "hookSpecificOutput" in result
         assert result["hookSpecificOutput"].get("permissionDecision") == "deny"
+
+
+# ---------------------------------------------------------------------------
+# Plain tests for rules_executed notification
+# ---------------------------------------------------------------------------
+
+
+def test_notify_called_when_actions_executed():
+    """execute_actions sends a single rules_executed notification with the ordered action list."""
+    results = [
+        TriggerResult(
+            trigger=True,
+            reason="Rule 1",
+            rule_name="rule1",
+            actions=[Action(type="add_context", params={"content": "ctx1"})],
+        ),
+        TriggerResult(
+            trigger=True,
+            reason="Rule 2",
+            rule_name="rule2",
+            actions=[Action(type="add_context", params={"content": "ctx2"})],
+        ),
+    ]
+
+    with patch("memory.rule_engine.action_executor._notify_rules_executed") as mock_notify:
+        execute_actions(results, "UserPromptSubmit")
+
+        mock_notify.assert_called_once()
+        hook_event, actions = mock_notify.call_args[0]
+        assert hook_event == "UserPromptSubmit"
+        assert actions == [
+            {"rule": "rule1", "action": "add_context"},
+            {"rule": "rule2", "action": "add_context"},
+        ]
+
+
+def test_notify_not_called_when_no_actions():
+    """No notification is sent when no rules trigger."""
+    with patch("memory.rule_engine.action_executor._notify_rules_executed") as mock_notify:
+        execute_actions([], "UserPromptSubmit")
+
+        mock_notify.assert_not_called()
+
+
+def test_notify_includes_block_action():
+    """Notification includes block actions and preserves order."""
+    results = [
+        TriggerResult(
+            trigger=True,
+            reason="context rule",
+            rule_name="ctx_rule",
+            actions=[Action(type="add_context", params={"content": "hello"})],
+        ),
+        TriggerResult(
+            trigger=True,
+            reason="block rule",
+            rule_name="block_rule",
+            actions=[Action(type="block", params={"reason": "dangerous"})],
+        ),
+    ]
+
+    with patch("memory.rule_engine.action_executor._notify_rules_executed") as mock_notify:
+        execute_actions(results, "UserPromptSubmit")
+
+        mock_notify.assert_called_once()
+        _, actions = mock_notify.call_args[0]
+        assert actions == [
+            {"rule": "ctx_rule", "action": "add_context"},
+            {"rule": "block_rule", "action": "block"},
+        ]
+
+
+def test_notify_skips_failed_actions():
+    """Failed actions are not included in the notification."""
+    results = [
+        TriggerResult(
+            trigger=True,
+            reason="rule",
+            rule_name="rule1",
+            actions=[
+                Action(type="add_context", params={"content": "ok"}),
+                Action(type="unknown_action_type", params={}),
+            ],
+        ),
+    ]
+
+    with patch("memory.rule_engine.action_executor._notify_rules_executed") as mock_notify:
+        execute_actions(results, "UserPromptSubmit")
+
+        mock_notify.assert_called_once()
+        _, actions = mock_notify.call_args[0]
+        assert actions == [{"rule": "rule1", "action": "add_context"}]

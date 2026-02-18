@@ -24,6 +24,22 @@ A Claude Code plugin that automatically learns from your sessions. Skillit analy
 
 ## Installation
 
+### Optional: Install Claude Code
+
+If you don't have [Claude Code](https://code.claude.com/docs/en/setup) installed:
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+### Optional: Install uv
+
+If you don't have [uv](https://docs.astral.sh/uv/getting-started/installation/) installed:
+
+```bash
+pip install uv
+```
+
 ### Quick Install (from GitHub)
 
 ```bash
