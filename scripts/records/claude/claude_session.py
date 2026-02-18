@@ -10,9 +10,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import ClassVar, Self
+from typing import TYPE_CHECKING, ClassVar, Self
 
 from fs_store import FsRecord, RecordType
+
+if TYPE_CHECKING:
+    from .claude_transcript_entry import ClaudeTranscriptEntryFsRecord
 
 
 @dataclass
@@ -54,7 +57,7 @@ class ClaudeSessionFsRecord(FsRecord):
     EXCLUDED_ENTRY_TYPES: ClassVar[list[str]] = ["file-history-snapshot", "progress"]
 
     @property
-    def filtered_entries(self) -> list:
+    def filtered_entries(self) -> list[ClaudeTranscriptEntryFsRecord]:
         """Return transcript entries with noisy types excluded.
 
         Uses ``EXCLUDED_ENTRY_TYPES`` as a blocklist.
@@ -65,7 +68,7 @@ class ClaudeSessionFsRecord(FsRecord):
         ]
 
     @property
-    def transcript_entries(self) -> list:
+    def transcript_entries(self) -> list[ClaudeTranscriptEntryFsRecord]:
         """Lazily load transcript entries from the JSONL file.
 
         Returns a list of transcript entry records (base or type-specific).
@@ -87,6 +90,11 @@ class ClaudeSessionFsRecord(FsRecord):
                     continue
                 entries.append(create_transcript_entry(raw))
         return entries
+
+    @property
+    def entries(self) -> list[ClaudeTranscriptEntryFsRecord]:
+        """Alias for ``filtered_entries`` — used by the tree-walk API."""
+        return self.filtered_entries
 
     @property
     def summary_log(self) -> str:

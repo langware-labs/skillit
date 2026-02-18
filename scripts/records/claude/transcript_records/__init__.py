@@ -9,11 +9,19 @@ from .progress import ClaudeProgressTranscriptEntry
 from .tool_use import ClaudeToolTranscriptEntry, _is_tool_use_entry
 from .tool_result import ClaudeToolResultTranscriptEntry, _is_tool_result_entry
 from .file_snapshot import ClaudeFileSnapshotTranscriptEntry
+from .queue_operation import ClaudeQueueOperationTranscriptEntry
+from .summary_entry import ClaudeSummaryTranscriptEntry
+from .custom_title import ClaudeCustomTitleTranscriptEntry
+from .pr_link import ClaudePrLinkTranscriptEntry
 
 # Registry: entry_type -> subclass (simple type-based dispatch)
 _ENTRY_TYPE_REGISTRY: dict[str, type[ClaudeTranscriptEntryFsRecord]] = {
     "progress": ClaudeProgressTranscriptEntry,
     "file-history-snapshot": ClaudeFileSnapshotTranscriptEntry,
+    "queue-operation": ClaudeQueueOperationTranscriptEntry,
+    "summary": ClaudeSummaryTranscriptEntry,
+    "custom-title": ClaudeCustomTitleTranscriptEntry,
+    "pr-link": ClaudePrLinkTranscriptEntry,
 }
 
 

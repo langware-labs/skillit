@@ -133,7 +133,6 @@ def create_rule(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode
     assert result.returncode == 0
     return result.stdout
 
-
 def test_analyze():
     env = make_env()
     env.install_plugin()

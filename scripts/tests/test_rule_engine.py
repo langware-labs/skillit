@@ -601,8 +601,8 @@ def test_notify_called_when_actions_executed():
         hook_event, actions = mock_notify.call_args[0]
         assert hook_event == "UserPromptSubmit"
         assert actions == [
-            {"rule": "rule1", "action": "add_context"},
-            {"rule": "rule2", "action": "add_context"},
+            {"rule": "rule1", "action": "add_context", "params": {"content": "ctx1"}},
+            {"rule": "rule2", "action": "add_context", "params": {"content": "ctx2"}},
         ]
 
 
@@ -637,8 +637,8 @@ def test_notify_includes_block_action():
         mock_notify.assert_called_once()
         _, actions = mock_notify.call_args[0]
         assert actions == [
-            {"rule": "ctx_rule", "action": "add_context"},
-            {"rule": "block_rule", "action": "block"},
+            {"rule": "ctx_rule", "action": "add_context", "params": {"content": "hello"}},
+            {"rule": "block_rule", "action": "block", "params": {"reason": "dangerous"}},
         ]
 
 
@@ -661,4 +661,4 @@ def test_notify_skips_failed_actions():
 
         mock_notify.assert_called_once()
         _, actions = mock_notify.call_args[0]
-        assert actions == [{"rule": "rule1", "action": "add_context"}]
+        assert actions == [{"rule": "rule1", "action": "add_context", "params": {"content": "ok"}}]
