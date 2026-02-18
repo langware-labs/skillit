@@ -3,12 +3,13 @@
 import json
 import re
 
-from hook_handlers.analysis import start_new_analysis
-from utils.log import skill_log
 from modifiers.analyze_and_create_activation_rules import handle_analyze
 from modifiers.create_test import handle_create_test
 from modifiers.test import handle_test
 from network.notify import send_skill_activation
+from utils.log import skill_log
+
+from hook_handlers.analysis import start_new_analysis
 
 # =============================================================================
 # KEYWORD MAPPINGS
@@ -18,7 +19,6 @@ from network.notify import send_skill_activation
 KEYWORD_MAPPINGS = [
     ("skillit:create-test", handle_create_test),
     ("skillit:test", handle_test),
-    ("skillit", handle_analyze),
 ]
 
 
