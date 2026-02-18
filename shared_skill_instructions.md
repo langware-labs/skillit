@@ -34,10 +34,11 @@ python3 "<activation_rules_script>" skill_ready '{"skill_name": "<skill-name>", 
 ```
 
 ## Skill Name Rules
-- Use kebab-case (lowercase with hyphens)
+- Use natural language with capital first letter for the display name
 - Be descriptive of what the skill does
-- Do NOT use generic names like `test-123` or `skill-<timestamp>`
-- Examples: `search-results-validation`, `prevent-hardcoded-config`, `form-submission-test`
+- Do NOT use generic names like `test 123` or `skill <timestamp>`
+- Examples: `Jira acli tickets`, `Search results validation`, `Prevent hardcoded config`
+- For folder names, derive a kebab-case version (e.g. "Jira acli tickets" -> "jira-acli-tickets")
 
 ## SKILL.md Format
 

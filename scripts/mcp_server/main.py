@@ -88,7 +88,7 @@ def flow_tag(flow_tag_xml: str, claude_session_id: str = None) -> str:
         session = skillit_records.get_session(claude_session_id)
         if session:
             skill_creation_handler.on_update(
-                claude_session_id, session, "skill", {"status": "done"}
+                claude_session_id, session, "skill", {"status": "new"}
             )
 
     success = send_flow_tag(flow_data)
