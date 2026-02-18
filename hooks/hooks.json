@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"$CLAUDE_PLUGIN_ROOT/scripts/main.py\""
+            "command": "python -c \"import os,sys,subprocess;sys.exit(subprocess.call([sys.executable,os.path.join(os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','main.py')]))\""
           }
         ]
       }
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"$CLAUDE_PLUGIN_ROOT/scripts/main.py\""
+            "command": "python -c \"import os,sys,subprocess;sys.exit(subprocess.call([sys.executable,os.path.join(os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','main.py')]))\""
           }
         ]
       }
