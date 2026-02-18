@@ -1,0 +1,7 @@
+{
+  "id": "jira_context",
+  "type": "rule",
+  "name": "jira_context",
+  "description": "Injects acli Jira subcommand syntax when user asks about Jira tickets",
+  "status": "active"
+}

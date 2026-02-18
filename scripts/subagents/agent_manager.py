@@ -8,6 +8,9 @@ class SubAgent(StrEnum):
     """Available skillit subagents."""
 
     ANALYZE = "skillit-analyzer"
+    MAIN_AGENT = "skillit-agent"
+    CLASSIFY = "skillit-classifier"
+    CREATE = "skillit-create"
     SKILL_CREATOR = "skillit-creator"
 
 

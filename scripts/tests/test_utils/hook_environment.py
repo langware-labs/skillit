@@ -199,9 +199,9 @@ class TestPluginProjectEnvironment:
         resume_session_id: str | None = None,
         fork: bool = False,
     ):
-        self.temp_dir = TEMP_DIR
         self._resume_session_id = resume_session_id
         self._session_id = session_id or str(uuid.uuid4())
+        self.temp_dir = TEMP_DIR / self._session_id
         self._fork = fork
         self._session_started = False
         self._env_vars: dict[str, str] = {}
@@ -494,20 +494,36 @@ class TestPluginProjectEnvironment:
         Patches .json and .md files that Claude Code reads at runtime
         (hooks, commands, MCP config).  Only needed on Windows where
         cmd.exe does not expand $VAR syntax.
+
+        Expands ALL cached versions of this plugin across ALL marketplaces so
+        that user-scope installs from other marketplaces (e.g. local-dev) do
+        not leave unexpanded $CLAUDE_PLUGIN_ROOT in hooks.json.
         """
-        cache_dir = self._plugin_cache_dir()
-        replacement = str(cache_dir).replace("\\", "/")
-        for pattern in ("**/*.json", "**/*.md"):
-            for path in cache_dir.glob(pattern):
-                try:
-                    content = path.read_text(encoding="utf-8")
-                except (OSError, UnicodeDecodeError):
+        plugin_name, _marketplace_name, _version = self._read_plugin_meta()
+        base_cache = Path.home() / ".claude" / "plugins" / "cache"
+        if not base_cache.is_dir():
+            return
+        for marketplace_dir in base_cache.iterdir():
+            if not marketplace_dir.is_dir():
+                continue
+            plugin_dir = marketplace_dir / plugin_name
+            if not plugin_dir.is_dir():
+                continue
+            for version_dir in plugin_dir.iterdir():
+                if not version_dir.is_dir():
                     continue
-                if "$CLAUDE_PLUGIN_ROOT" in content:
-                    path.write_text(
-                        content.replace("$CLAUDE_PLUGIN_ROOT", replacement),
-                        encoding="utf-8",
-                    )
+                replacement = str(version_dir).replace("\\", "/")
+                for pattern in ("**/*.json", "**/*.md"):
+                    for path in version_dir.glob(pattern):
+                        try:
+                            content = path.read_text(encoding="utf-8")
+                        except (OSError, UnicodeDecodeError):
+                            continue
+                        if "$CLAUDE_PLUGIN_ROOT" in content:
+                            path.write_text(
+                                content.replace("$CLAUDE_PLUGIN_ROOT", replacement),
+                                encoding="utf-8",
+                            )
 
     def _plugin_cache_dir(self) -> Path:
         """Return the plugin cache directory."""
@@ -615,6 +631,11 @@ class TestPluginProjectEnvironment:
         """
         import time
 
+        # Re-expand $CLAUDE_PLUGIN_ROOT right before launch in case new
+        # cache entries were created after install_plugin().
+        if CURRENT_PLATFORM == Platform.WINDOWS:
+            self._expand_plugin_root_in_cache()
+
         # Clear skill.log in the plugin cache before running
         log_path = self._plugin_skill_log_path()
         if log_path and log_path.exists():
@@ -704,6 +725,12 @@ class TestPluginProjectEnvironment:
             prompt: Prompt text. Required for headless mode.
             mode: How to launch claude (headless, terminal, interactive).
         """
+        # Re-expand $CLAUDE_PLUGIN_ROOT right before launch in case new
+        # cache entries were created after install_plugin() (e.g. by a
+        # background marketplace sync for local-dev).
+        if CURRENT_PLATFORM == Platform.WINDOWS:
+            self._expand_plugin_root_in_cache()
+
         if mode == LaunchMode.HEADLESS and prompt:
             return self.prompt(prompt)
 
@@ -812,13 +839,17 @@ class TestPluginProjectEnvironment:
     def cleanup(self):
         """Remove temp folder."""
         if self.temp_dir.exists():
-            shutil.rmtree(self.temp_dir)
+            # Handle Windows reserved device names (nul, con, prn, etc.)
+            if CURRENT_PLATFORM == Platform.WINDOWS:
+                shutil.rmtree(self.temp_dir, onexc=_rmtree_onexc)
+            else:
+                shutil.rmtree(self.temp_dir)
 
 
 def make_env() -> TestPluginProjectEnvironment:
     """Create a test environment with all required agents loaded."""
     env = TestPluginProjectEnvironment()
+    env.load_agent(SubAgent.MAIN_AGENT)
     env.load_agent(SubAgent.ANALYZE)
-    env.load_agent(SubAgent.SKILL_CREATOR)
     skill_log_clear()
     return env

@@ -1,4 +1,5 @@
 """Inject session_id into session record on SessionStart."""
+
 from pathlib import Path
 
 from memory.rule_engine.trigger_executor import Action
