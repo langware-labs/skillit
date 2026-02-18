@@ -41,7 +41,7 @@ def start_new_analysis(session_id: str) -> AnalysisResources | None:
     session = skillit_records.get_session(session_id)
     if session is None:
         skill_log(f"Session {session_id} not found, skipping analysis start")
-        session = skillit_records.create_session(session_id)
+        return None
 
     output_dir = session.output_dir
     task_id = f"analysis-{session_id}"
