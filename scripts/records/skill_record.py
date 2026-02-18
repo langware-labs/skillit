@@ -194,6 +194,16 @@ class SkillRecord(FsRecord):
 
     def copy_to_claude_user_home(self) -> Path:
         """Copy this skill folder into ~/.claude/skills/<skill-name>/."""
+        destination_root = Path.home() / ".claude" / "skills"
+        return self.copy_to(destination_root)
+
+    def copy_to_project(self, project_dir: str | Path) -> Path:
+        """Copy this skill folder into <project>/.claude/skills/<skill-name>/."""
+        destination_root = Path(project_dir) / ".claude" / "skills"
+        return self.copy_to(destination_root)
+
+    def copy_to(self, destination_root: Path) -> Path:
+        """Copy this skill folder into <destination_root>/<skill-name>/."""
         source_dir = self.record_dir
         if source_dir is None:
             raise ValueError("Skill record has no source directory")
@@ -206,7 +216,6 @@ class SkillRecord(FsRecord):
         else:
             skill_name = self.name or self.id or source_dir.name
 
-        destination_root = Path.home() / ".claude" / "skills"
         destination_root.mkdir(parents=True, exist_ok=True)
         destination = destination_root / skill_name
 

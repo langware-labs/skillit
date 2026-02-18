@@ -17,6 +17,7 @@ class SkillitSession(FsRecord):
     """
 
     session_id: str = ""
+    cwd: str = ""
 
     def __post_init__(self):
         if not self.type:

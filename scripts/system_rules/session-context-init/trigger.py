@@ -17,6 +17,10 @@ def evaluate(hooks_data: dict, transcript: list) -> Action | None:
         return None
 
     session = skillit_records.create_session(session_id)
+    cwd = hooks_data.get("cwd", "")
+    if cwd:
+        session.cwd = cwd
+        session.save()
     skillit_home = str(Path(__file__).resolve().parents[3])
     flow_output_directory = str(session.output_dir)
     skill_log(f"[System context Rule]: session={session_id}, flow_output_directory dir: {flow_output_directory}")
