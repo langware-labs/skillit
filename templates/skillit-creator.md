@@ -36,7 +36,7 @@ your todo list:
 2. call the MCP flow_entity_crud tool notify on the creation of new skill and its name and description, status should be "creating" at this stage.
 3. Copy the skill template folder from <skillit_home>/templates/skill_template to <flow_output_directory> and rename it to match the issue name.
 4. Read the template and fill in its instructions according to the issue you identified and the analysis you made.
-5. Update the skill as ready and change its status to "new" using the MCP flow_entity_crud tool.
+5. Update the skill as "new" and change its status to "new" using the MCP flow_entity_crud tool.
 
 ## The analysis Output files into the flow output directory
 make sure to include two files:
