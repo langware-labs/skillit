@@ -86,11 +86,11 @@ class TestCrud:
         rl.create(TestRecord(id="u1", name="before"))
         updated = rl.update("u1", {"name": "after", "custom": 42})
         assert updated.name == "after"
-        assert updated.extra["custom"] == 42
+        assert updated.raw_json["custom"] == 42
         # verify persisted
         fetched = rl.get("u1")
         assert fetched.name == "after"
-        assert fetched.extra["custom"] == 42
+        assert fetched.raw_json["custom"] == 42
 
     @pytest.mark.parametrize("layout", LAYOUTS)
     def test_update_missing_raises(self, tmp_path, layout):

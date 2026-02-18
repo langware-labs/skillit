@@ -85,7 +85,7 @@ class TestSerialization:
         assert d["id"] == "1"
         assert d["type"] == "t"
         assert d["name"] == "n"
-        assert "extra" not in d
+        assert "raw_json" not in d
 
     def test_to_dict_datetime_iso(self):
         dt = datetime(2025, 1, 15, 12, 0, 0)
@@ -97,30 +97,30 @@ class TestSerialization:
         r = ResourceRecord(scope=Scope.PROJECT)
         assert r.to_dict()["scope"] == "project"
 
-    def test_to_dict_extra_merged(self):
-        r = ResourceRecord(extra={"custom": 42})
+    def test_to_dict_raw_json_merged(self):
+        r = ResourceRecord(raw_json={"custom": 42})
         d = r.to_dict()
         assert d["custom"] == 42
-        assert "extra" not in d
+        assert "raw_json" not in d
 
     def test_from_dict_round_trip(self):
         r = ResourceRecord(
             id="1", type="t", name="n",
             scope=Scope.PROJECT,
             created_at=datetime(2025, 6, 1),
-            extra={"tag": "v"},
+            raw_json={"tag": "v"},
         )
         d = r.to_dict()
         r2 = ResourceRecord.from_dict(d)
         assert r2.id == "1"
         assert r2.scope == Scope.PROJECT
         assert isinstance(r2.created_at, datetime)
-        assert r2.extra["tag"] == "v"
+        assert r2.raw_json["tag"] == "v"
 
-    def test_from_dict_unknown_keys_to_extra(self):
+    def test_from_dict_unknown_keys_to_raw_json(self):
         r = ResourceRecord.from_dict({"name": "x", "foo": "bar", "baz": 1})
         assert r.name == "x"
-        assert r.extra == {"foo": "bar", "baz": 1}
+        assert r.raw_json == {"foo": "bar", "baz": 1}
 
     def test_from_dict_scope_coercion(self):
         r = ResourceRecord.from_dict({"scope": "local"})
@@ -150,8 +150,8 @@ class TestKeyValueAccess:
         r = ResourceRecord(name="hello")
         assert r["name"] == "hello"
 
-    def test_getitem_extra(self):
-        r = ResourceRecord(extra={"custom": 99})
+    def test_getitem_raw_json(self):
+        r = ResourceRecord(raw_json={"custom": 99})
         assert r["custom"] == 99
 
     def test_getitem_missing_raises(self):
@@ -164,15 +164,15 @@ class TestKeyValueAccess:
         r["name"] = "updated"
         assert r.name == "updated"
 
-    def test_setitem_extra(self):
+    def test_setitem_raw_json(self):
         r = ResourceRecord()
         r["custom_key"] = "custom_val"
-        assert r.extra["custom_key"] == "custom_val"
+        assert r.raw_json["custom_key"] == "custom_val"
 
     def test_delitem(self):
-        r = ResourceRecord(extra={"k": "v"})
+        r = ResourceRecord(raw_json={"k": "v"})
         del r["k"]
-        assert "k" not in r.extra
+        assert "k" not in r.raw_json
 
     def test_delitem_known_field_raises(self):
         r = ResourceRecord()
@@ -184,19 +184,19 @@ class TestKeyValueAccess:
         assert "name" in r
         assert "id" in r
 
-    def test_contains_extra(self):
-        r = ResourceRecord(extra={"tag": 1})
+    def test_contains_raw_json(self):
+        r = ResourceRecord(raw_json={"tag": 1})
         assert "tag" in r
         assert "missing" not in r
 
     def test_keys(self):
-        r = ResourceRecord(extra={"x": 1, "y": 2})
+        r = ResourceRecord(raw_json={"x": 1, "y": 2})
         k = r.keys()
         assert "id" in k
         assert "name" in k
         assert "x" in k
         assert "y" in k
-        assert "extra" not in k
+        assert "raw_json" not in k
 
 
 # ---------------------------------------------------------------------------

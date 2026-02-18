@@ -4,6 +4,7 @@ import pytest
 
 import plugin_records
 from plugin_records import SkillitSession
+from records.claude import ClaudeRootFsRecord
 from subagents.agent_manager import SubAgent, get_subagent_launch_prompt
 from hook_handlers.analysis import start_new_analysis, complete_analysis
 from plugin_records.crud_handlers.skill_creation_handler import skill_creation_handler
@@ -15,6 +16,7 @@ from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, Lau
 
 TRANSCRIPT_PATH = Path(__file__).parent.parent / "unit" / "resources" / "jira_acli_fail.jsonl"
 ACLI_SESSION_ID = "d7dd8377-c888-40e5-98ea-899ed95c7eeb"
+LONG_SESSION_ID = "af0b46a4-9eba-43ec-874a-0c83606c0295"
 
 def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str:
     """Build the analysis prompt from the transcript and launch the analyzer.
@@ -81,6 +83,21 @@ def create_skill(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMod
     assert result.returncode == 0
     return result.stdout
 
+def analyze(session_id ,env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str | None:
+    """Create a skill from the conversation transcript.
+
+    Args:
+        env: The test environment (session is resumed automatically).
+        mode: Launch mode for claude.
+
+    Returns:
+        The classification output text, or None if in interactive mode.
+    """
+
+    result = env.launch_claude(f"analyze the session id {session_id}", mode=mode)
+    assert result.returncode == 0
+    return result.stdout
+
 def classify_analysis(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str:
     """Classify the issues found during analysis.
 
@@ -115,6 +132,17 @@ def create_rule(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode
         return None
     assert result.returncode == 0
     return result.stdout
+
+
+def test_analyze():
+    env = make_env()
+    env.install_plugin()
+    claude = ClaudeRootFsRecord.default()
+    session = claude.get_session(LONG_SESSION_ID)
+    assert session is not None, f"Session {LONG_SESSION_ID} not found"
+    print(f"Session found: {session.session_id}")
+    print(session.summary_log)
+    create_skill(env, mode=LaunchMode.INTERACTIVE)
 
 def test_create_skill():
     """End-to-end: analyze transcript, classify issues, create rule."""

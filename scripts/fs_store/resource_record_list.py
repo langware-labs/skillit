@@ -101,7 +101,7 @@ class ResourceRecordList:
             if key in known_fields:
                 setattr(record, key, value)
             else:
-                record.extra[key] = value
+                record.raw_json[key] = value
         self.save(record)
         return record
 

@@ -41,7 +41,7 @@ class TestFsSyncAutoSave:
         data = json.loads(fp.read_text())
         assert data["name"] == "auto-saved"
 
-    def test_setitem_extra_triggers_persist(self, tmp_path):
+    def test_setitem_raw_json_triggers_persist(self, tmp_path):
         fp = tmp_path / "rec.json"
         r = FsRecord.init_record(fp)
         r.save_record_json(fp)

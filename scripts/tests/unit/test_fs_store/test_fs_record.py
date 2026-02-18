@@ -36,12 +36,12 @@ class TestJsonIO:
     def test_round_trip_json_file(self, tmp_path):
         fp = tmp_path / "rt.json"
         r = FsRecord(id="rt", type="session", name="s1",
-                      scope=Scope.PROJECT, extra={"k": "v"})
+                      scope=Scope.PROJECT, raw_json={"k": "v"})
         r.save_record_json(fp)
         r2 = FsRecord.init_record(fp)
         assert r2.id == "rt"
         assert r2.scope == Scope.PROJECT
-        assert r2.extra["k"] == "v"
+        assert r2.raw_json["k"] == "v"
 
     def test_to_json_creates_parent_dirs(self, tmp_path):
         fp = tmp_path / "a" / "b" / "rec.json"
@@ -110,7 +110,7 @@ class TestInheritance:
         assert isinstance(r, ResourceRecord)
 
     def test_to_dict_works(self):
-        r = FsRecord(id="x", name="fs", extra={"k": "v"})
+        r = FsRecord(id="x", name="fs", raw_json={"k": "v"})
         d = r.to_dict()
         assert d["id"] == "x"
         assert d["k"] == "v"

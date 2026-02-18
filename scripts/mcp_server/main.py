@@ -10,6 +10,8 @@ import json
 import sys
 from pathlib import Path
 
+from records.claude import ClaudeRootFsRecord
+
 # Add scripts/ to sys.path before any local imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -147,6 +149,39 @@ def flow_context(claude_session_id: str, action: str, key: str, value: str = Non
         skill_log(f"MCP ERROR: {action} context ERROR {e}")
         return f"Error {action}ing context: {e}"
 
+@mcp.tool()
+def session_analysis(claude_session_id: str,index:int) -> str:
+    """This returns a summary of session for analysis
+
+    This tool provides persistent storage for each session. All operations require
+    the session_id to ensure data isolation between sessions.
+
+    Args:
+        claude_session_id: The session ID (provided in context at session start)
+        index: index of spesific entry in session for details on that entry. If index is -1, it returns the summary of the whole session.
+
+    Returns:
+        Details of the sessions as a string for the complete session or a specific entry based on the index provided.
+
+    Examples:
+        flow_context(claude_session_id="abc-123", index="-1") - get the whole session summary
+        flow_context(claude_session_id="abc-123", index="0") - get details of the first entry in the session
+    """
+    if not claude_session_id:
+        return "Error: session_id is required"
+    if not isinstance(index, int):
+        return "Error: index must be an integer"
+    claude = ClaudeRootFsRecord.default()
+    session = claude.get_session(claude_session_id)
+    if session is None:
+        return f"Error: session {claude_session_id} not found"
+    if index == -1:
+        return session.summary_log
+    elif 0 <= index < len(session.filtered_entries):
+        entry = session.filtered_entries[index]
+        return f"Entry {index} summary: {entry.summary}\nFull content: {entry.content}"
+    else:
+        return f"Error: index {index} out of range for session with {len(session.filtered_entries)} entries"
 
 if __name__ == "__main__":
     mcp.run(transport="stdio")

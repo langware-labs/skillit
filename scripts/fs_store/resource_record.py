@@ -77,8 +77,8 @@ class ResourceRecord:
     # Cloud sync link
     entity_id: str | None = None
 
-    # Extra fields (replaces Pydantic extra="allow")
-    extra: dict = field(default_factory=dict)
+    # Raw / overflow fields (replaces Pydantic extra="allow")
+    raw_json: dict = field(default_factory=dict)
 
     # Relationships (flat refs, never embedded objects)
     children_refs: list[FsRecordRef] = field(default_factory=list)
@@ -100,28 +100,28 @@ class ResourceRecord:
         known = {f.name for f in self.__dataclass_fields__.values()}
         if key in known:
             return getattr(self, key)
-        return self.extra[key]
+        return self.raw_json[key]
 
     def __setitem__(self, key: str, value: Any) -> None:
         known = {f.name for f in self.__dataclass_fields__.values()}
         if key in known:
             setattr(self, key, value)
         else:
-            self.extra[key] = value
+            self.raw_json[key] = value
 
     def __delitem__(self, key: str) -> None:
-        if key not in self.extra:
+        if key not in self.raw_json:
             raise KeyError(key)
-        del self.extra[key]
+        del self.raw_json[key]
 
     def __contains__(self, key: str) -> bool:
         known = {f.name for f in self.__dataclass_fields__.values()}
-        return key in known or key in self.extra
+        return key in known or key in self.raw_json
 
     def keys(self) -> list[str]:
-        """All field names + extra keys."""
-        known = [f.name for f in self.__dataclass_fields__.values() if f.name != "extra"]
-        return known + list(self.extra.keys())
+        """All field names + raw_json keys."""
+        known = [f.name for f in self.__dataclass_fields__.values() if f.name != "raw_json"]
+        return known + list(self.raw_json.keys())
 
     # -- Serialization --
 
@@ -137,11 +137,11 @@ class ResourceRecord:
         data = asdict(self)
         result = {}
         for key, value in data.items():
-            if key in ("extra", "children_refs", "parent_ref"):
+            if key in ("raw_json", "children_refs", "parent_ref"):
                 continue
             result[key] = _convert(value)
-        # Merge extra fields at the top level
-        for key, value in data.get("extra", {}).items():
+        # Merge raw_json fields at the top level
+        for key, value in data.get("raw_json", {}).items():
             result[key] = _convert(value)
         # Serialize children refs
         if self.children_refs:
@@ -156,15 +156,15 @@ class ResourceRecord:
         """Deserialize from a plain dict."""
         known_fields = {f.name for f in cls.__dataclass_fields__.values()}
         kwargs: dict[str, Any] = {}
-        extra: dict[str, Any] = {}
+        raw_json: dict[str, Any] = {}
 
         for key, value in data.items():
             if key in ("children", "children_refs", "parent", "parent_ref", "parent_id"):
                 continue  # handled below
-            elif key in known_fields and key != "extra":
+            elif key in known_fields and key != "raw_json":
                 kwargs[key] = value
             else:
-                extra[key] = value
+                raw_json[key] = value
 
         # Deserialize children as FsRecordRef
         raw_children = data.get("children", [])
@@ -198,9 +198,9 @@ class ResourceRecord:
             if isinstance(val, str):
                 kwargs[dt_field] = datetime.fromisoformat(val)
 
-        # Merge any explicit extra from data with overflow keys
-        if "extra" in data and isinstance(data["extra"], dict):
-            extra.update(data["extra"])
-        kwargs["extra"] = extra
+        # Merge any explicit raw_json from data with overflow keys
+        if "raw_json" in data and isinstance(data["raw_json"], dict):
+            raw_json.update(data["raw_json"])
+        kwargs["raw_json"] = raw_json
 
         return cls(**kwargs)
