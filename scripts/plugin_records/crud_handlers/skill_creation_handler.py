@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fs_store import FsRecordRef, ResourceType, SyncOperation
+from fs_store import FsRecordRef, ResourceStatus, ResourceType, SyncOperation
 from fs_store.record_types import RecordType
 from network.notify import send_entity_sync
 from records import (
@@ -15,9 +15,8 @@ from records import (
     TaskStatus,
     TaskType,
 )
-from utils.log import skill_log
-
 from records.skill_record import SkillRecord
+from utils.log import skill_log
 
 
 @dataclass
@@ -33,6 +32,7 @@ class SkillCreationHandler:
     @staticmethod
     def on_create(session_id, session, record_type, entity):
         """Create a skill-creation TaskResource with a child AgenticProcess and sync both to FlowPad."""
+        skill_log(f"skill_creation_handler.on_create: session={session_id}, record_type={record_type}")
         if not session_id:
             skill_log("No session_id provided, skipping skill creation start")
             return None
@@ -40,15 +40,20 @@ class SkillCreationHandler:
         output_dir = session.output_dir
         task_id = f"skill-creation-{session_id}"
 
+        skill_name = entity.get("name", "")
+        title = skill_name if skill_name else "Creating skill"
+
         task = TaskResource(
             id=task_id,
-            title="Creating skill",
+            title=title,
             status=TaskStatus.IN_PROGRESS,
             task_type=TaskType.SKILL_CREATION,
             tags=["skill-creation", "skillit"],
             metadata={
                 "session_id": session_id,
                 "output_dir": str(output_dir),
+                "skillName": skill_name,
+                "skillScope": entity.get("recommended_scope", "user"),
             },
         )
 
@@ -66,9 +71,17 @@ class SkillCreationHandler:
         task.children_refs = [child_ref]
         task.save_to(session.record_dir)
 
-        send_entity_sync(SyncOperation.CREATE, task.to_dict())
-        send_entity_sync(SyncOperation.CREATE, process.to_dict())
-        send_entity_sync(SyncOperation.CREATE, relationship.to_dict(), ResourceType.RELATIONSHIP)
+        # Also save process and relationship to session record
+        session_record = session.record_dir / "record.json"
+        from fs_store import FsRecord
+        rec = FsRecord.init_record(session_record)
+        rec[process.id] = process.to_dict()
+        rec[relationship.id] = relationship.to_dict()
+        rec.save()
+
+        send_entity_sync(SyncOperation.CREATE, task.to_dict(), wait=True)
+        send_entity_sync(SyncOperation.CREATE, process.to_dict(), wait=True)
+        send_entity_sync(SyncOperation.CREATE, relationship.to_dict(), ResourceType.RELATIONSHIP, wait=True)
 
         return SkillCreationResources(task=task, process=process, relationship=relationship)
 
@@ -81,6 +94,7 @@ class SkillCreationHandler:
             return
 
         task_id = f"skill-creation-{session_id}"
+
         try:
             from fs_store import FsRecord
 
@@ -106,10 +120,16 @@ class SkillCreationHandler:
             if rel_id not in session_record:
                 skill_log(f"on_update: relationship {rel_id} not found in session record — skipping")
                 return
+            relationship_data = session_record[rel_id]
+            relationship = RelationshipRecord.from_dict(relationship_data)
 
             task.status = TaskStatus.DONE
             process.state = ProcessorStatus.COMPLETE
-            task.save_to(session.record_dir)
+
+            # Update in session record
+            session_record["task"] = task.to_dict()
+            session_record[process.id] = process.to_dict()
+            session_record.save()
 
             send_entity_sync(SyncOperation.UPDATE, task.to_dict())
             send_entity_sync(SyncOperation.UPDATE, process.to_dict())
