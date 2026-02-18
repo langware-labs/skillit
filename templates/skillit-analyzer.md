@@ -35,8 +35,8 @@ results is a JSON with the following properties:
     "name": "a unique name for the issue that can be used as informative folder name for the rule you will create to address this issue",
     "title": "A clear and concise title of the issue identified in the transcript.",
     "description": "A clear and concise description of the issue identified in the transcript, up to 3 lines",
-    "category": "One of the follwoing categories: [misunderstanding, mistake, inefficiency, automation_opportunity]",
-    "occurrence": "the LAST entry id in the transcript where the issue occurred"
+    "category": "One of the follwoing categories: [misunderstanding, mistake, inefficiency, workflow_automation_opportunity]",
+    "occurrence": "the LAST entry id in the transcript where the issue occurred",
   },...
 }
 
