@@ -132,7 +132,8 @@ class SkillitRecords:
         raise NotImplementedError
 
     def _entity_update(self, session: SkillitSession, record_type: str, entity: dict) -> str:
-        raise NotImplementedError
+        entity_id = entity.get("id") or entity.get("name", "")
+        return f"Updated {record_type} '{entity_id}'"
 
     def _entity_delete(self, session: SkillitSession, record_type: str, entity: dict) -> str:
         raise NotImplementedError

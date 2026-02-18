@@ -138,10 +138,13 @@ def test_create_skill_stub():
     time.sleep(2)  # give FlowPad time to render
 
     skill_creation_handler.on_update(session_id, session, "skill", {"status": "done"})
-    # Task completion is verified by loading from disk
-    from records import TaskResource
-    task = TaskResource.load_from(session.record_dir, f"skill-creation-{session_id}")
-    assert task.status == TaskStatus.DONE
+    # Task completion is verified by reading the task data from the session record
+    import json
+    record_path = session.record_dir / "record.json"
+    session_data = json.loads(record_path.read_text())
+    task_data = session_data.get("task")
+    assert task_data is not None, "Task should be saved in session record"
+    assert task_data["status"] == TaskStatus.DONE
 
 @pytest.mark.skip()
 def test_create_rule():

@@ -15,9 +15,8 @@ from records import (
     TaskStatus,
     TaskType,
 )
+from records.skill_record import SkillRecord
 from utils.log import skill_log
-
-from scripts.records.skill_record import SkillRecord
 
 
 @dataclass
@@ -74,39 +73,59 @@ class SkillCreationHandler:
 
     @staticmethod
     def on_update(session_id, session, record_type, entity):
-        """Complete skill-creation task when the skill status is updated to 'done'."""
-        if entity.get("status") != "done":
+        """Complete skill-creation task when the skill status is updated to 'new'."""
+        skill_log(f"SkillCreationHandler on_update called for session {session_id}, record_type {record_type}, status {entity.get('status')}")
+        if entity.get("status") != "new":
             return
 
         task_id = f"skill-creation-{session_id}"
+
+        # Update task status in the session record for FlowPad sync
+        skill_log(f"Updating task {task_id} status to DONE for session {session_id}")
+        try:
+            from fs_store import FsRecord as _FsRecord
+
+            record_path = session.record_dir / "record.json"
+            if record_path.exists():
+                session_rec = _FsRecord.init_record(record_path)
+                task_data = session_rec.extra.get("task")
+                if task_data:
+                    task = TaskResource.from_dict(task_data)
+                    task.status = TaskStatus.DONE
+                    session_rec["task"] = task.to_dict()
+                    session_rec.save()
+                    send_entity_sync(SyncOperation.UPDATE, task.to_dict())
+        except Exception as e:
+            skill_log(f"Could not update task status for {task_id}: {e}")
+
+        # Mark the child agentic process as complete
+        skill_log(f"Marking child process of task {task_id} as COMPLETE for session {session_id}")
         try:
             task = TaskResource.load_from(session.record_dir, task_id)
-            if not task or not task.children_refs:
-                return
-
-            process_ref = task.children_refs[0]
-            process = AgenticProcess.load_from(session.record_dir, process_ref.id)
-
-            rel_id = f"child:task:{task_id}:agentic_process:{process_ref.id}"
-            relationship = RelationshipRecord.load_from(session.record_dir, rel_id)
-
-            if not process or not relationship:
-                return
-
-            task.status = TaskStatus.DONE
-            process.state = ProcessorStatus.COMPLETE
-            task.save_to(session.record_dir)
-
-            send_entity_sync(SyncOperation.UPDATE, task.to_dict())
-            send_entity_sync(SyncOperation.UPDATE, process.to_dict())
-            
-            skills: list[SkillRecord] = session.get_children_by_type(RecordType.SKILL)
-            for skill in skills:
-                skill.copy_to_claude_user_home()
-            
-            skill_log(f"Completed skill creation task for session {session_id}")
+            if task and task.children_refs:
+                process_ref = task.children_refs[0]
+                process = AgenticProcess.load_from(session.record_dir, process_ref.id)
+                if process:
+                    process.state = ProcessorStatus.COMPLETE
+                    send_entity_sync(SyncOperation.UPDATE, process.to_dict())
         except Exception as e:
-            skill_log(f"Failed to complete skill creation task: {e}")
+            skill_log(f"Could not update process state for {task_id}: {e}")
+
+        # Copy skills from the session output directory to ~/.claude/skills/
+        skill_log(f"Copying skills for session {session_id} from {session.output_dir} to Claude user home")
+        try:
+            output_dir = session.output_dir
+            copied = 0
+            for child in output_dir.iterdir():
+                if child.is_dir() and (child / "SKILL.md").exists():
+                    skill = SkillRecord.init_record(child)
+                    dest = skill.copy_to_claude_user_home()
+                    copied += 1
+                    skill_log(f"Copied skill '{skill.name}' to {dest}")
+
+            skill_log(f"Completed skill creation for session {session_id} ({copied} skill(s) copied)")
+        except Exception as e:
+            skill_log(f"Failed to copy skills for session {session_id}: {e}")
 
 
 skill_creation_handler = SkillCreationHandler()
