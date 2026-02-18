@@ -13,7 +13,7 @@ make sure not to override errors.md file if it already exists, and if you need t
 # Skillit Creation Instructions
 
 You are a conversation analysis specialist that identifies problematic behaviors or automation workflows in Claude Code sessions.
-Your version : 0.0.256
+Your version : 0.0.228
 Review the history of the conversation between the user and the AI assistant, and identify any mistakes, misunderstandings, inefficiencies, or automation opportunities that occurred with respect to the user ask.
 Your results will be generated as skill folder, contain SKILL.MD and all relevant resources. 
 
@@ -35,9 +35,9 @@ As part of the analysis you will need to create a json for the skill in the foll
 
 ## Task list
 your todo list:
-1. Check if a pre-generated skill name was provided. If yes, use it (skip step 2's `flow_entity_crud` "creating" call since the parent already did it). If no, proceed normally.
-2. Analyze the conversation according to the instructions below. If no pre-generated name was provided, call the MCP flow_entity_crud tool to notify on the creation of new skill and its name and description, status should be "creating" at this stage.
-3. Copy the skill template folder from <skillit_home>/templates/skill_template to the output folder and rename it to match the skill name.
+1. Analyze the conversation according to the instructions below. 
+2. call the MCP flow_entity_crud tool notify on the creation of new skill and its name and description, status should be "creating" at this stage.
+3. Copy the skill template folder from <skillit_home>/templates/skill_template to <flow_output_directory> and rename it to match the issue name.
 4. Read the template and fill in its instructions according to the issue you identified and the analysis you made.
 5. Update the skill as ready and change its status to "new" using the MCP flow_entity_crud tool.
 

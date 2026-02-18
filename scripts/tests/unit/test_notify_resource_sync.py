@@ -13,7 +13,7 @@ def _setup_notify_monkeypatch(monkeypatch):
     monkeypatch.setattr(notify, "is_webhook_rate_limited", lambda: False)
     monkeypatch.setattr(notify, "_get_report_url", lambda: "http://localhost:9999/hook")
 
-    def _capture(url: str, data: bytes, log_context: str):
+    def _capture(url: str, data: bytes, log_context: str, wait: bool = False):
         captured["url"] = url
         captured["data"] = data
         captured["log_context"] = log_context

@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 from fs_store import FsRecordRef, ResourceStatus, ResourceType, SyncOperation
 from fs_store.record_types import RecordType
-from utils.log import skill_log
 from network.notify import send_entity_sync
 from records import (
     AgenticProcess,
@@ -16,6 +15,8 @@ from records import (
     TaskStatus,
     TaskType,
 )
+from records.skill_record import SkillRecord
+from utils.log import skill_log
 
 
 @dataclass
@@ -87,10 +88,12 @@ class SkillCreationHandler:
     @staticmethod
     def on_update(session_id, session, record_type, entity):
         """Complete skill-creation task when the skill status is updated to 'new'."""
-        if entity.get("status") != ResourceStatus.NEW:
+        skill_log(f"SkillCreationHandler on_update called for session {session_id}, record_type {record_type}, status {entity.get('status')}")
+        if entity.get("status") !=  ResourceStatus.NEW:
             return
 
         task_id = f"skill-creation-{session_id}"
+
         try:
             from fs_store import FsRecord
 
@@ -125,6 +128,20 @@ class SkillCreationHandler:
 
             send_entity_sync(SyncOperation.UPDATE, task.to_dict())
             send_entity_sync(SyncOperation.UPDATE, process.to_dict())
+            skill_log("Skill created.")
+
+            skill_log(f"Copying skills for session {session_id} from {session.output_dir} to Claude user home")
+            output_dir = session.output_dir
+            copied = 0
+            for child in output_dir.iterdir():
+                if child.is_dir() and (child / "SKILL.md").exists():
+                    skill = SkillRecord.init_record(child)
+                    dest = skill.copy_to_claude_user_home()
+                    copied += 1
+                    skill_log(f"Copied skill '{skill.name}' to {dest}")
+            if copied == 0:
+                skill_log(f"No skills found to copy for session {session_id}")
+
             skill_log(f"Completed skill creation task for session {session_id}")
         except Exception as e:
             skill_log(f"Failed to complete skill creation task: {e}")

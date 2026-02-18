@@ -46,6 +46,7 @@ def flow_entity_crud(claude_session_id: str, crud: str, entity_json: str) -> str
     try:
         entity_dict = json.loads(entity_json)
     except json.JSONDecodeError as e:
+        skill_log(f"MCP entity_crud ERROR: invalid JSON for entity - {e} {entity_json}")
         return f"Error: invalid JSON — {e}"
 
     return skillit_records.entity_crud(

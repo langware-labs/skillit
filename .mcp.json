@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "skillit": {
-      "command": "python",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp_server/main.py"],
+      "command": "uvx",
+      "args": ["fastmcp", "run", "${CLAUDE_PLUGIN_ROOT}/scripts/mcp_server/main.py"],
       "cwd": "${CLAUDE_PLUGIN_ROOT}"
     }
   }

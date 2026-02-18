@@ -100,7 +100,13 @@ class FsRecord(ResourceRecord):
         return result
 
     def get_children_by_type(self, type: str) -> list[FsRecord]:
-        """Load child records from disk and keep only records of the requested type."""
+        """Load child records from disk and keep only records of the requested type.
+
+        Uses the type registry to return properly-typed subclass instances
+        (e.g. SkillRecord instead of plain FsRecord) when a class is registered.
+        """
+        from .factory.type_registry import type_registry
+
         result: list[FsRecord] = []
         for ref in self.children_refs:
             if not ref.record_path:
@@ -108,7 +114,8 @@ class FsRecord(ResourceRecord):
             p = Path(ref.record_path)
             if not p.exists():
                 continue
-            child = FsRecord.init_record(p)
+            cls = type_registry.get(type) or FsRecord
+            child = cls.init_record(p)
             if child.type == type:
                 result.append(child)
         return result

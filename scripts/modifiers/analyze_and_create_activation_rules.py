@@ -24,12 +24,15 @@ def handle_analyze(prompt: str, data: dict) -> dict:
 
     The hook input data contains:
     - cwd: Current working directory
+    - session_id: The Claude session ID (used to resolve the flow output directory)
     """
     cwd = data.get("cwd", "")
     skill_rules_dir = get_skill_rules_dir(cwd)
 
-    return build_subagent_instructions(
+    result = build_subagent_instructions(
         instructions_file=INSTRUCTIONS_FILE,
         cwd=cwd,
         target_dir=skill_rules_dir,
     )
+
+    return result

@@ -18,6 +18,7 @@ A Claude Code plugin that automatically learns from your sessions. Skillit analy
 ## Prerequisites
 
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and accessible in your PATH
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) installed and accessible in your PATH)
 - Python 3.7+ (for the plugin scripts)
 - Git (for cloning the repository)
 

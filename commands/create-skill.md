@@ -10,9 +10,10 @@ Before launching the agent, determine the skill name upfront so the UI can show 
    - `crud`: "create"
    - `entity_json`: `{"type": "skill", "name": "<skill-name>", "description": "<brief description>", "status": "creating"}`
 
-3. **Launch the agent**: Use the Task tool with EXACTLY these parameters:
-   - `subagent_type: "skillit:skillit-creator"`
-   - `run_in_background: true`
-   - `prompt`: Pass the user's request and conversation context. IMPORTANT: Include the pre-generated skill name by adding: `Pre-generated skill name: "<skill-name>". Use this name for the skill unless your analysis reveals it is clearly wrong.`
-
-Launch ONLY ONE agent: `skillit:skillit-creator`. Do NOT launch any other agent.
+Use the Task tool with EXACTLY these parameters:
+- `subagent_type: "skillit:skillit-creator"`
+- `run_in_background: true`
+- `prompt`: Pass the user's request and conversation context. Session properties:
+  - `session_id`: <session_id>
+  - `skillit_home`: <skillit_home>
+  - `flow_output_directory`: <flow_output_directory>
