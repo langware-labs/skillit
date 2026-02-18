@@ -216,6 +216,15 @@ def test_create_rule():
     print("=== Rule Creation ===")
     print(rule_output)
 
+@pytest.mark.manual
+def test_launch():
+    env = make_env()
+    env.install_plugin()
+    result = env.launch_claude("hello from test_launch", mode=LaunchMode.INTERACTIVE)
+    skill_log_print()
+    assert result.returncode == 0
+    assert "hello from test_launch" in result.stdout.lower()
+
 pytest.mark.skip()
 def test_create_rule_complete():
     """End-to-end: analyze transcript, classify issues, create rule."""

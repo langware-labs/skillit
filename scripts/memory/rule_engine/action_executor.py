@@ -254,6 +254,7 @@ def execute_actions(
     combined_context: list[str] = []
     exit_code_to_use: int | None = None
     chain_requests: list[dict[str, Any]] = []
+    executed_actions: list[dict[str, str]] = []
 
     for result in trigger_results:
         # Prefix messages with rule name (hookify pattern)
@@ -264,6 +265,11 @@ def execute_actions(
 
             if not action_result.success:
                 continue
+
+            executed_actions.append({
+                "rule": result.rule_name,
+                "action": action_result.action_type,
+            })
 
             action_output = action_result.output
 
@@ -335,7 +341,24 @@ def execute_actions(
     if exit_code_to_use is not None:
         output["_exit_code"] = exit_code_to_use
 
+    # Send a single notification with all executed actions
+    if executed_actions:
+        _notify_rules_executed(hook_event, executed_actions)
+
     return output
+
+
+def _notify_rules_executed(hook_event: str, executed_actions: list[dict[str, str]]) -> None:
+    """Send a single notification with the ordered list of executed rule actions."""
+    try:
+        from network.notify import send_log_event
+
+        send_log_event("rules_executed", {
+            "hook_event": hook_event,
+            "actions": executed_actions,
+        })
+    except Exception as e:
+        skill_log(f"Failed to send rules_executed notification: {e}")
 
 
 def format_hook_output(output: dict[str, Any], hook_event: str) -> dict[str, Any]:
