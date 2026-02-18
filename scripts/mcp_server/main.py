@@ -1,4 +1,10 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "fastmcp",
+# ]
+# ///
 """Skillit MCP Server — exposes tools for reporting and notifications."""
 import json
 import sys
@@ -7,11 +13,11 @@ from pathlib import Path
 # Add scripts/ to sys.path before any local imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from utils.log import skill_log
-
 from fastmcp import FastMCP
 from network.notify import send_flow_tag, xml_str_to_flow_data_dict
-from mcp_server import session_store, known_rules_store
+from utils.log import skill_log
+
+from mcp_server import known_rules_store, session_store
 
 mcp = FastMCP("skillit")
 
@@ -83,7 +89,9 @@ def flow_tag(flow_tag_xml: str, claude_session_id: str = None) -> str:
     # Complete skill creation task when skill is ready
     element_type = flow_data.get('element_type', '')
     if element_type == 'skill_ready' and claude_session_id:
-        from plugin_records.crud_handlers.skill_creation_handler import skill_creation_handler
+        from plugin_records.crud_handlers.skill_creation_handler import (
+            skill_creation_handler,
+        )
         from plugin_records.skillit_records import skillit_records
 
         session = skillit_records.get_session(claude_session_id)
