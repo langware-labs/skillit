@@ -91,18 +91,39 @@ def on_skill_started(skill_name: str, session_id: str = "", cwd: str = "") -> No
     handle_activation_event("started_generating_skill", context)
 
 
-def on_skill_ready(skill_name: str, session_id: str = "", cwd: str = "") -> None:
+def on_skill_ready(
+    skill_name: str,
+    session_id: str = "",
+    cwd: str = "",
+    output_dir: str = "",
+    skill_scope: str = "user",
+) -> None:
     """Called when a spawned skill creation session completes.
 
     Args:
         skill_name: Name of the skill that was created
         session_id: Unique ID for this skill creation session
         cwd: Working directory
+        output_dir: Output directory containing analysis artifacts and skill folder
+        skill_scope: "user" or "project" — where the skill is installed
     """
+    # Derive output_dir from session if not provided
+    if not output_dir and session_id:
+        try:
+            from plugin_records.skillit_records import skillit_records
+
+            session = skillit_records.get_session(session_id)
+            if session:
+                output_dir = str(session.output_dir)
+        except Exception:
+            pass
+
     context = {
         "skill_name": skill_name,
         "session_id": session_id,
         "cwd": cwd,
+        "output_dir": output_dir,
+        "skill_scope": skill_scope,
     }
     handle_activation_event("skill_ready", context)
 
@@ -138,7 +159,9 @@ if __name__ == "__main__":
         on_skill_ready(
             skill_name=context.get("skill_name", ""),
             session_id=context.get("session_id", ""),
-            cwd=context.get("cwd", "")
+            cwd=context.get("cwd", ""),
+            output_dir=context.get("output_dir", ""),
+            skill_scope=context.get("skill_scope", "user")
         )
     else:
         print(f"Unknown event type: {event_type}")
