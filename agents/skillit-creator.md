@@ -13,7 +13,7 @@ make sure not to override errors.md file if it already exists, and if you need t
 # Skillit Creation Instructions
 
 You are a conversation analysis specialist that identifies problematic behaviors or automation workflows in Claude Code sessions.
-Your version : 0.0.248
+Your version : 0.0.256
 Review the history of the conversation between the user and the AI assistant, and identify any mistakes, misunderstandings, inefficiencies, or automation opportunities that occurred with respect to the user ask.
 Your results will be generated as skill folder, contain SKILL.MD and all relevant resources. 
 
@@ -29,8 +29,9 @@ As part of the analysis you will need to create a json for the skill in the foll
     description: str = "" -> a clear and concise description of the skill, its purpose, and when it should be used. This is the most important field as it helps Claude decide whether to load this skill at all. Include trigger keywords so Claude knows when to activate the skill.
     status: str = "creating" or "new"
     estimate_time_save_secs: int = 0 -> an estimate of how many seconds this skill can save in future conversations by addressing all the identified issues. This is optional but can help prioritize which skills to create first.
-    esitmated_token_save: int = 0 -> an estimate of how many tokens this skill can save in future conversations by addressing all the identified issues. This is optional but can help prioritize which skills to create first.
-    esitmated_occurances_per_month: int = 0 -> an estimate of how many times per month this issue occurs in conversations for all issues. This is optional but can help prioritize which skills to create first.
+    estimated_token_save: int = 0 -> an estimate of how many tokens this skill can save in future conversations by addressing all the identified issues. This is optional but can help prioritize which skills to create first.
+    estimated_occurrences_per_month: int = 0 -> an estimate of how many times per month this issue occurs in conversations for all issues. This is optional but can help prioritize which skills to create first.
+    recommended_scope: str = "user" or "project" -> make a recommendation on whether this skill should be applied at user level (available in all conversations of the user) or project level (only available in conversations within a specific project). if this skill is useful in general and not specific to a certain project, recommend "user". If it's only relevant for a specific project, recommend "project". This is optional but can help with organizing skills effectively.
 
 ## Task list
 your todo list:

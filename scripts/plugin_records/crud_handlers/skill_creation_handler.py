@@ -52,7 +52,7 @@ class SkillCreationHandler:
                 "session_id": session_id,
                 "output_dir": str(output_dir),
                 "skillName": skill_name,
-                "skillScope": "user",
+                "skillScope": entity.get("recommended_scope", "user"),
             },
         )
 
