@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from utils.conf import Platform, CURRENT_PLATFORM, SERVER_JSON_PATH
+from utils.conf import CURRENT_PLATFORM, SERVER_JSON_PATH, Platform
 from utils.config import FLOWPAD_APP_NAME
 
 # Rate limiting constants
@@ -121,23 +121,6 @@ _server_state = _ServerState()
 def get_port_file_path() -> Path:
     """Get path to server.json port file."""
     return SERVER_JSON_PATH
-
-
-def get_flowpad_data_dir() -> Path:
-    """Get Flowpad user data directory (matches Electron app.getPath('userData')).
-
-    Returns:
-        Path to Flowpad user data directory:
-        - macOS: ~/Library/Application Support/{FLOWPAD_APP_NAME}
-        - Windows: %APPDATA%/{FLOWPAD_APP_NAME}
-        - Linux: ~/.config/{FLOWPAD_APP_NAME}
-    """
-    if CURRENT_PLATFORM == Platform.MACOS:
-        return Path.home() / "Library" / "Application Support" / FLOWPAD_APP_NAME
-    elif CURRENT_PLATFORM == Platform.WINDOWS:
-        return Path(os.getenv("APPDATA", "")) / FLOWPAD_APP_NAME
-    else:
-        return Path.home() / ".config" / FLOWPAD_APP_NAME
 
 
 def read_server_info() -> Optional[FlowpadServerInfo]:

@@ -22,6 +22,8 @@ from glob import glob
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
+from scripts.utils.conf import FLOW_HOME
+
 # =============================================================================
 # CONFIGURATION - Match hooks.json exactly
 # =============================================================================
@@ -167,8 +169,7 @@ def _start_test_server(port: int) -> HTTPServer:
     TestServerHandler.received.clear()
 
     # Write server.json so discover_flowpad() finds our test server
-    from network.flowpad_discovery import get_flowpad_data_dir
-    data_dir = get_flowpad_data_dir()
+    data_dir = FLOW_HOME
     data_dir.mkdir(parents=True, exist_ok=True)
     port_file = data_dir / "server.json"
 
