@@ -4,11 +4,15 @@ description: Create a skill to fix and prevent issues. Use when you need help fi
 
 Before launching the agent, determine the skill name upfront so the UI can show progress immediately:
 
-1. **Generate a skill name**: Based on the conversation context, generate a descriptive natural language name (capital letter for the first word, max 64 chars) that summarizes the main issue or automation opportunity. Examples: `Jira acli tickets`, `Search results validation`, `Prevent hardcoded config`.
+1. **Generate a skill name**: Based on the conversation context, generate a descriptive natural language name (capital letter for the first word, max 64 chars) **and** its kebab-case folder name. Examples: `Jira acli tickets` → `jira-acli-tickets`, `Search results validation` → `search-results-validation`, `Prevent hardcoded config` → `prevent-hardcoded-config`.
 
-2. **Report "creating" status**: Call the MCP `flow_entity_crud` tool with:
+2. **Determine scope**: Decide whether this skill is project-specific (`"project"`) or generally useful across all projects (`"user"`). If the skill addresses a pattern specific to the current codebase, use `"project"`. If it's broadly applicable, use `"user"`.
+
+3. **Report "creating" status**: Call the MCP `flow_entity_crud` tool with:
    - `crud`: "create"
-   - `entity_json`: `{"type": "skill", "name": "<skill-name>", "description": "<brief description>", "status": "creating"}`
+   - `entity_json`: `{"type": "skill", "name": "<Display Name>", "folder_name": "<kebab-case-name>", "description": "<brief description>", "status": "creating", "recommended_scope": "<user|project>"}`
+
+Launch ONLY the `skillit:skillit-creator` agent. Do NOT also launch `skillit:skillit-analyzer` or any other agent — the creator already performs analysis internally.
 
 Use the Task tool with EXACTLY these parameters:
 - `subagent_type: "skillit:skillit-creator"`

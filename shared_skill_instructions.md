@@ -14,7 +14,7 @@ After analyzing the conversation and determining a meaningful skill name, follow
 
 ### Step 1: Report skill creation started
 ```bash
-python3 "<activation_rules_script>" started_generating_skill '{"skill_name": "<skill-name>", "session_id": "${CLAUDE_SESSION_ID}", "cwd": "<cwd>"}'
+python3 "<activation_rules_script>" started_generating_skill '{"skill_name": "<kebab-case-folder-name>", "session_id": "${CLAUDE_SESSION_ID}", "cwd": "<cwd>"}'
 ```
 
 ### Step 2: Create the skill file
@@ -30,7 +30,7 @@ Use the SKILL.md format below.
 
 ### Step 3: Report skill creation completed
 ```bash
-python3 "<activation_rules_script>" skill_ready '{"skill_name": "<skill-name>", "session_id": "${CLAUDE_SESSION_ID}", "cwd": "<cwd>"}'
+python3 "<activation_rules_script>" skill_ready '{"skill_name": "<kebab-case-folder-name>", "session_id": "${CLAUDE_SESSION_ID}", "cwd": "<cwd>"}'
 ```
 
 ## Skill Name Rules
@@ -39,6 +39,7 @@ python3 "<activation_rules_script>" skill_ready '{"skill_name": "<skill-name>", 
 - Do NOT use generic names like `test 123` or `skill <timestamp>`
 - Examples: `Jira acli tickets`, `Search results validation`, `Prevent hardcoded config`
 - For folder names, derive a kebab-case version (e.g. "Jira acli tickets" -> "jira-acli-tickets")
+- IMPORTANT: Always use the kebab-case folder name (not the display name) for `skill_name` in events and folder paths.
 
 ## SKILL.md Format
 

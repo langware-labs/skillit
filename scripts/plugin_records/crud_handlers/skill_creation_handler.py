@@ -40,8 +40,9 @@ class SkillCreationHandler:
         output_dir = session.output_dir
         task_id = f"skill-creation-{session_id}"
 
-        skill_name = entity.get("name", "")
-        title = skill_name if skill_name else "Creating skill"
+        display_name = entity.get("name", "")
+        folder_name = entity.get("folder_name") or display_name
+        title = display_name if display_name else "Creating skill"
 
         task = TaskResource(
             id=task_id,
@@ -52,7 +53,7 @@ class SkillCreationHandler:
             metadata={
                 "session_id": session_id,
                 "output_dir": str(output_dir),
-                "skillName": skill_name,
+                "skillName": folder_name,
                 "skillScope": entity.get("recommended_scope", "user"),
             },
         )
