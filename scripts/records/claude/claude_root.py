@@ -57,7 +57,7 @@ class ClaudeRootFsRecord(FsRecord):
                 encoded_path=encoded,
                 real_path=real,
                 session_count=session_count,
-                source_file=str(d),
+                path=str(d),
             ))
         return result
 

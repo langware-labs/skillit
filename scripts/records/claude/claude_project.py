@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from fs_store import FsRecord, RecordType
+from fs_store import FsRecord, RecordType, StorageLayout
 from records.claude import ClaudeSessionFsRecord
 
 
@@ -27,7 +27,8 @@ class ClaudeProjectFsRecord(FsRecord):
 
     def __post_init__(self):
         if not self.type:
-            self.type = RecordType.SESSION  # project container
+            self.type = RecordType.PROJECT
+        self.storage_layout = StorageLayout.FOLDER
         if self.encoded_path:
             self.id = self.encoded_path
             if not self.name:
@@ -37,7 +38,7 @@ class ClaudeProjectFsRecord(FsRecord):
     def sessions(self) -> list[ClaudeSessionFsRecord]:
         """Return all sessions in this project as ``ClaudeSessionFsRecord``."""
 
-        project_dir = Path(self.source_file) if self.source_file else None
+        project_dir = Path(self.path or self.source_file) if (self.path or self.source_file) else None
         if not project_dir or not project_dir.is_dir():
             return []
         return [

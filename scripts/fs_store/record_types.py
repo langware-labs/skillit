@@ -4,6 +4,7 @@ from enum import StrEnum
 
 
 class RecordType(StrEnum):
+    PROJECT = "project"
     SESSION = "session"
     TASK = "task"
     RULE = "rule"
