@@ -73,7 +73,9 @@ def open_terminal(
     # Build an export prefix so the new shell inherits custom env vars
     export_prefix = ""
     if env:
-        inherited = {k: v for k, v in env.items() if k not in os.environ or os.environ[k] != v}
+        # Always export PATH — Terminal.app starts a fresh shell whose PATH
+        # won't include the venv bin dir even though *our* process has it.
+        inherited = {k: v for k, v in env.items() if k == "PATH" or k not in os.environ or os.environ[k] != v}
         if inherited:
             if CURRENT_PLATFORM == Platform.WINDOWS:
                 export_prefix = " && ".join(f"set {k}={v}" for k, v in inherited.items()) + " && "
@@ -81,7 +83,11 @@ def open_terminal(
                 export_prefix = " ".join(f"export {k}={shlex.quote(v)};" for k, v in inherited.items()) + " "
 
     if CURRENT_PLATFORM == Platform.MACOS:
-        inner = f"{export_prefix}cd {cwd} && {command}" if command else f"{export_prefix}cd {cwd}"
+        clean_env = "unset CLAUDECODE; "
+        inner = f"{clean_env}{export_prefix}cd {cwd} && {command}" if command else f"{clean_env}{export_prefix}cd {cwd}"
+        # DEBUG: dump exact terminal command for troubleshooting
+        _dbg = Path("/tmp/_open_terminal_debug.txt")
+        _dbg.write_text(inner)
         # Escape backslashes and double-quotes for AppleScript string literal
         inner_escaped = inner.replace("\\", "\\\\").replace('"', '\\"')
         script = (
@@ -206,6 +212,7 @@ class TestPluginProjectEnvironment:
         self._session_started = False
         self._env_vars: dict[str, str] = {}
         self._mcp_config_path: Path | None = None
+        self._debug_file: Path | None = None
         self._dump_activations = False
         self._clean = clean
         self._include_user_home = include_user_home
@@ -222,6 +229,15 @@ class TestPluginProjectEnvironment:
     @session_id.setter
     def session_id(self, value: str) -> None:
         self._session_id = value
+
+    @property
+    def debug_file(self) -> Path | None:
+        """Path to the debug log file, if set."""
+        return self._debug_file
+
+    @debug_file.setter
+    def debug_file(self, value: Path | str | None) -> None:
+        self._debug_file = Path(value) if value else None
 
     @property
     def is_resuming(self) -> bool:
@@ -644,6 +660,8 @@ class TestPluginProjectEnvironment:
         cmd = ["claude", "-p", text, "--dangerously-skip-permissions", *self._session_args()]
         if self._mcp_config_path:
             cmd.extend(["--mcp-config", str(self._mcp_config_path)])
+        if self._debug_file:
+            cmd.extend(["--debug-file", str(self._debug_file)])
         proc = subprocess.Popen(
             cmd,
             cwd=str(self.temp_dir),
@@ -737,7 +755,8 @@ class TestPluginProjectEnvironment:
         if prompt:
             prompt_file = self.temp_dir / ".prompt_input.txt"
             prompt_file.write_text(prompt, encoding="utf-8")
-            claude_base = f"claude --dangerously-skip-permissions {self._session_arg_str()}"
+            debug_flag = f" --debug-file {shlex.quote(str(self._debug_file))}" if self._debug_file else ""
+            claude_base = f"claude --dangerously-skip-permissions {self._session_arg_str()}{debug_flag}"
 
             if CURRENT_PLATFORM == Platform.WINDOWS:
                 # Windows has no $(cat) or shlex-safe quoting, so use a
@@ -765,7 +784,8 @@ class TestPluginProjectEnvironment:
                         command=f"{claude_base} -p \"$(cat {quoted})\""
                     )
         else:
-            self.open_terminal(command=f"claude --dangerously-skip-permissions {self._session_arg_str()}")
+            debug_flag = f" --debug-file {shlex.quote(str(self._debug_file))}" if self._debug_file else ""
+            self.open_terminal(command=f"claude --dangerously-skip-permissions {self._session_arg_str()}{debug_flag}")
         return None
 
     def run_last_activation(self) -> PromptResult:

@@ -16,11 +16,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fs_store import ResourceRecordList, StorageLayout
+from flow_sdk.fs_store import ResourceRecordList, StorageLayout
 
 from .skillit_config import SkillitConfig
 from .skillit_session import SkillitSession
-from records.skill_record import SkillRecord
+from flow_sdk.fs_records.skill_record import SkillRecord
 
 
 class SkillitRecords:
@@ -129,7 +129,7 @@ class SkillitRecords:
         return result
 
     def _entity_create(self, session: SkillitSession, record_type: str, entity: dict) -> str:
-        from fs_store import type_registry
+        from flow_sdk.fs_store import type_registry
         from utils.log import skill_log
 
         cls = type_registry.get(record_type)
@@ -151,7 +151,7 @@ class SkillitRecords:
         raise NotImplementedError
 
     def _entity_update(self, session: SkillitSession, record_type: str, entity: dict) -> str:
-        from fs_store import type_registry
+        from flow_sdk.fs_store import type_registry
 
         cls = type_registry.get(record_type)
         if cls is None:

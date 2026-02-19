@@ -14,7 +14,7 @@ from pathlib import Path
 # Allow running from the scripts/ directory
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from records.claude import ClaudeSessionFsRecord
+from flow_sdk.fs_records.claude import ClaudeSessionFsRecord
 
 DEFAULT_TRANSCRIPT = (
     Path.home()

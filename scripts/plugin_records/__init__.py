@@ -30,5 +30,12 @@ Example::
 
 from .skillit_config import SkillitConfig
 from .skillit_session import SkillitSession
-from records.skill_record import SkillRecord
+from flow_sdk.fs_records.skill_record import SkillRecord
 from .skillit_records import skillit_records
+
+from flow_sdk.fs_store import type_registry
+from flow_sdk.fs_store.record_types import RecordType, SkillitRecordType
+
+type_registry.register(RecordType.SKILL, SkillRecord)
+type_registry.register(SkillitRecordType.SKILLIT_SESSION, SkillitSession)
+type_registry.register(SkillitRecordType.SKILLIT_CONFIG, SkillitConfig)

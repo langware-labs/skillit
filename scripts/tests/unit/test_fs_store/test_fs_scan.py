@@ -1,4 +1,4 @@
-from records.claude import ClaudeRootFsRecord
+from flow_sdk.fs_records.claude import ClaudeRootFsRecord
 
 
 def test_full_scan():
