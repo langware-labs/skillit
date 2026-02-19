@@ -87,7 +87,11 @@ class SkillCreationHandler:
 
     @staticmethod
     def on_update(session_id, session, record_type, entity):
-        """Complete skill-creation task when the skill status is updated to 'new'."""
+        """Complete skill-creation task when the skill status is updated to 'new'.
+
+        Called by the SubagentStop hook (hook_handlers/subagent_stop.py) — not
+        dispatched via entity_crud to avoid duplicate invocations.
+        """
         skill_log(f"SkillCreationHandler on_update called for session {session_id}, record_type {record_type}, status {entity.get('status')}")
         if entity.get("status") != ResourceStatus.NEW:
             skill_log(f"on_update: status is {entity.get('status')!r}, not 'new' — skipping")

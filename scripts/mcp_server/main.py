@@ -88,20 +88,6 @@ def flow_tag(flow_tag_xml: str, claude_session_id: str = None) -> str:
 
     skill_log(f"MCP parsed flow data: {flow_data}")
 
-    # Complete skill creation task when skill is ready
-    element_type = flow_data.get('element_type', '')
-    if element_type == 'skill_ready' and claude_session_id:
-        from plugin_records.crud_handlers.skill_creation_handler import (
-            skill_creation_handler,
-        )
-        from plugin_records.skillit_records import skillit_records
-
-        session = skillit_records.get_session(claude_session_id)
-        if session:
-            skill_creation_handler.on_update(
-                claude_session_id, session, "skill", {"status": "new"}
-            )
-
     success = send_flow_tag(flow_data)
 
     status = "sent" if success else "skipped (FlowPad unavailable)"

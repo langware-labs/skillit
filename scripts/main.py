@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 
-from hook_handlers import prompt_submitted, session_start
+from hook_handlers import prompt_submitted, session_start, subagent_stop
 from utils.log import skill_log
 from network.notify import send_skill_event
 from memory import create_rule_engine
@@ -158,6 +158,8 @@ def main():
         output = prompt_submitted.handle(data, rules_output)
     elif hookEvent == "SessionStart":
         output = session_start.handle(data, rules_output)
+    elif hookEvent == "SubagentStop":
+        output = subagent_stop.handle(data, rules_output)
     else:
         output = rules_output or None
 

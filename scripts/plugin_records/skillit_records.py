@@ -121,11 +121,14 @@ class SkillitRecords:
 
         from .crud_handlers import handlers
 
-        for handler in handlers:
-            method = getattr(handler, f"on_{crud}", None)
-            if method and (handler.record_type is None or handler.record_type == record_type):
-                skill_log(f"entity_crud dispatching to {handler.__class__.__name__}.on_{crud}")
-                method(session_id, session, record_type, entity)
+        # on_update is handled by the SubagentStop hook, not by entity_crud,
+        # to avoid duplicate invocations.
+        if crud != "update":
+            for handler in handlers:
+                method = getattr(handler, f"on_{crud}", None)
+                if method and (handler.record_type is None or handler.record_type == record_type):
+                    skill_log(f"entity_crud dispatching to {handler.__class__.__name__}.on_{crud}")
+                    method(session_id, session, record_type, entity)
         return result
 
     def _entity_create(self, session: SkillitSession, record_type: str, entity: dict) -> str:
