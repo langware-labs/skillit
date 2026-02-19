@@ -19,6 +19,17 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "skillit:skillit-creator",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import os,sys,subprocess;sys.exit(subprocess.call([sys.executable,os.path.join(os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','main.py')]))\""
+          }
+        ]
+      }
     ]
   }
 }

@@ -29,6 +29,10 @@ When the background agent completes, check its result. If the agent failed due t
    This preserves the agent's full context and continues from the exact point where it got stuck, avoiding redundant work.
 
 ## Verify skill was installed
-After the agent completes (whether from background or foreground), verify the skill was actually copied to `~/.claude/skills/`. Check if the skill folder exists there. If it does NOT exist but the skill files are present in the `flow_output_directory`, the agent likely missed the `flow_tag` call. In that case, call the MCP `flow_tag` tool yourself:
-- `flow_tag_xml`: `<flow-skill event="skill_ready" name="<kebab-case-skill-name>" />`
+After the agent completes (whether from background or foreground), verify the skill was actually copied to the correct location based on its `recommended_scope`:
+- If `recommended_scope` is `"project"`: check the **project's** `.claude/skills/` folder (relative to the project root)
+- If `recommended_scope` is `"user"` (or not specified): check `~/.claude/skills/`
+
+If the skill folder does NOT exist at the expected location but the skill files are present in the `flow_output_directory`, the agent likely missed the `flow_tag` call. In that case, call the MCP `flow_tag` tool yourself:
+- `flow_tag_xml`: `<flow-skill event="skill_ready" name="<kebab-case-skill-name>" scope="<recommended_scope>" />`
 - `claude_session_id`: the session_id
