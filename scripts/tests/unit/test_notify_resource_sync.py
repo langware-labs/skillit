@@ -3,8 +3,8 @@
 import json
 
 import network.notify as notify
-from fs_store import ResourceType, SyncOperation
-from fs_store.record_types import RecordType
+from flow_sdk.fs_store import ResourceType, SyncOperation
+from flow_sdk.fs_store.record_types import RecordType
 
 
 def _setup_notify_monkeypatch(monkeypatch):

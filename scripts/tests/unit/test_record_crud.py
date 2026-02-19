@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from fs_store.record_types import RecordType
+from flow_sdk.fs_store.record_types import RecordType
 from plugin_records.skillit_records import SkillitRecords
-from records.skill_record import SkillRecord
+from flow_sdk.fs_records.skill_record import SkillRecord
 
 
 def test_entity_crud_creates_session_and_skill(tmp_path):

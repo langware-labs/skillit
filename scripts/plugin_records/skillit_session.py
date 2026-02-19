@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fs_store import FsRecord, SkillitRecordType
+from flow_sdk.fs_store import FsRecord, SkillitRecordType
 
 
 @dataclass

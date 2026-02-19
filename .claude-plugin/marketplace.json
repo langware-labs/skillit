@@ -1,17 +1,17 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "flowpad-ai",
-  "description": "flowpad.ai plugins",
+  "name": "langware-ai",
+  "description": "claude plugin - that auto learns from your Claude Code sessions, integrates seamlessly with flowpad app (flowpad.ai) and provides a knowledge graph of your AI workflows, codebase and more",
   "owner": {
-    "name": "flowpad.ai",
-    "email": "contact@flowpad.ai"
+    "name": "eshlomo",
+    "email": "eran@langware.ai"
   },
   "plugins": [
     {
       "name": "skillit",
       "description": "Auto learn from your Claude Code sessions",
       "source": "./",
-      "version": "0.0.243"
+      "version": "0.0.285"
     }
   ]
 }

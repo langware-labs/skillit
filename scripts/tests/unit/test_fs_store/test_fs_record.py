@@ -3,8 +3,8 @@
 import json
 
 import pytest
-from fs_store import FsRecord, FsRecordRef, ResourceRecord, Scope
-from records import AgenticProcess, ProcessorStatus, TaskResource, TaskStatus, TaskType
+from flow_sdk.fs_store import FsRecord, FsRecordRef, ResourceRecord, Scope
+from flow_sdk.fs_records import AgenticProcess, ProcessorStatus, TaskResource, TaskStatus, TaskType
 
 # ---------------------------------------------------------------------------
 # from_json / to_json

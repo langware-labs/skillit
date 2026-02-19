@@ -1,8 +1,10 @@
 """Tests for the type registry — explicit registration of record types."""
 
-from fs_store import type_registry
-from fs_store.record_types import RecordType, SkillitRecordType
-from records.skill_record import SkillRecord
+import plugin_records  # noqa: F401 — triggers type_registry registrations
+
+from flow_sdk.fs_store import type_registry
+from flow_sdk.fs_store.record_types import RecordType, SkillitRecordType
+from flow_sdk.fs_records.skill_record import SkillRecord
 from plugin_records.skillit_session import SkillitSession
 from plugin_records.skillit_config import SkillitConfig
 

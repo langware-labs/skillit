@@ -6,8 +6,8 @@ from datetime import datetime
 
 import pytest
 
-from fs_store import FsRecordRef, ResourceRecord, Scope
-from fs_store.resource_record import parse_record_stem, record_stem
+from flow_sdk.fs_store import FsRecordRef, ResourceRecord, Scope
+from flow_sdk.fs_store.resource_record import parse_record_stem, record_stem
 
 
 # ---------------------------------------------------------------------------

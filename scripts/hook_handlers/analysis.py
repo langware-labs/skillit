@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import plugin_records
-from fs_store import FsRecordRef, ResourceType, SyncOperation
-from fs_store.record_types import RecordType
+from flow_sdk.fs_store import FsRecordRef, ResourceType, SyncOperation
+from flow_sdk.fs_store.record_types import RecordType
 from plugin_records import skillit_records
 from utils.log import skill_log
 from network.notify import send_entity_sync
-from records import (
+from flow_sdk.fs_records import (
     AgenticProcess,
     ProcessorStatus,
     RelationshipRecord,

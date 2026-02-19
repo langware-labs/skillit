@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
-from fs_store import FsRecord, RecordType
+from flow_sdk.fs_store import FsRecord, RecordType
 from utils.log import skill_log
 from .trigger_executor import TriggerResult, Action, _convert_actions_to_result
 
