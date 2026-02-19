@@ -269,6 +269,7 @@ def execute_actions(
             executed_actions.append({
                 "rule": result.rule_name,
                 "action": action_result.action_type,
+                "params": action.params,
             })
 
             action_output = action_result.output

@@ -6,16 +6,18 @@ import json
 import platform
 import subprocess
 from dataclasses import dataclass, field, fields
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TypeVar
 
 from .fs_record_ref import FsRecordRef
 from .resource_record import ResourceRecord
+from .storage_layout import StorageLayout
 
 T = TypeVar("T", bound="FsRecord")
 
 
-_FS_SYNC_SKIP = frozenset({"fs_sync", "source_file", "path"})
+_FS_SYNC_SKIP = frozenset({"fs_sync", "storage_layout", "source_file", "path"})
 _RECORD_JSON = "record.json"
 
 
@@ -30,6 +32,27 @@ class FsRecord(ResourceRecord):
     """
 
     fs_sync: bool = field(default=False, repr=False)
+    storage_layout: StorageLayout = field(default=StorageLayout.FOLDER)
+
+    @property
+    def fs_modified_at(self) -> datetime | None:
+        """Return modified_at from the filesystem (mtime of source path).
+
+        Uses ``path`` for FOLDER layout, ``source_file`` for FILE/LIST_ITEM.
+        Falls back to the stored ``modified_at`` field if no path exists.
+        """
+        target = None
+        if self.storage_layout == StorageLayout.FOLDER and self.path:
+            target = Path(self.path)
+        elif self.source_file:
+            target = Path(self.source_file)
+        if target is not None:
+            try:
+                mtime = target.stat().st_mtime
+                return datetime.fromtimestamp(mtime, tz=timezone.utc)
+            except OSError:
+                pass
+        return self.modified_at
 
     def __setattr__(self, name: str, value):
         old_status = getattr(self, "status", None) if name == "status" else None
@@ -53,6 +76,7 @@ class FsRecord(ResourceRecord):
     def to_dict(self) -> dict:
         d = super().to_dict()
         d.pop("fs_sync", None)
+        d.pop("storage_layout", None)
         return d
 
     @property

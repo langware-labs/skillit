@@ -18,13 +18,9 @@ A Claude Code plugin that automatically learns from your sessions. Skillit analy
 ## Prerequisites
 
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and accessible in your PATH
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) installed and accessible in your PATH)
-- Python 3.7+ (for the plugin scripts)
-- Git (for cloning the repository)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) installed and accessible in your PATH
 
-## Installation
-
-### Optional: Install Claude Code
+### Install Claude Code
 
 If you don't have [Claude Code](https://code.claude.com/docs/en/setup) installed:
 
@@ -32,7 +28,7 @@ If you don't have [Claude Code](https://code.claude.com/docs/en/setup) installed
 npm install -g @anthropic-ai/claude-code
 ```
 
-### Optional: Install uv
+### Install uv
 
 If you don't have [uv](https://docs.astral.sh/uv/getting-started/installation/) installed:
 
@@ -40,14 +36,28 @@ If you don't have [uv](https://docs.astral.sh/uv/getting-started/installation/) 
 pip install uv
 ```
 
-### Quick Install (from GitHub)
+## Installation
+
+### One-liner Install
+
+```bash
+# macOS / Linux
+curl -LsSf https://raw.githubusercontent.com/langware-labs/skillit/main/get-skillit.sh | sh
+```
+
+```powershell
+# Windows
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/langware-labs/skillit/main/get-skillit.ps1 | iex"
+```
+
+### Manual Install
 
 ```bash
 # Add the skillit marketplace
 claude plugin marketplace add langware-labs/skillit
 
 # Install the plugin
-claude plugin install skillit@flowpad-ai
+claude plugin install skillit@flowpad-ai --scope user
 ```
 
 ### Verify Installation

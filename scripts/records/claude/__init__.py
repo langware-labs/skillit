@@ -16,3 +16,5 @@ from .claude_mcp_server import ClaudeMcpServerFsRecord
 from .claude_command import ClaudeCommandFsRecord
 from .claude_plugin import ClaudePluginFsRecord
 from .claude_claude_md import ClaudeMdFsRecord
+from .claude_history import ClaudeHistoryFsRecord
+from .claude_history_entry import ClaudeHistoryEntryFsRecord

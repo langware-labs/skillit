@@ -8,9 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fs_store import FsRecord
 
+if TYPE_CHECKING:
+    from .claude_project import ClaudeProjectFsRecord
 
 _DEFAULT_PROJECTS_DIR = Path.home() / ".claude" / "projects"
 
@@ -37,7 +40,7 @@ class ClaudeRootFsRecord(FsRecord):
         return Path(self.projects_dir)
 
     @property
-    def projects(self) -> list:
+    def projects(self) -> list[ClaudeProjectFsRecord]:
         """Return all project directories as ``ClaudeProjectFsRecord``."""
         from .claude_project import ClaudeProjectFsRecord
 
@@ -54,9 +57,15 @@ class ClaudeRootFsRecord(FsRecord):
                 encoded_path=encoded,
                 real_path=real,
                 session_count=session_count,
-                source_file=str(d),
+                path=str(d),
             ))
         return result
+
+    @property
+    def history(self):
+        """Return the global prompt history record."""
+        from .claude_history import ClaudeHistoryFsRecord
+        return ClaudeHistoryFsRecord.default()
 
     def get_session(self, session_id: str):
         """Find a session by ID across all projects.
