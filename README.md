@@ -24,30 +24,28 @@ A Claude Code plugin that automatically learns from your sessions. Skillit analy
 
 ## Installation
 
-### Optional: Install Claude Code
-
-If you don't have [Claude Code](https://code.claude.com/docs/en/setup) installed:
+### One-liner Install
 
 ```bash
-npm install -g @anthropic-ai/claude-code
+# macOS / Linux
+curl -LsSf https://raw.githubusercontent.com/langware-labs/skillit/main/get-skillit.sh | sh
 ```
 
-### Optional: Install uv
-
-If you don't have [uv](https://docs.astral.sh/uv/getting-started/installation/) installed:
-
-```bash
-pip install uv
+```powershell
+# Windows
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/langware-labs/skillit/main/get-skillit.ps1 | iex"
 ```
 
-### Quick Install (from GitHub)
+The installer checks for [Claude Code](https://code.claude.com/docs/en/setup) and [uv](https://docs.astral.sh/uv/getting-started/installation/), then adds the marketplace and installs the plugin.
+
+### Manual Install
 
 ```bash
 # Add the skillit marketplace
 claude plugin marketplace add langware-labs/skillit
 
 # Install the plugin
-claude plugin install skillit@flowpad-ai
+claude plugin install skillit@flowpad-ai --scope user
 ```
 
 ### Verify Installation
