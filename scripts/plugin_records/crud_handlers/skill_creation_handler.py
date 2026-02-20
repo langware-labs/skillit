@@ -53,7 +53,8 @@ class SkillCreationHandler:
             metadata={
                 "session_id": session_id,
                 "output_dir": str(output_dir),
-                "skillName": folder_name,
+                "skillName": display_name,
+                "folderName": folder_name,
                 "skillScope": entity.get("recommended_scope", "user"),
             },
         )
