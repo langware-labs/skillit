@@ -69,10 +69,7 @@ The skill folder you create should be named after the "name" property of the iss
 Once you are done with the analysis report the created skill to skillit mcp flow_entity_crud tool with the following details:
 - entity_type: "skill"
 - entity_path: the relative path to the skill folder you created
-<<<<<<< HEAD
 - entity json: the skill json (must include both `name` for display and `folder_name` for the kebab-case folder name)
-=======
-- entity json: the skill json
 
 ## Final step — signal skill_ready
 After all files are written and `flow_entity_crud` has been called with status "new", you MUST call the MCP `flow_tag` tool to signal that the skill is ready to be installed:
@@ -92,6 +89,3 @@ flow_tag_xml: <flow-skill event="skill_ready" name="<kebab-case-folder-name>" sc
 ```
 
 If you skip this call, the skill will remain in the output directory and will NOT be available to the user.
-
-
->>>>>>> 2d2668c (refactor: migrate records and fs_store to SDK, update imports across codebase)
