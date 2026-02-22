@@ -1,7 +1,7 @@
 {
   "name": "skillit",
   "description": "Auto learn from your claude code sessions",
-  "version": "0.0.247",
+  "version": "0.0.264",
   "author": {
     "name": "eshlomo",
     "email": "eran@langware.ai"
