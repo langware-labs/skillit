@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__plugin_skillit_skillit__flow_entity_crud",
+      "mcp__plugin_skillit_skillit__flow_tag",
+      "mcp__plugin_skillit_skillit__flow_context",
+      "mcp__plugin_skillit_skillit__session_analysis",
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep"
+    ]
+  }
+}
