@@ -32,11 +32,19 @@ When the background agent completes, check its result. If the agent failed due t
 
    This preserves the agent's full context and continues from the exact point where it got stuck, avoiding redundant work.
 
+## Relay signals from background agent
+After the background agent completes successfully, read the signal file at `<flow_output_directory>/flow_signals.jsonl`. For each line in the file, relay the signal to the appropriate MCP tool:
+
+- Lines with `"type": "entity_crud"`: Call `flow_entity_crud` with the `crud` and `entity_json` values from the signal. Include `claude_session_id`.
+- Lines with `"type": "flow_tag"`: Call `flow_tag` with the `xml` value as `flow_tag_xml`. Include `claude_session_id`.
+
+This is necessary because the background agent cannot call MCP tools directly. The parent (foreground) agent acts as the relay.
+
 ## Verify skill was installed
-After the agent completes (whether from background or foreground), verify the skill was actually copied to the correct location based on its `recommended_scope`:
+After relaying signals, verify the skill was actually copied to the correct location based on its `recommended_scope`:
 - If `recommended_scope` is `"project"`: check the **project's** `.claude/skills/` folder (relative to the project root)
 - If `recommended_scope` is `"user"` (or not specified): check `~/.claude/skills/`
 
-If the skill folder does NOT exist at the expected location but the skill files are present in the `flow_output_directory`, the agent likely missed the `flow_tag` call. In that case, call the MCP `flow_tag` tool yourself:
+If the skill folder does NOT exist at the expected location but the skill files are present in the `flow_output_directory`, call the MCP `flow_tag` tool yourself:
 - `flow_tag_xml`: `<flow-skill event="skill_ready" name="<kebab-case-skill-name>" scope="<recommended_scope>" />`
 - `claude_session_id`: the session_id
