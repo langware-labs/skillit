@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "flow_sdk": {
-      "command": "flow-sdk-mcp",
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/cli-launcher",
       "args": [],
       "env": {"PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}/scripts"}
     }

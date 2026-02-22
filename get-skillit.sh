@@ -33,19 +33,9 @@ if ! command -v claude >/dev/null 2>&1; then
 fi
 info "Found claude CLI: $(command -v claude)"
 
-# ---------- check uv ----------
-if ! command -v uv >/dev/null 2>&1; then
-  warn "uv not found. skillit uses uv to manage its Python dependencies."
-  echo ""
-  echo "  Install uv:"
-  echo "    curl -LsSf https://astral.sh/uv/install.sh | sh"
-  echo "  or:"
-  echo "    pip install uv"
-  echo ""
-  echo "  More info: https://docs.astral.sh/uv/"
-  exit 1
-fi
-info "Found uv: $(command -v uv)"
+# ---------- install flowpad (MCP server dependency) ----------
+info "Installing flowpad (MCP server for skillit) ..."
+pip install flowpad
 
 # ---------- add marketplace & install ----------
 info "Adding marketplace ${REPO} ..."
