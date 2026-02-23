@@ -132,7 +132,7 @@ class TestOnUpdate:
         # on_update with status=new should copy skills to ~/.claude/skills/
         with patch("flow_sdk.fs_records.skill_record.Path.home", return_value=tmp_path):
             skill_creation_handler.on_update(
-                session_id, session, RecordType.SKILL, {"status": "new"}
+                session_id, session, RecordType.SKILL, {"status": "new", "folder_name": skill_name}
             )
 
         expected_dest = tmp_path / ".claude" / "skills" / skill_name
@@ -144,6 +144,7 @@ class TestOnUpdate:
         """on_update should copy all skill folders from output_dir."""
         session = records_env["session"]
         session_id = records_env["session_id"]
+        skill_name = records_env["skill_name"]
         tmp_path = records_env["tmp_path"]
 
         # Create a second skill in output_dir
@@ -153,13 +154,20 @@ class TestOnUpdate:
             "---\nname: second-skill\ndescription: Another skill\n---\n# Second\n"
         )
 
+        # Each skill gets its own on_create/on_update pair
         skill_creation_handler.on_create(
-            session_id, session, RecordType.SKILL, {"type": "skill", "name": "test"}
+            session_id, session, RecordType.SKILL, {"type": "skill", "name": skill_name}
+        )
+        skill_creation_handler.on_create(
+            session_id, session, RecordType.SKILL, {"type": "skill", "name": "second-skill"}
         )
 
         with patch("flow_sdk.fs_records.skill_record.Path.home", return_value=tmp_path):
             skill_creation_handler.on_update(
-                session_id, session, RecordType.SKILL, {"status": "new"}
+                session_id, session, RecordType.SKILL, {"status": "new", "folder_name": skill_name}
+            )
+            skill_creation_handler.on_update(
+                session_id, session, RecordType.SKILL, {"status": "new", "folder_name": "second-skill"}
             )
 
         assert (tmp_path / ".claude" / "skills" / "my-test-skill" / "SKILL.md").exists()
@@ -179,13 +187,14 @@ class TestOnUpdate:
         # Create a regular file (not a dir)
         (session.output_dir / "analysis.json").write_text("{}")
 
+        skill_name = records_env["skill_name"]
         skill_creation_handler.on_create(
-            session_id, session, RecordType.SKILL, {"type": "skill", "name": "test"}
+            session_id, session, RecordType.SKILL, {"type": "skill", "name": skill_name}
         )
 
         with patch("flow_sdk.fs_records.skill_record.Path.home", return_value=tmp_path):
             skill_creation_handler.on_update(
-                session_id, session, RecordType.SKILL, {"status": "new"}
+                session_id, session, RecordType.SKILL, {"status": "new", "folder_name": skill_name}
             )
 
         # Only the real skill should be copied
@@ -284,7 +293,7 @@ class TestEndToEndSkillCopy:
         # Step 3: Simulate flow_tag skill_ready triggering on_update
         with patch("flow_sdk.fs_records.skill_record.Path.home", return_value=tmp_path):
             skill_creation_handler.on_update(
-                session_id, session, RecordType.SKILL, {"status": "new"}
+                session_id, session, RecordType.SKILL, {"status": "new", "folder_name": skill_name}
             )
 
         # The skill should have been copied to <tmp_path>/.claude/skills/<skill_name>/

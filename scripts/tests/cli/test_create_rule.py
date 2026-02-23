@@ -164,19 +164,21 @@ def test_create_skill_stub():
     session = plugin_records.skillit_records.get_session(session_id)
     if session is None:
         session = plugin_records.skillit_records.create_session(session_id)
-    resources = skill_creation_handler.on_create(session_id, session, "skill", {})
+    skill_name = "test-skill"
+    resources = skill_creation_handler.on_create(session_id, session, "skill", {"name": skill_name})
     assert resources is not None
     assert resources.task.status == TaskStatus.IN_PROGRESS
 
     time.sleep(2)  # give FlowPad time to render
 
-    skill_creation_handler.on_update(session_id, session, "skill", {"status": "new"})
+    skill_creation_handler.on_update(session_id, session, "skill", {"status": "new", "folder_name": skill_name})
     # Task completion is verified by loading from disk
     from flow_sdk.fs_records import TaskResource
     from flow_sdk.fs_store import FsRecord
 
+    task_key = f"task:{skill_name}"
     session_record = FsRecord.init_record(session.record_dir / "record.json")
-    task_data = session_record["task"] if "task" in session_record else None
+    task_data = session_record[task_key] if task_key in session_record else None
     assert task_data is not None, "Task data not found in session record"
 
     task = TaskResource.from_dict(task_data)

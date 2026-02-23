@@ -38,10 +38,10 @@ class SkillCreationHandler:
             return None
 
         output_dir = session.output_dir
-        task_id = f"skill-creation-{session_id}"
 
         display_name = entity.get("name", "")
         folder_name = entity.get("folder_name") or display_name
+        task_id = f"skill-creation-{session_id}-{folder_name}"
         title = display_name if display_name else "Creating skill"
 
         task = TaskResource(
@@ -53,7 +53,8 @@ class SkillCreationHandler:
             metadata={
                 "session_id": session_id,
                 "output_dir": str(output_dir),
-                "skillName": folder_name,
+                "skillName": display_name,
+                "folderName": folder_name,
                 "skillScope": entity.get("recommended_scope", "user"),
             },
         )
@@ -76,6 +77,9 @@ class SkillCreationHandler:
         session_record = session.record_dir / "record.json"
         from flow_sdk.fs_store import FsRecord
         rec = FsRecord.init_record(session_record)
+        # Save task under a skill-specific key so multiple skills per session don't collide
+        task_key = f"task:{folder_name}"
+        rec[task_key] = task.to_dict()
         rec[process.id] = process.to_dict()
         rec[relationship.id] = relationship.to_dict()
         rec.save()
@@ -98,18 +102,23 @@ class SkillCreationHandler:
             skill_log(f"on_update: status is {entity.get('status')!r}, not 'new' — skipping")
             return
 
-        task_id = f"skill-creation-{session_id}"
+        folder_name = entity.get("folder_name") or entity.get("name", "")
+        if not folder_name:
+            skill_log("on_update: no folder_name or name in entity — skipping")
+            return
+
+        task_key = f"task:{folder_name}"
 
         try:
             from flow_sdk.fs_store import FsRecord
 
             session_record = FsRecord.init_record(session.record_dir / "record.json")
-            if "task" not in session_record:
-                skill_log(f"on_update: 'task' key not found in session record — skipping")
+            if task_key not in session_record:
+                skill_log(f"on_update: '{task_key}' not found in session record — skipping")
                 return
-
-            task_data = session_record["task"]
+            task_data = session_record[task_key]
             task = TaskResource.from_dict(task_data)
+            task_id = task.id
             if not task.children_refs:
                 skill_log(f"on_update: task has no children_refs — skipping")
                 return
@@ -132,7 +141,7 @@ class SkillCreationHandler:
             process.state = ProcessorStatus.COMPLETE
 
             # Update in session record
-            session_record["task"] = task.to_dict()
+            session_record[task_key] = task.to_dict()
             session_record[process.id] = process.to_dict()
             session_record.save()
 
