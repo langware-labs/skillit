@@ -6,10 +6,7 @@ from fs_store import ResourceStatus
 from fs_store.record_types import RecordType
 from plugin_records.crud_handlers.skill_creation_handler import SkillCreationHandler
 from plugin_records.skillit_records import skillit_records
-from utils.conf import SKILLIT_HOME
 from utils.log import skill_log
-
-ACTIVE_FLAG = SKILLIT_HOME / "creator_active"
 
 
 def _get_ready_skill_folders(output_dir: Path) -> list[str]:
@@ -31,11 +28,6 @@ def handle(data: dict, rules_output: dict) -> dict | None:
     if agent_type != "skillit:skillit-creator":
         skill_log(f"subagent_stop: ignoring agent_type={agent_type!r}, not skillit-creator")
         return rules_output or None
-
-    # Clear the active flag so PermissionRequest hook stops auto-allowing
-    if ACTIVE_FLAG.exists():
-        ACTIVE_FLAG.unlink()
-        skill_log("subagent_stop: creator_active flag cleared")
 
     session_id = data.get("session_id", "")
     if not session_id:
