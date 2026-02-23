@@ -18,7 +18,7 @@ Your results will be generated as skill folder, contain SKILL.MD and all relevan
 ## Input
 - **Transcript**: A conversation between user and AI assistant
 - **User Issue**: An optional user ask:  complaint, request, or description of what went wrong OR an automation optimization opportunity we wish to achieve
-- **Pre-generated skill name** (optional): The parent agent may provide a skill name generated before this agent was launched. If provided, use it unless your analysis reveals it is clearly inappropriate. The parent has already reported status "creating" with this name to `flow_entity_crud`, so do NOT call `flow_entity_crud` with status "creating" again.
+- **Pre-generated skill name** (optional): The parent agent may provide a skill name generated before this agent was launched. If provided, use it unless your analysis reveals it is clearly inappropriate. The parent has already reported "creating" status, so skip the "creating" signal in step 2 of the task list.
 
 ## Skill json format
 As part of the analysis you will need to create a json for the skill in the following format:
@@ -34,8 +34,8 @@ As part of the analysis you will need to create a json for the skill in the foll
 
 ## Task list
 your todo list:
-1. Analyze the conversation according to the instructions below. 
-2. call the MCP flow_entity_crud tool notify on the creation of new skill and its name, folder_name, and description, status should be "creating" at this stage. Always include both `name` (display name) and `folder_name` (kebab-case) in the entity JSON.
+1. Analyze the conversation according to the instructions below.
+2. Write a signal file to `<flow_output_directory>/flow_signals.jsonl` to notify that skill creation has started. Append a JSON line: `{"type": "entity_crud", "crud": "create", "entity_json": {"type": "skill", "name": "<Display Name>", "folder_name": "<kebab-case-name>", "description": "<brief description>", "status": "creating"}}`. Skip this step if a pre-generated skill name was provided (the parent already reported "creating" status).
 3. Copy the skill template folder from <skillit_home>/templates/skill_template to <flow_output_directory> and rename it to match the issue name.
 4. Read the template and fill in its instructions according to the issue you identified and the analysis you made.
 
@@ -63,7 +63,8 @@ analysis.json:
 The skill folder you create should be named after the "name" property of the issue you identified, and should contain a SKILL.MD file that describes the rule you want to create to address this issue, including its trigger conditions and expected actions. You can also include any relevant resources or examples in the skill folder to help illustrate the rule.
 
 ## Reporting
-Once you are done with the analysis report the created skill to skillit mcp flow_entity_crud tool with the following details:
-- entity_type: "skill"
-- entity_path: the relative path to the skill folder you created
-- entity json: the skill json (must include both `name` for display and `folder_name` for the kebab-case folder name)
+Once you are done with the analysis, write a completion signal to `<flow_output_directory>/flow_signals.jsonl`. Append a JSON line with the full skill metadata:
+```
+{"type": "entity_crud", "crud": "update", "entity_json": {"type": "skill", "name": "<Display Name>", "folder_name": "<kebab-case-name>", "description": "<description>", "status": "new", "entity_path": "<relative path to skill folder>", ...all other skill json fields...}}
+```
+The parent agent will read this file after you complete and relay the signals to the MCP server. Do NOT call any MCP tools directly — you are running in the background and MCP tools are not available.

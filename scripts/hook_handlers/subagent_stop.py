@@ -9,14 +9,15 @@ from plugin_records.skillit_records import skillit_records
 from utils.log import skill_log
 
 
-def _has_ready_skills(output_dir: Path) -> bool:
-    """Check if output_dir contains at least one skill folder with SKILL.md."""
+def _get_ready_skill_folders(output_dir: Path) -> list[str]:
+    """Return folder names of ready skills (directories containing SKILL.md)."""
     if not output_dir.exists():
-        return False
-    return any(
-        child.is_dir() and (child / "SKILL.md").exists()
+        return []
+    return [
+        child.name
         for child in output_dir.iterdir()
-    )
+        if child.is_dir() and (child / "SKILL.md").exists()
+    ]
 
 
 def handle(data: dict, rules_output: dict) -> dict | None:
@@ -39,11 +40,13 @@ def handle(data: dict, rules_output: dict) -> dict | None:
         return rules_output or None
 
     output_dir = session.output_dir
-    if not _has_ready_skills(output_dir):
+    skill_folders = _get_ready_skill_folders(output_dir)
+    if not skill_folders:
         skill_log(f"subagent_stop: no ready skills in {output_dir}, skipping (agent likely still in progress)")
         return rules_output or None
 
-    entity = {"type": RecordType.SKILL, "status": ResourceStatus.NEW}
-    SkillCreationHandler.on_update(session_id, session, RecordType.SKILL, entity)
+    for folder_name in skill_folders:
+        entity = {"type": RecordType.SKILL, "status": ResourceStatus.NEW, "folder_name": folder_name}
+        SkillCreationHandler.on_update(session_id, session, RecordType.SKILL, entity)
 
     return rules_output or None

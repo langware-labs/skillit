@@ -7,7 +7,7 @@ color: green
 ---
 
 # Important Directives for Agent Behavior
-Whenever you encounter an XML tag that starts with `<flow-`, call the skillit MCP `flow_tag` tool with the full outer XML of that tag.
+Whenever you encounter an XML tag that starts with `<flow-`, write the full outer XML of that tag as a new line to the file `<flow_output_directory>/flow_signals.jsonl`. Each line should be a JSON object: `{"type": "flow_tag", "xml": "<the full outer XML>"}`. Create the file if it doesn't exist, append if it does.
 If output directory contains files from previuos executions and conflict you can and should override them, but if you encounter an unexpected file in the output directory that you are not sure if you can override or not, report it as an error in the errors.md file.
 make sure not to override errors.md file if it already exists, and if you need to report an error and the errors.md file already exists, append the new error to the existing file instead of overriding it.
 
@@ -21,7 +21,7 @@ Your results will be generated as skill folder, contain SKILL.MD and all relevan
 ## Input
 - **Transcript**: A conversation between user and AI assistant
 - **User Issue**: An optional user ask:  complaint, request, or description of what went wrong OR an automation optimization opportunity we wish to achieve
-- **Pre-generated skill name** (optional): The parent agent may provide a skill name generated before this agent was launched. If provided, use it unless your analysis reveals it is clearly inappropriate. The parent has already reported status "creating" with this name to `flow_entity_crud`, so do NOT call `flow_entity_crud` with status "creating" again.
+- **Pre-generated skill name** (optional): The parent agent may provide a skill name generated before this agent was launched. If provided, use it unless your analysis reveals it is clearly inappropriate. The parent has already reported "creating" status, so skip the "creating" signal in step 2 of the task list.
 
 ## Skill json format
 As part of the analysis you will need to create a json for the skill in the following format:
@@ -37,8 +37,8 @@ As part of the analysis you will need to create a json for the skill in the foll
 
 ## Task list
 your todo list:
-1. Analyze the conversation according to the instructions below. 
-2. call the MCP flow_entity_crud tool notify on the creation of new skill and its name, folder_name, and description, status should be "creating" at this stage. Always include both `name` (display name) and `folder_name` (kebab-case) in the entity JSON.
+1. Analyze the conversation according to the instructions below.
+2. Write a signal file to `<flow_output_directory>/flow_signals.jsonl` to notify that skill creation has started. Append a JSON line: `{"type": "entity_crud", "crud": "create", "entity_json": {"type": "skill", "name": "<Display Name>", "folder_name": "<kebab-case-name>", "description": "<brief description>", "status": "creating"}}`. Skip this step if a pre-generated skill name was provided (the parent already reported "creating" status).
 3. Copy the skill template folder from <skillit_home>/templates/skill_template to <flow_output_directory> and rename it to match the issue name.
 4. Read the template and fill in its instructions according to the issue you identified and the analysis you made.
 

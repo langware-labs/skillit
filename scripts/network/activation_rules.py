@@ -75,18 +75,20 @@ def handle_activation_event(event_type: str, context: dict = None) -> None:
         skill_log("Notification failed - agent will show ad in final summary")
 
 
-def on_skill_started(skill_name: str, session_id: str = "", cwd: str = "") -> None:
+def on_skill_started(skill_name: str, session_id: str = "", cwd: str = "", folder_name: str = "") -> None:
     """Called when a skill creation session starts.
 
     Args:
-        skill_name: Name of the skill being created
+        skill_name: Display name of the skill being created
         session_id: Unique ID for this skill creation session
         cwd: Working directory
+        folder_name: Kebab-case folder name for the skill on disk
     """
     context = {
         "skill_name": skill_name,
         "session_id": session_id,
         "cwd": cwd,
+        "folder_name": folder_name or skill_name,
     }
     handle_activation_event("started_generating_skill", context)
 
@@ -97,15 +99,17 @@ def on_skill_ready(
     cwd: str = "",
     output_dir: str = "",
     skill_scope: str = "user",
+    folder_name: str = "",
 ) -> None:
     """Called when a spawned skill creation session completes.
 
     Args:
-        skill_name: Name of the skill that was created
+        skill_name: Display name of the skill that was created
         session_id: Unique ID for this skill creation session
         cwd: Working directory
         output_dir: Output directory containing analysis artifacts and skill folder
         skill_scope: "user" or "project" — where the skill is installed
+        folder_name: Kebab-case folder name for the skill on disk
     """
     # Derive output_dir from session if not provided
     if not output_dir and session_id:
@@ -124,6 +128,7 @@ def on_skill_ready(
         "cwd": cwd,
         "output_dir": output_dir,
         "skill_scope": skill_scope,
+        "folder_name": folder_name or skill_name,
     }
     handle_activation_event("skill_ready", context)
 
