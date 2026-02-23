@@ -16,7 +16,7 @@ Launch ONLY the `skillit:skillit-creator` agent. Do NOT also launch `skillit:ski
 
 Use the Task tool with EXACTLY these parameters:
 - `subagent_type: "skillit:skillit-creator"`
-- `run_in_background: true`
+- `background: true`
 - `prompt`: Pass the user's request and conversation context. Session properties:
   - `session_id`: <session_id>
   - `skillit_home`: <skillit_home>

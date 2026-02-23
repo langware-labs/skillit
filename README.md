@@ -18,7 +18,7 @@ A Claude Code plugin that automatically learns from your sessions. Skillit analy
 ## Prerequisites
 
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and accessible in your PATH
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) installed and accessible in your PATH
+- [flowpad](https://pypi.org/project/flowpad/) — provides the MCP server used by skillit
 
 ### Install Claude Code
 
@@ -28,12 +28,10 @@ If you don't have [Claude Code](https://code.claude.com/docs/en/setup) installed
 npm install -g @anthropic-ai/claude-code
 ```
 
-### Install uv
-
-If you don't have [uv](https://docs.astral.sh/uv/getting-started/installation/) installed:
+### Install flowpad
 
 ```bash
-pip install uv
+pip install flowpad
 ```
 
 ## Installation

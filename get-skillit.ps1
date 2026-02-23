@@ -24,19 +24,11 @@ if (-not (Get-Command "claude" -ErrorAction SilentlyContinue)) {
 }
 Info "Found claude CLI: $((Get-Command claude).Source)"
 
-# ---------- check uv ----------
-if (-not (Get-Command "uv" -ErrorAction SilentlyContinue)) {
-    Warn "uv not found. skillit uses uv to manage its Python dependencies."
-    Write-Host ""
-    Write-Host "  Install uv:"
-    Write-Host "    powershell -ExecutionPolicy ByPass -c `"irm https://astral.sh/uv/install.ps1 | iex`""
-    Write-Host "  or:"
-    Write-Host "    pip install uv"
-    Write-Host ""
-    Write-Host "  More info: https://docs.astral.sh/uv/"
-    exit 1
-}
 Info "Found uv: $((Get-Command uv).Source)"
+
+# ---------- install flowpad (MCP server dependency) ----------
+Info "Installing flowpad (MCP server for skillit) ..."
+pip install flowpad
 
 # ---------- add marketplace & install ----------
 Info "Adding marketplace $Repo ..."

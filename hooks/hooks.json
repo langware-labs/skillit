@@ -1,11 +1,22 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Skill|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/cli-launcher\" \"${CLAUDE_PLUGIN_ROOT}/scripts/pre_tool_ensure_flowpad_is_installed.py\""
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "python -c \"import os,sys,subprocess;sys.exit(subprocess.call([sys.executable,os.path.join(os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','main.py')]))\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/cli-launcher\" \"${CLAUDE_PLUGIN_ROOT}/scripts/main.py\""
           }
         ]
       }
@@ -15,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -c \"import os,sys,subprocess;sys.exit(subprocess.call([sys.executable,os.path.join(os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','main.py')]))\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/cli-launcher\" \"${CLAUDE_PLUGIN_ROOT}/scripts/main.py\""
           }
         ]
       }
@@ -26,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -c \"import os,sys,subprocess;sys.exit(subprocess.call([sys.executable,os.path.join(os.environ['CLAUDE_PLUGIN_ROOT'],'scripts','main.py')]))\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/cli-launcher\" \"${CLAUDE_PLUGIN_ROOT}/scripts/main.py\""
           }
         ]
       }
