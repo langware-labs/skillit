@@ -1,2 +1,11 @@
 #!/bin/sh
-exec python3 "$(dirname "$0")/cli-launcher.py" "$@"
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+
+if [ -x "$ROOT/.venv/bin/python" ]; then
+    PYTHON="$ROOT/.venv/bin/python"
+else
+    PYTHON=python3
+fi
+
+cd "$ROOT/scripts"
+exec "$PYTHON" "$@"

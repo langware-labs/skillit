@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from fs_store import ResourceStatus
-from fs_store.record_types import RecordType
+from flow_sdk.fs_store import ResourceStatus
+from flow_sdk.fs_store.record_types import RecordType
 from plugin_records.crud_handlers.skill_creation_handler import SkillCreationHandler
 from plugin_records.skillit_records import skillit_records
 from utils.log import skill_log
