@@ -39,8 +39,12 @@ def _stub():
             break
         method, id = msg.get("method", ""), msg.get("id")
         if method == "initialize":
-            _respond(id, {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}},
+            _respond(id, {"protocolVersion": "2024-11-05",
+                          "capabilities": {"tools": {}, "logging": {}},
                           "serverInfo": {"name": "flow_sdk_stub", "version": "0.0.0"}})
+        elif method == "notifications/initialized":
+            _send({"jsonrpc": "2.0", "method": "notifications/message",
+                   "params": {"level": "warning", "data": _MSG}})
         elif method == "tools/list":
             _respond(id, {"tools": [tool]})
         elif method == "tools/call":
