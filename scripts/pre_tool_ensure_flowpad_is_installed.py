@@ -6,13 +6,11 @@ import sys
 
 
 def _is_skillit_call(tool_name, tool_input):
-    """Check if this tool call targets a skillit skill, agent, or MCP tool."""
+    """Check if this tool call targets a skillit skill or agent."""
     if tool_name == "Skill":
         return tool_input.get("skill", "").startswith("skillit:")
     if tool_name == "Task":
         return tool_input.get("subagent_type", "").startswith("skillit:")
-    if tool_name.startswith("mcp__plugin_skillit_flow_sdk__"):
-        return True
     return False
 
 
