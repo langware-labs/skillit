@@ -2,7 +2,7 @@
 
 import json
 
-from fs_store.record_types import RecordType
+from flow_sdk.fs_store.record_types import RecordType
 from mcp_server.main import flow_entity_crud
 from plugin_records.skillit_records import SkillitRecords
 

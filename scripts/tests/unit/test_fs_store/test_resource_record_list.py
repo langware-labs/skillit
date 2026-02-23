@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from fs_store import FsRecord, ResourceRecordList, StorageLayout
+from flow_sdk.fs_store import FsRecord, ResourceRecordList, StorageLayout
 
 
 # ---------------------------------------------------------------------------

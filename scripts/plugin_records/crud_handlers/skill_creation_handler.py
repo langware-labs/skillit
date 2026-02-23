@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fs_store import FsRecordRef, ResourceStatus, ResourceType, SyncOperation
-from fs_store.record_types import RecordType
+from flow_sdk.fs_store import FsRecordRef, ResourceStatus, ResourceType, SyncOperation
+from flow_sdk.fs_store.record_types import RecordType
 from network.notify import send_entity_sync
-from records import (
+from flow_sdk.fs_records import (
     AgenticProcess,
     ProcessorStatus,
     RelationshipRecord,
@@ -15,7 +15,7 @@ from records import (
     TaskStatus,
     TaskType,
 )
-from records.skill_record import SkillRecord
+from flow_sdk.fs_records.skill_record import SkillRecord
 from utils.log import skill_log
 
 
@@ -75,7 +75,7 @@ class SkillCreationHandler:
 
         # Also save process and relationship to session record
         session_record = session.record_dir / "record.json"
-        from fs_store import FsRecord
+        from flow_sdk.fs_store import FsRecord
         rec = FsRecord.init_record(session_record)
         # Save task under a skill-specific key so multiple skills per session don't collide
         task_key = f"task:{folder_name}"
@@ -110,7 +110,7 @@ class SkillCreationHandler:
         task_key = f"task:{folder_name}"
 
         try:
-            from fs_store import FsRecord
+            from flow_sdk.fs_store import FsRecord
 
             session_record = FsRecord.init_record(session.record_dir / "record.json")
             if task_key not in session_record:

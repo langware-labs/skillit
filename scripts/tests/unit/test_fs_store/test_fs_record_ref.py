@@ -1,6 +1,6 @@
 """Tests for FsRecordRef — lightweight record reference."""
 
-from fs_store import FsRecordRef, ResourceRecord
+from flow_sdk.fs_store import FsRecordRef, ResourceRecord
 
 
 class TestConstruction:

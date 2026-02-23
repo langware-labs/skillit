@@ -10,7 +10,7 @@ import json
 import sys
 from pathlib import Path
 
-from records.claude import ClaudeRootFsRecord
+from flow_sdk.fs_records.claude import ClaudeRootFsRecord
 
 # Add scripts/ to sys.path before any local imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

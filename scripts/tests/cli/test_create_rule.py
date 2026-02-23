@@ -4,14 +4,13 @@ import pytest
 
 import plugin_records
 from plugin_records import SkillitSession
-from records.claude import ClaudeRootFsRecord
 from subagents.agent_manager import SubAgent, get_subagent_launch_prompt
 from hook_handlers.analysis import start_new_analysis, complete_analysis
 from plugin_records.crud_handlers.skill_creation_handler import skill_creation_handler
 import time
 
 from utils.log import skill_log_print
-from records import TaskStatus
+from flow_sdk.fs_records import TaskStatus
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
 
 TRANSCRIPT_PATH = Path(__file__).parent.parent / "unit" / "resources" / "jira_acli_fail.jsonl"
@@ -133,16 +132,6 @@ def create_rule(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode
     assert result.returncode == 0
     return result.stdout
 
-def test_analyze():
-    env = make_env()
-    env.install_plugin()
-    claude = ClaudeRootFsRecord.default()
-    session = claude.get_session(LONG_SESSION_ID)
-    assert session is not None, f"Session {LONG_SESSION_ID} not found"
-    print(f"Session found: {session.session_id}")
-    print(session.summary_log)
-    create_skill(env, mode=LaunchMode.INTERACTIVE)
-
 def test_create_skill():
     """End-to-end: analyze transcript, classify issues, create rule."""
     env = make_env()
@@ -184,8 +173,8 @@ def test_create_skill_stub():
 
     skill_creation_handler.on_update(session_id, session, "skill", {"status": "new", "folder_name": skill_name})
     # Task completion is verified by loading from disk
-    from records import TaskResource
-    from fs_store import FsRecord
+    from flow_sdk.fs_records import TaskResource
+    from flow_sdk.fs_store import FsRecord
 
     task_key = f"task:{skill_name}"
     session_record = FsRecord.init_record(session.record_dir / "record.json")
@@ -272,8 +261,8 @@ def test_skill_creation_via_entity_crud():
     time.sleep(2)  # give FlowPad time to render
 
     # Verify task was created
-    from fs_store import FsRecord
-    from records import TaskResource
+    from flow_sdk.fs_store import FsRecord
+    from flow_sdk.fs_records import TaskResource
     session_record = FsRecord.init_record(session.record_dir / "record.json")
     task_data = session_record["task"] if "task" in session_record else None
     assert task_data is not None, "Task should be created when skill entity is created"

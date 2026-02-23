@@ -22,7 +22,7 @@ from network.flowpad_discovery import (
     is_webhook_rate_limited,
     record_webhook_failure,
 )
-from fs_store import RecordType, RefType, ResourceType, SyncOperation
+from flow_sdk.fs_store import RecordType, RefType, ResourceType, SyncOperation
 from utils.log import skill_log
 
 

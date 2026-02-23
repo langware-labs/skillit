@@ -15,14 +15,14 @@ from unittest.mock import patch
 
 import pytest
 
-from fs_store import FsRecordRef, RecordType
+from flow_sdk.fs_store import FsRecordRef, RecordType
 from plugin_records.crud_handlers.skill_creation_handler import (
     SkillCreationHandler,
     skill_creation_handler,
 )
 from plugin_records.skillit_records import SkillitRecords
 from plugin_records.skillit_session import SkillitSession
-from records.skill_record import SkillRecord
+from flow_sdk.fs_records.skill_record import SkillRecord
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ def records_env(tmp_path):
     )
 
     # Also register the skill in the global skills collection and as session child
-    skill = SkillRecord(name=skill_name, description="A test skill")
+    skill = SkillRecord(id=skill_name, name=skill_name, description="A test skill")
     mgr.skills.save(skill)
     skill_ref = FsRecordRef.from_record(skill)
     session.add_child(skill_ref)
@@ -130,7 +130,7 @@ class TestOnUpdate:
         )
 
         # on_update with status=new should copy skills to ~/.claude/skills/
-        with patch("records.skill_record.Path.home", return_value=tmp_path):
+        with patch("flow_sdk.fs_records.skill_record.Path.home", return_value=tmp_path):
             skill_creation_handler.on_update(
                 session_id, session, RecordType.SKILL, {"status": "new", "folder_name": skill_name}
             )
@@ -162,7 +162,7 @@ class TestOnUpdate:
             session_id, session, RecordType.SKILL, {"type": "skill", "name": "second-skill"}
         )
 
-        with patch("records.skill_record.Path.home", return_value=tmp_path):
+        with patch("flow_sdk.fs_records.skill_record.Path.home", return_value=tmp_path):
             skill_creation_handler.on_update(
                 session_id, session, RecordType.SKILL, {"status": "new", "folder_name": skill_name}
             )
@@ -192,7 +192,7 @@ class TestOnUpdate:
             session_id, session, RecordType.SKILL, {"type": "skill", "name": skill_name}
         )
 
-        with patch("records.skill_record.Path.home", return_value=tmp_path):
+        with patch("flow_sdk.fs_records.skill_record.Path.home", return_value=tmp_path):
             skill_creation_handler.on_update(
                 session_id, session, RecordType.SKILL, {"status": "new", "folder_name": skill_name}
             )
@@ -226,20 +226,21 @@ class TestEntityCrudUpdate:
         """entity_crud update should succeed and let handlers fire."""
         mgr = records_env["mgr"]
         session_id = records_env["session_id"]
+        skill_name = records_env["skill_name"]
         tmp_path = records_env["tmp_path"]
 
         # First create the task
         skill_creation_handler.on_create(
             session_id, records_env["session"], RecordType.SKILL,
-            {"type": "skill", "name": "test"},
+            {"type": "skill", "name": skill_name},
         )
         mock_sync.reset_mock()
 
         # entity_crud("update") should not raise
-        with patch("records.skill_record.Path.home", return_value=tmp_path):
+        with patch("flow_sdk.fs_records.skill_record.Path.home", return_value=tmp_path):
             result = mgr.entity_crud(session_id, "update", {
                 "type": "skill",
-                "name": "test",
+                "name": skill_name,
                 "status": "new",
             })
 
@@ -290,7 +291,7 @@ class TestEndToEndSkillCopy:
         session = mgr.get_session(session_id)
 
         # Step 3: Simulate flow_tag skill_ready triggering on_update
-        with patch("records.skill_record.Path.home", return_value=tmp_path):
+        with patch("flow_sdk.fs_records.skill_record.Path.home", return_value=tmp_path):
             skill_creation_handler.on_update(
                 session_id, session, RecordType.SKILL, {"status": "new", "folder_name": skill_name}
             )
@@ -316,7 +317,7 @@ class TestEndToEndSkillCopy:
         })
 
         # Step 2: Update via entity_crud (previously raised NotImplementedError)
-        with patch("records.skill_record.Path.home", return_value=tmp_path):
+        with patch("flow_sdk.fs_records.skill_record.Path.home", return_value=tmp_path):
             result = mgr.entity_crud(session_id, "update", {
                 "type": "skill",
                 "name": skill_name,

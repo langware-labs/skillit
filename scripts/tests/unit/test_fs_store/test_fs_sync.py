@@ -2,7 +2,7 @@
 
 import json
 
-from fs_store import FsRecord
+from flow_sdk.fs_store import FsRecord
 
 
 class TestFsSyncDefault:

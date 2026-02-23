@@ -2,7 +2,7 @@
 
 import json
 
-from fs_store import SkillitRecordType
+from flow_sdk.fs_store import SkillitRecordType
 from plugin_records.skillit_config import SkillitConfig
 
 

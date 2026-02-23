@@ -1,7 +1,7 @@
 """Tests for RelationshipRecord."""
 
-from fs_store import FsRecordRef
-from records import RelationshipRecord, RelationshipType
+from flow_sdk.fs_store import FsRecordRef
+from flow_sdk.fs_records import RelationshipRecord, RelationshipType
 
 
 class TestRelationshipRecord:
