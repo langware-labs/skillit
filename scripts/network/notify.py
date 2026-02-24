@@ -181,7 +181,7 @@ def send_resource_sync(
     Envelope wire format::
 
         {
-            "webhook_type": "resource_sync",
+            "webhook_type": "hook_op",
             "webhook_payload": {
                 "resource_type":    "entity" | "relationship",
                 "type":             <RecordType>,
@@ -224,7 +224,7 @@ def send_resource_sync(
         return False
 
     payload = {
-        "webhook_type": "resource_sync",
+        "webhook_type": "hook_op",
         "webhook_payload": {
             "resource_type": str(resource_type),
             "type": type,
