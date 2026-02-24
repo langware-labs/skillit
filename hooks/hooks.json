@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/cli-launcher\" \"${CLAUDE_PLUGIN_ROOT}/scripts/pre_tool_ensure_flowpad_is_installed.py\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/exec-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/scripts/pre_tool_ensure_flowpad_is_installed.py\""
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/cli-launcher\" \"${CLAUDE_PLUGIN_ROOT}/scripts/main.py\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/exec-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/bin/call-flow-cli.py\" \"report\" \"hooks\""
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/cli-launcher\" \"${CLAUDE_PLUGIN_ROOT}/scripts/main.py\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/exec-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/bin/call-flow-cli.py\" \"report\" \"hooks\""
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/cli-launcher\" \"${CLAUDE_PLUGIN_ROOT}/scripts/main.py\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/exec-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/bin/call-flow-cli.py\" \"report\" \"hooks\""
           }
         ]
       }
