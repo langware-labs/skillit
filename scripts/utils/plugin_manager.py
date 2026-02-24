@@ -35,16 +35,22 @@ class SkillitPluginManager:
                 p["version"] = new_version
         self._marketplace_json.write_text(json.dumps(marketplace, indent=2) + "\n")
 
+    @staticmethod
+    def _parse_version(version: str) -> tuple[int, int, int]:
+        """Parse a version string, stripping any pre-release suffix (e.g. '285-win' -> 285)."""
+        parts = version.split(".")
+        return tuple(int(p.split("-")[0]) for p in parts)  # type: ignore[return-value]
+
     def patch(self) -> str:
         """Bump the patch version and return the new version string."""
-        major, minor, patch = (int(x) for x in self.version.split("."))
+        major, minor, patch = self._parse_version(self.version)
         new_version = f"{major}.{minor}.{patch + 1}"
         self._write_version(new_version)
         return new_version
 
     def minor(self) -> str:
         """Bump the minor version and return the new version string."""
-        major, minor, _patch = (int(x) for x in self.version.split("."))
+        major, minor, _patch = self._parse_version(self.version)
         new_version = f"{major}.{minor + 1}.0"
         self._write_version(new_version)
         return new_version
