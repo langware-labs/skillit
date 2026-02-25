@@ -50,6 +50,6 @@ results is a JSON with the following properties:
 ## Reporting
 Once you are done with the analysis, write a completion signal to `<flow_output_directory>/flow_signals.jsonl`. Append a JSON line:
 ```
-{"type": "entity_crud", "crud": "update", "entity_json": {"type": "analysis", "session_id": "<session_id>", "status": "complete", "entity_path": "<relative path to analysis files>"}}
+{"type": "entity_crud", "crud": "update", "entity_json": {"type": "session_analysis", "session_id": "<session_id>", "status": "complete", "entity_path": "<relative path to analysis files>"}}
 ```
 The parent agent will read this file after you complete and relay the signals to the MCP server. Do NOT call any MCP tools directly — you are running in the background and MCP tools are not available.

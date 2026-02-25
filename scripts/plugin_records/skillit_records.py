@@ -31,6 +31,7 @@ class SkillitRecords:
         self._config: SkillitConfig | None = None
         self._sessions: ResourceRecordList | None = None
         self._skills: ResourceRecordList | None = None
+        self._stores: dict[str, ResourceRecordList] = {}
 
     def _get_records_path(self) -> Path:
         if self._records_path is not None:
@@ -131,6 +132,16 @@ class SkillitRecords:
                     method(session_id, session, record_type, entity)
         return result
 
+    def _get_store(self, record_type: str, cls) -> ResourceRecordList:
+        """Return a cached ResourceRecordList for the given record type."""
+        if record_type not in self._stores:
+            self._stores[record_type] = ResourceRecordList(
+                record_class=cls,
+                records_path=self._get_records_path(),
+                storage_layout=StorageLayout.FOLDER,
+            )
+        return self._stores[record_type]
+
     def _entity_create(self, session: SkillitSession, record_type: str, entity: dict) -> str:
         from flow_sdk.fs_store import type_registry
         from utils.log import skill_log
@@ -140,13 +151,14 @@ class SkillitRecords:
             return f"Error: unknown entity type '{record_type}'"
 
         if "id" not in entity:
-            entity = {**entity, "id": entity.get("name", "")}
+            entity = {**entity, "id": entity.get("name") or entity.get("session_id", "")}
 
         record = cls.from_dict(entity)
+        store = self._get_store(record_type, cls)
         try:
-            self.skills.create(record)
+            store.create(record)
         except Exception:
-            self.skills.save(record)
+            store.save(record)
             skill_log(f"entity_crud: record '{record.uid}' already existed — overwritten")
         return f"Created {record_type} '{record.uid}'"
 
@@ -160,12 +172,13 @@ class SkillitRecords:
         if cls is None:
             return f"Error: unknown entity type '{record_type}'"
 
-        entity_id = entity.get("id") or entity.get("name", "")
+        entity_id = entity.get("id") or entity.get("name") or entity.get("session_id", "")
         if not entity_id:
-            return "Error: entity must have 'id' or 'name' field"
+            return "Error: entity must have 'id', 'name', or 'session_id' field"
 
         # Load existing record
-        existing = self.skills.get(entity_id)
+        store = self._get_store(record_type, cls)
+        existing = store.get(entity_id)
         if not existing:
             return f"Error: {record_type} '{entity_id}' not found"
 
@@ -174,7 +187,7 @@ class SkillitRecords:
             if key not in ("id", "type") and hasattr(existing, key):
                 setattr(existing, key, value)
 
-        self.skills.save(existing)
+        store.save(existing)
         return f"Updated {record_type} '{entity_id}'"
 
     def _entity_delete(self, session: SkillitSession, record_type: str, entity: dict) -> str:
@@ -193,6 +206,7 @@ class SkillitRecords:
         self._config = None
         self._sessions = None
         self._skills = None
+        self._stores = {}
 
     def get_session(self, claude_session_id: str) -> SkillitSession | None:
         """Get a session by ID, or None if it doesn't exist."""

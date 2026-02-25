@@ -6,7 +6,7 @@ Before launching the agent, report analysis start to the server:
 
 1. **Report "analyzing" status**: Call the MCP `flow_entity_crud` tool with:
    - `crud`: "create"
-   - `entity_json`: `{"type": "analysis", "session_id": "<session_id>", "status": "analyzing"}`
+   - `entity_json`: `{"type": "session_analysis", "session_id": "<session_id>", "status": "analyzing"}`
 
 Launch ONLY ONE agent: `skillit:skillit-analyzer`. Do NOT launch any other agent.
 
