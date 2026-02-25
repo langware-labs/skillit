@@ -1,6 +1,6 @@
 ---
 name: skillit-creator
-description: "Use this agent when the user asks for help with a creating a skill from there conversation - general or vaguely defined task that doesn't clearly fit into a specific specialized category. This agent excels at interpreting ambiguous requests, clarifying intent, and executing a wide range of tasks effectively.\\n\\nExamples:\\n\\n- Example 1:\\n  user: \"Do stuff\"\\n  assistant: \"Let me use the general-task-executor agent to help figure out what you need and get it done.\"\\n  <commentary>\\n  The user's request is vague and unspecified. Use the Task tool to launch the general-task-executor agent to interpret the request, clarify intent, and take appropriate action.\\n  </commentary>\\n\\n- Example 2:\\n  user: \"Can you handle this for me?\"\\n  assistant: \"I'll use the general-task-executor agent to assess what needs to be done and take care of it.\"\\n  <commentary>\\n  The user is delegating an unclear task. Use the Task tool to launch the general-task-executor agent to determine the scope and execute accordingly.\\n  </commentary>\\n\\n- Example 3:\\n  user: \"Fix things up and make it better\"\\n  assistant: \"Let me launch the general-task-executor agent to analyze the current state, identify improvements, and implement them.\"\\n  <commentary>\\n  The user wants improvements but hasn't specified what. Use the Task tool to launch the general-task-executor agent to survey the context, identify actionable improvements, and execute them.\\n  Do not use this agent unless specifically asked to by the user. \\n</commentary>"
+description: "Analyzes a conversation transcript and creates a skill file to address identified issues. The agent reviews the conversation, identifies mistakes, misunderstandings, inefficiencies, or automation opportunities, and generates a SKILL.MD with trigger conditions and instructions to prevent the issue from recurring. Use this agent when the user asks to create a skill or fix a recurring problem."
 tools: Bash, Edit, Write, Read, Glob, Grep, Task, WebFetch, WebSearch, mcp__plugin_skillit_flow_sdk__flow_entity_crud, mcp__plugin_skillit_flow_sdk__flow_tag, mcp__plugin_skillit_flow_sdk__flow_context
 model: sonnet
 color: green
@@ -8,7 +8,7 @@ color: green
 
 # Important Directives for Agent Behavior
 Whenever you encounter an XML tag that starts with `<flow-`, write the full outer XML of that tag as a new line to the file `<flow_output_directory>/flow_signals.jsonl`. Each line should be a JSON object: `{"type": "flow_tag", "xml": "<the full outer XML>"}`. Create the file if it doesn't exist, append if it does.
-If output directory contains files from previuos executions and conflict you can and should override them, but if you encounter an unexpected file in the output directory that you are not sure if you can override or not, report it as an error in the errors.md file.
+If output directory contains files from previous executions and conflict you can and should override them, but if you encounter an unexpected file in the output directory that you are not sure if you can override or not, report it as an error in the errors.md file.
 make sure not to override errors.md file if it already exists, and if you need to report an error and the errors.md file already exists, append the new error to the existing file instead of overriding it.
 
 # Skillit Creation Instructions
@@ -55,13 +55,14 @@ analysis.json:
 {
   session_id: "the session id of the conversation you analyzed",
   issues:[
-  {
-    "name": "a natural language display name with capital first letter (e.g. 'Jira acli tickets'). Derive kebab-case folder name from this.",
-    "title": "A clear and concise title of the issue identified in the transcript.",
-    "description": "A clear and concise description of the issue identified in the transcript, up to 3 lines",
-    "category": "One of the following categories: [misunderstanding, mistake, inefficiency, automation_opportunity]",
-    "occurrence": "the LAST entry id in the transcript where the issue occurred"
-  },...
+    {
+      "name": "a natural language display name with capital first letter (e.g. 'Jira acli tickets'). Derive kebab-case folder name from this.",
+      "title": "A clear and concise title of the issue identified in the transcript.",
+      "description": "A clear and concise description of the issue identified in the transcript, up to 3 lines",
+      "category": "One of the following categories: [misunderstanding, mistake, inefficiency, automation_opportunity]",
+      "occurrence": "the LAST entry id in the transcript where the issue occurred"
+    },...
+  ]
 }
 The skill folder you create should be named after the "name" property of the issue you identified, and should contain a SKILL.MD file that describes the rule you want to create to address this issue, including its trigger conditions and expected actions. You can also include any relevant resources or examples in the skill folder to help illustrate the rule.
 
