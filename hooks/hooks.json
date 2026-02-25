@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/exec-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/bin/call-flow-cli.py\" \"report\" \"hooks\""
+            "command": "command -v flow >/dev/null 2>&1 && flow hooks report || :"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/exec-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/bin/call-flow-cli.py\" \"report\" \"hooks\""
+            "command": "command -v flow >/dev/null 2>&1 && flow hooks report || :"
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/exec-python.sh\" \"${CLAUDE_PLUGIN_ROOT}/bin/call-flow-cli.py\" \"report\" \"hooks\""
+            "command": "command -v flow >/dev/null 2>&1 && flow hooks report || :"
           }
         ]
       }
