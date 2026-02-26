@@ -11,7 +11,7 @@ from pathlib import Path
 from hook_handlers import prompt_submitted, session_start, subagent_stop
 from utils.log import skill_log
 from network.notify import send_skill_event
-from memory import create_rule_engine
+from flow_sdk.rules import create_rule_engine
 
 
 def _emit_hook_output(output: dict) -> None:

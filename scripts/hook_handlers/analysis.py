@@ -9,7 +9,7 @@ from flow_sdk.fs_store import FsRecordRef, ResourceType, SyncOperation
 from flow_sdk.fs_store.record_types import RecordType
 from plugin_records import skillit_records
 from utils.log import skill_log
-from network.notify import send_entity_sync
+from flow_sdk.discovery.notify import send_entity_sync
 from flow_sdk.fs_records import (
     AgenticProcess,
     ProcessorStatus,

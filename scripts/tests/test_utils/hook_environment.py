@@ -20,7 +20,7 @@ from pathlib import Path
 from subagents.agent_manager import SubAgent
 from utils.conf import Platform, CURRENT_PLATFORM
 from utils.log import skill_log_clear
-from memory.rule_engine.engine import RulesPackage, RuleEngine
+from flow_sdk.rules.engine import RulesPackage, RuleEngine
 
 TEMP_DIR = Path(tempfile.gettempdir()) / "skillit_test"
 
@@ -307,7 +307,7 @@ class TestPluginProjectEnvironment:
         """Return user-level rules (~/.flow/skill_rules). Empty if include_user_home is False."""
         if not self._include_user_home:
             return RulesPackage(source="user", rules=[])
-        from memory.rule_engine.rule_loader import get_user_rules_dir
+        from flow_sdk.rules.rule_loader import get_user_rules_dir
         return RulesPackage.from_folder(get_user_rules_dir(), source="user")
 
     @property
@@ -325,7 +325,7 @@ class TestPluginProjectEnvironment:
         """
         user_path = None
         if self._include_user_home:
-            from memory.rule_engine.rule_loader import get_user_rules_dir
+            from flow_sdk.rules.rule_loader import get_user_rules_dir
             user_path = get_user_rules_dir()
         return RulesPackage.from_multiple_folders(
             user_path=user_path,
@@ -617,15 +617,12 @@ class TestPluginProjectEnvironment:
                 shutil.copytree(rule_dir, rules_dir / rule_dir.name, dirs_exist_ok=True)
 
     def loadMcp(self) -> None:
-        """Write an MCP config pointing to the skillit MCP server."""
-        scripts_dir = str(SKILLIT_ROOT / "scripts")
-        mcp_server_script = str(SKILLIT_ROOT / "scripts" / "mcp_server" / "main.py")
+        """Write an MCP config pointing to the flow-sdk MCP server."""
         mcp_config = {
             "mcpServers": {
-                "skillit": {
-                    "command": "python",
-                    "args": [mcp_server_script],
-                    "env": {"PYTHONPATH": scripts_dir},
+                "flow_sdk": {
+                    "command": shutil.which("flow-sdk-mcp") or "flow-sdk-mcp",
+                    "args": [],
                 }
             }
         }

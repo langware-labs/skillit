@@ -5,7 +5,7 @@
 This project depends on the **flow-sdk** (`flow_sdk` Python package), which lives in the `flow-cli` repo.
 
 - Git: https://github.com/langware-labs/flow-cli.git
-- The SDK code is under `flow-cli/flow-sdk/python/flow_sdk/`
+- The SDK code is under `flow-cli/sdk/python/flow_sdk/`
 
 The SDK provides:
 - `flow_sdk.fs_store` — File-system record store (FsRecord, FsRecordRef, ResourceRecord, type registry, sync protocol, storage layout)
