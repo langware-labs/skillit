@@ -1,5 +1,6 @@
 ---
 description: Create a skill to fix and prevent issues. Use when you need help fixing bugs, debugging code, solving problems, or preventing issues from happening again.
+allowed-tools: mcp__plugin_skillit_flow_sdk__*
 ---
 
 Before launching the agent, determine the skill name upfront so the UI can show progress immediately:

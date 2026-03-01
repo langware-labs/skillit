@@ -7,7 +7,7 @@ import os
 # Ensure scripts/ is on the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from memory.rule_engine.action_executor import _notify_rules_executed
+from flow_sdk.rules.action_executor import _notify_rules_executed
 
 mock_actions = [
     {"rule": "session-context-init", "action": "add_context"},

@@ -1,7 +1,7 @@
 """Factory for generating hook data for each Claude HookEventType."""
 
 import pytest
-from memory.types.hooks import HookEventType
+from flow_sdk.hooks.types.hooks import HookEventType
 
 
 def create_hook_data(

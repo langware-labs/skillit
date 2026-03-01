@@ -214,8 +214,9 @@ import sys; sys.path.insert(0, "{SCRIPT_DIR}")
 import os
 os.environ["FLOWPAD_EXECUTION_SCOPE"] = '[{{"type": "flow", "id": "test-123"}}]'
 
-from network.notify import get_flowpad_status, send_skill_activation
-from network.flowpad_discovery import FlowpadStatus
+from flow_sdk.discovery.notify import get_flowpad_status
+from flow_sdk.discovery import FlowpadStatus
+from network.notify import send_skill_activation
 
 status = get_flowpad_status()
 if status != FlowpadStatus.RUNNING:
@@ -307,8 +308,8 @@ def test_activation_rules():
         result = subprocess.run(
             ["python", "-c", f"""
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
-from network.notify import get_flowpad_status
-from network.flowpad_discovery import FlowpadStatus
+from flow_sdk.discovery.notify import get_flowpad_status
+from flow_sdk.discovery import FlowpadStatus
 from network.activation_rules import get_ad_if_needed
 
 status = get_flowpad_status()
@@ -335,8 +336,9 @@ print("AD_EMPTY:" + str(ad == ""))
         result = subprocess.run(
             ["python", "-c", f"""
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
-from network.notify import get_flowpad_status, send_skill_event
-from network.flowpad_discovery import FlowpadStatus
+from flow_sdk.discovery.notify import get_flowpad_status
+from flow_sdk.discovery import FlowpadStatus
+from network.notify import send_skill_event
 
 status = get_flowpad_status()
 if status != FlowpadStatus.RUNNING:

@@ -1,5 +1,6 @@
 ---
 description: Analyze conversation for issues and automation opportunities. Use when you want to review a session for mistakes, misunderstandings, inefficiencies, or automation opportunities.
+allowed-tools: mcp__plugin_skillit_flow_sdk__*
 ---
 
 Before launching the agent, report analysis start to the server:

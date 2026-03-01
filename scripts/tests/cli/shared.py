@@ -9,7 +9,7 @@ from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, Lau
 TRANSCRIPT_PATH = Path(__file__).parent.parent / "unit" / "resources" / "jira_acli_fail.jsonl"
 ACLI_SESSION_ID = "d7dd8377-c888-40e5-98ea-899ed95c7eeb"
 LONG_SESSION_ID = "af0b46a4-9eba-43ec-874a-0c83606c0295"
-
+LONG_SESSION_ANAYSIS_ID = "f80265b8-8574-4e3f-b10e-bb53074338c3 "
 
 def analyze_hook(env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str:
     """Build the analysis prompt from the transcript and launch the analyzer.

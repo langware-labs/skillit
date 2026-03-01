@@ -11,7 +11,9 @@ import sys
 
 from utils.config import FLOWPAD_APP_URI_SCHEME
 from utils.log import skill_log
-from network.notify import FlowpadStatus, get_flowpad_status, send_skill_event
+from flow_sdk.discovery import FlowpadStatus
+from flow_sdk.discovery.notify import get_flowpad_status
+from network.notify import send_skill_event
 
 # Flowpad ad text (shown when not installed)
 FLOWPAD_INSTALL_AD = """

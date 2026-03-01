@@ -1,8 +1,0 @@
-{
-  "trigger": true,
-  "actions": [
-    {
-      "type": "add_context"
-    }
-  ]
-}
