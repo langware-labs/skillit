@@ -216,7 +216,7 @@ Contributions are welcome! Please feel free to submit issues, fork the repositor
 ### Contribution Guidelines
 
 1. Create a new branch for your feature
-2. Add tests for new modifiers
+2. Add tests for new features
 3. Update documentation
 4. Submit a pull request with a clear description
 

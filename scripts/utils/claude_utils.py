@@ -3,10 +3,8 @@ Utility functions for building skill creation instructions.
 """
 from pathlib import Path
 
-from network.activation_rules import get_ad_if_needed
+from utils.flowpad_ad import get_ad_if_needed
 from utils.conf import PLUGIN_DIR, SCRIPT_DIR
-
-ACTIVATION_RULES_SCRIPT = SCRIPT_DIR / "network" / "activation_rules.py"
 INSTRUCTIONS_FILE = PLUGIN_DIR / "subagent_instructions.md"
 
 def get_skills_dir(cwd: str) -> Path:
@@ -51,6 +49,11 @@ def build_subagent_instructions(
     """
 
     instructions_content = instructions_file.read_text()
+    # Resolve variable references in instructions content (e.g. {plugin_dir})
+    # Using .replace() instead of .format() to avoid issues with JSON curly braces
+    instructions_content = instructions_content.replace("{plugin_dir}", str(PLUGIN_DIR))
+    instructions_content = instructions_content.replace("{target_dir}", str(target_dir))
+    instructions_content = instructions_content.replace("{cwd}", cwd)
 
     ad_section = _get_ad_section()
     if ad_section:
@@ -59,10 +62,6 @@ def build_subagent_instructions(
     template = INSTRUCTIONS_FILE.read_text()
     instructions = template.format(
         instructions_content=instructions_content,
-        target_dir=target_dir,
-        cwd=cwd,
-        activation_rules_script=ACTIVATION_RULES_SCRIPT,
-        plugin_dir=PLUGIN_DIR,
         ad_section=ad_section,
     )
     return {

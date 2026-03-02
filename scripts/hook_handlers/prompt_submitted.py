@@ -1,45 +1,44 @@
-"""UserPromptSubmit hook handler — keyword routing, modifier invocation, analysis trigger."""
+"""UserPromptSubmit hook handler — keyword routing, subagent instructions, analysis trigger."""
 
 import json
 import re
 
-from modifiers.analyze_and_create_activation_rules import handle_analyze
-from modifiers.create_test import handle_create_test
-from modifiers.test import handle_test
-from network.notify import send_skill_activation
+from skillit_events import send_skill_activation
+from utils.claude_utils import build_subagent_instructions, get_skill_rules_dir, get_skills_dir
+from utils.conf import PLUGIN_DIR
 from utils.log import skill_log
 
 from hook_handlers.analysis import start_new_analysis
 
 # =============================================================================
 # KEYWORD MAPPINGS
-# Order matters - more specific patterns should come first
+# Order matters - more specific patterns should come first.
+# Each entry: (keyword, instructions_file, target_dir_fn, triggers_analysis)
 # =============================================================================
 
 KEYWORD_MAPPINGS = [
-    ("skillit:create-test", handle_create_test),
-    ("skillit:test", handle_test),
+    ("skillit:create-test", PLUGIN_DIR / "create_test_instructions.md", get_skills_dir, False),
+    ("skillit:test", PLUGIN_DIR / "analyze_and_create_activation_rules.md", get_skill_rules_dir, True),
 ]
 
 
-def find_matching_modifier(prompt: str):
-    """
-    Find the first matching modifier for the prompt.
-    Returns (handler_function, matched_keyword) or (None, None).
+def find_matching_keyword(prompt: str):
+    """Find the first matching keyword entry for the prompt.
+
+    Returns the matching (keyword, instructions_file, target_dir_fn, triggers_analysis)
+    tuple, or None.
 
     Matches keywords that are:
     - The first word in the prompt (leading whitespace ignored)
-    - Optionally prefixed with / as a command (e.g., /skillit create test)
+    - Optionally prefixed with / as a command (e.g., /skillit:test)
     - Not inside file paths like /path/to/skillit/file.txt
     """
-    for keyword, handler in KEYWORD_MAPPINGS:
-        # Match keyword only at the start of the prompt (ignoring leading whitespace),
-        # optionally prefixed with /
-        pattern = r'^\s*/?'+ re.escape(keyword) + r'(?![/\\])'
+    for entry in KEYWORD_MAPPINGS:
+        keyword = entry[0]
+        pattern = r'^\s*/?' + re.escape(keyword) + r'(?![/\\])'
         if re.search(pattern, prompt, re.IGNORECASE):
-            return handler, keyword
-
-    return None, None
+            return entry
+    return None
 
 
 def _send_analysis_task_created(data: dict) -> None:
@@ -56,24 +55,31 @@ def handle(data: dict, rules_output: dict) -> dict | None:
     from main import _merge_hook_outputs
 
     prompt = data.get("prompt", "")
-    handler, matched_keyword = find_matching_modifier(prompt)
+    match = find_matching_keyword(prompt)
 
-    if not handler:
+    if not match:
         skill_log("No keyword matched, passing through unchanged")
         return rules_output or None
 
-    skill_log(f"Keyword matched: '{matched_keyword}', invoking handler {handler.__name__}")
+    keyword, instructions_file, target_dir_fn, triggers_analysis = match
+    cwd = data.get("cwd", "")
+
+    skill_log(f"Keyword matched: '{keyword}'")
     send_skill_activation(
         skill_name="skillit",
-        matched_keyword=matched_keyword,
+        matched_keyword=keyword,
         prompt=prompt,
-        handler_name=handler.__name__,
-        folder_path=data.get("cwd", ""),
+        handler_name=keyword,
+        folder_path=cwd,
     )
-    result = handler(prompt, data)
 
-    # Send task_created for analysis handler
-    if handler is handle_analyze:
+    result = build_subagent_instructions(
+        instructions_file=instructions_file,
+        cwd=cwd,
+        target_dir=target_dir_fn(cwd),
+    )
+
+    if triggers_analysis:
         _send_analysis_task_created(data)
 
     if result:

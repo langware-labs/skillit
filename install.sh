@@ -25,6 +25,9 @@ fi
 # Uninstall existing version first (for clean reinstall)
 claude plugin uninstall "$PLUGIN_NAME@$MARKETPLACE_NAME" 2>/dev/null || true
 
+# Clear stale plugin cache (claude plugin uninstall doesn't remove cached files)
+rm -rf "$HOME/.claude/plugins/cache/$MARKETPLACE_NAME/$PLUGIN_NAME/"
+
 # Remove and re-add marketplace to ensure it points to local directory
 claude plugin marketplace remove "$MARKETPLACE_NAME" 2>/dev/null || true
 claude plugin marketplace add ./

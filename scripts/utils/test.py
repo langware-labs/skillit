@@ -119,7 +119,7 @@ def invoke_main(prompt: str, verbose: bool = True) -> dict:
             except json.JSONDecodeError:
                 print(f"  {result.stdout}")
         else:
-            print("Stdout: (empty - no modifier matched)")
+            print("Stdout: (empty - no keyword matched)")
         if result.stderr:
             print(f"\nStderr:\n  {result.stderr}")
         print()
@@ -216,7 +216,7 @@ os.environ["FLOWPAD_EXECUTION_SCOPE"] = '[{{"type": "flow", "id": "test-123"}}]'
 
 from flow_sdk.discovery.notify import get_flowpad_status
 from flow_sdk.discovery import FlowpadStatus
-from network.notify import send_skill_activation
+from skillit_events import send_skill_activation
 
 status = get_flowpad_status()
 if status != FlowpadStatus.RUNNING:
@@ -310,7 +310,7 @@ def test_activation_rules():
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
 from flow_sdk.discovery.notify import get_flowpad_status
 from flow_sdk.discovery import FlowpadStatus
-from network.activation_rules import get_ad_if_needed
+from utils.flowpad_ad import get_ad_if_needed
 
 status = get_flowpad_status()
 if status != FlowpadStatus.RUNNING:
@@ -338,7 +338,7 @@ print("AD_EMPTY:" + str(ad == ""))
 import sys; sys.path.insert(0, "{SCRIPT_DIR}")
 from flow_sdk.discovery.notify import get_flowpad_status
 from flow_sdk.discovery import FlowpadStatus
-from network.notify import send_skill_event
+from skillit_events import send_skill_event
 
 status = get_flowpad_status()
 if status != FlowpadStatus.RUNNING:
@@ -385,11 +385,10 @@ import time; time.sleep(0.5)
 
 def run_tests():
     """Run test suite."""
-    # Test cases: (prompt, expected_modifier, expected_text_in_output)
+    # Test cases: (prompt, expected_keyword, expected_text_in_output)
     tests = [
-        ("skillit", "analyze_and_create_activation_rules", "Create Activation Rule Skill"),
-        ("skillit:test", "test", "Create Activation Rule Skill"),
-        ("skillit create test for showing current time", "create_test", "Create Activation Rule Skill"),
+        ("skillit:test", "skillit:test", "Skillit Analysis Instructions"),
+        ("skillit:create-test create test for showing current time", "skillit:create-test", "Create Test Skill Instructions"),
         ("hello world", None, None),
     ]
 
@@ -398,10 +397,10 @@ def run_tests():
     print("=" * 60 + "\n")
 
     results = []
-    for prompt, expected_modifier, expected_text in tests:
+    for prompt, expected_keyword, expected_text in tests:
         reset_cooldown()  # Clear cooldown state before each test
         print(f"### Prompt: \"{prompt}\"")
-        print(f"### Expected: {expected_modifier or 'no match'}\n")
+        print(f"### Expected: {expected_keyword or 'no match'}\n")
 
         result = invoke_main(prompt, verbose=True)
 
@@ -414,7 +413,7 @@ def run_tests():
             passed = result["exit_code"] == 0 and not result["stdout"].strip()
 
         status = "PASS" if passed else "FAIL"
-        results.append((prompt, expected_modifier, status))
+        results.append((prompt, expected_keyword, status))
         print(f">>> {status}")
         print("-" * 60 + "\n")
 
@@ -422,9 +421,9 @@ def run_tests():
     print("=" * 60)
     print("SUMMARY")
     print("=" * 60)
-    for prompt, modifier, status in results:
+    for prompt, keyword, status in results:
         icon = "✓" if status == "PASS" else "✗"
-        print(f"  {icon} \"{prompt}\" -> {modifier or 'none'} [{status}]")
+        print(f"  {icon} \"{prompt}\" -> {keyword or 'none'} [{status}]")
 
     passed = sum(1 for _, _, s in results if s == "PASS")
     print(f"\n  {passed}/{len(results)} passed")

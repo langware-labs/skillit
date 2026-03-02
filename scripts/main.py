@@ -10,7 +10,7 @@ from pathlib import Path
 
 from hook_handlers import prompt_submitted, session_start, subagent_stop
 from utils.log import skill_log
-from network.notify import send_skill_event
+from skillit_events import send_skill_event
 from flow_sdk.rules import create_rule_engine
 
 
