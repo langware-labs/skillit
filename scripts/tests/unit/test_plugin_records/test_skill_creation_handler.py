@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 import pytest
 
-from flow_sdk.fs_store import FsRecordRef, RecordType
+from flow_sdk.fs_store import RecordRef, RecordType
 from plugin_records.crud_handlers.skill_creation_handler import (
     SkillCreationHandler,
     skill_creation_handler,
@@ -47,7 +47,7 @@ def records_env(tmp_path):
     # Also register the skill in the global skills collection and as session child
     skill = SkillRecord(id=skill_name, name=skill_name, description="A test skill")
     mgr.skills.save(skill)
-    skill_ref = FsRecordRef.from_record(skill)
+    skill_ref = RecordRef.from_record(skill)
     session.add_child(skill_ref)
 
     return {

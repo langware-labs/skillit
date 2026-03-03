@@ -1,9 +1,9 @@
-"""Tests for FsRecord – filesystem I/O (from_json / to_json / persist)."""
+"""Tests for Record – filesystem I/O (from_json / to_json / persist)."""
 
 import json
 
 import pytest
-from flow_sdk.fs_store import FsRecord, FsRecordRef, ResourceRecord, Scope
+from flow_sdk.fs_store import Record, RecordRef, Scope
 from flow_sdk.fs_records import AgenticProcess, ProcessorStatus, TaskResource, TaskStatus, TaskType
 
 # ---------------------------------------------------------------------------
@@ -12,7 +12,7 @@ from flow_sdk.fs_records import AgenticProcess, ProcessorStatus, TaskResource, T
 
 class TestJsonIO:
     def test_to_json_creates_file(self, tmp_path):
-        r = FsRecord(id="1", name="test")
+        r = Record(id="1", name="test")
         fp = tmp_path / "rec.json"
         r.save_record_json(fp)
         assert fp.exists()
@@ -22,36 +22,36 @@ class TestJsonIO:
     def test_from_json_existing(self, tmp_path):
         fp = tmp_path / "rec.json"
         fp.write_text(json.dumps({"id": "x", "name": "loaded"}))
-        r = FsRecord.init_record(fp)
+        r = Record.init_record(fp)
         assert r.id == "x"
         assert r.name == "loaded"
         assert r.source_file == str(fp)
 
     def test_from_json_missing_creates_new(self, tmp_path):
         fp = tmp_path / "missing.json"
-        r = FsRecord.init_record(fp)
+        r = Record.init_record(fp)
         assert r.source_file == str(fp)
         assert r.id  # auto-generated uuid
 
     def test_round_trip_json_file(self, tmp_path):
         fp = tmp_path / "rt.json"
-        r = FsRecord(id="rt", type="session", name="s1",
+        r = Record(id="rt", type="session", name="s1",
                       scope=Scope.PROJECT, raw_json={"k": "v"})
         r.save_record_json(fp)
-        r2 = FsRecord.init_record(fp)
+        r2 = Record.init_record(fp)
         assert r2.id == "rt"
         assert r2.scope == Scope.PROJECT
         assert r2.raw_json["k"] == "v"
 
     def test_to_json_creates_parent_dirs(self, tmp_path):
         fp = tmp_path / "a" / "b" / "rec.json"
-        r = FsRecord(id="nested")
+        r = Record(id="nested")
         r.save_record_json(fp)
         assert fp.exists()
 
     def test_to_json_defaults_to_source_file(self, tmp_path):
         fp = tmp_path / "auto.json"
-        r = FsRecord(id="auto")
+        r = Record(id="auto")
         r.save_record_json(fp)  # sets source_file
         r["tag"] = "updated"
         r.save_record_json()  # should write to same path
@@ -66,7 +66,7 @@ class TestJsonIO:
 class TestPersist:
     def test_persist(self, tmp_path):
         fp = tmp_path / "rec.json"
-        r = FsRecord.init_record(fp)
+        r = Record.init_record(fp)
         r["key"] = "val"
         r.save()
         assert fp.exists()
@@ -74,7 +74,7 @@ class TestPersist:
         assert data["key"] == "val"
 
     def test_persist_without_source_file_raises(self):
-        r = FsRecord()
+        r = Record()
         r.source_file = None
         with pytest.raises(ValueError):
             r.save()
@@ -87,41 +87,41 @@ class TestPersist:
 class TestChildrenFileIO:
     def test_children_refs_json_file_round_trip(self, tmp_path):
         fp = tmp_path / "nested.json"
-        parent = FsRecord(id="p", type="session")
+        parent = Record(id="p", type="session")
         parent.children_refs = [
-            FsRecordRef(id="c1", type="step"),
-            FsRecordRef(id="c2", type="step"),
+            RecordRef(id="c1", type="step"),
+            RecordRef(id="c2", type="step"),
         ]
         parent.save_record_json(fp)
 
-        loaded = FsRecord.init_record(fp)
+        loaded = Record.init_record(fp)
         assert len(loaded.children_refs) == 2
-        assert isinstance(loaded.children_refs[0], FsRecordRef)
+        assert isinstance(loaded.children_refs[0], RecordRef)
         assert loaded.children_refs[0].id == "c1"
 
 
 # ---------------------------------------------------------------------------
-# FsRecord is a ResourceRecord
+# Record is a Record
 # ---------------------------------------------------------------------------
 
 class TestInheritance:
     def test_isinstance(self):
-        r = FsRecord(id="x")
-        assert isinstance(r, ResourceRecord)
+        r = Record(id="x")
+        assert isinstance(r, Record)
 
     def test_to_dict_works(self):
-        r = FsRecord(id="x", name="fs", raw_json={"k": "v"})
+        r = Record(id="x", name="fs", raw_json={"k": "v"})
         d = r.to_dict()
         assert d["id"] == "x"
         assert d["k"] == "v"
 
     def test_from_dict_works(self):
-        r = FsRecord.from_dict({"id": "x", "name": "loaded"})
+        r = Record.from_dict({"id": "x", "name": "loaded"})
         assert r.id == "x"
-        assert isinstance(r, FsRecord)
+        assert isinstance(r, Record)
 
     def test_kv_access(self):
-        r = FsRecord()
+        r = Record()
         r["foo"] = "bar"
         assert r["foo"] == "bar"
         assert "foo" in r
@@ -131,7 +131,7 @@ class TestInheritance:
 # Parent-child hierarchy with concrete record types
 # ---------------------------------------------------------------------------
 
-class TestParentChildFsRecord:
+class TestParentChildRecord:
     def test_task_with_agentic_process_child_refs_round_trip(self, tmp_path):
         fp = tmp_path / "task.json"
         task = TaskResource(
@@ -144,25 +144,25 @@ class TestParentChildFsRecord:
             id="proc-1",
             state=ProcessorStatus.RUNNING,
             worker_id="session-1",
-            parent_ref=FsRecordRef(id="task-1", type="task"),
+            parent_ref=RecordRef(id="task-1", type="task"),
         )
-        task.children_refs = [FsRecordRef.from_record(process)]
+        task.children_refs = [RecordRef.from_record(process)]
         task.save_record_json(fp)
 
-        loaded = FsRecord.init_record(fp)
+        loaded = Record.init_record(fp)
         assert loaded.id == "task-1"
         assert len(loaded.children_refs) == 1
         child_ref = loaded.children_refs[0]
-        assert isinstance(child_ref, FsRecordRef)
+        assert isinstance(child_ref, RecordRef)
         assert child_ref.id == "proc-1"
 
     def test_parent_ref_persists_through_file_io(self, tmp_path):
         fp = tmp_path / "record.json"
-        r = FsRecord(id="child-rec", parent_ref=FsRecordRef(id="parent-rec", type="session"))
+        r = Record(id="child-rec", parent_ref=RecordRef(id="parent-rec", type="session"))
         r.save_record_json(fp)
 
-        loaded = FsRecord.init_record(fp)
-        assert isinstance(loaded.parent_ref, FsRecordRef)
+        loaded = Record.init_record(fp)
+        assert isinstance(loaded.parent_ref, RecordRef)
         assert loaded.parent_ref.id == "parent-rec"
 
 
@@ -172,31 +172,31 @@ class TestParentChildFsRecord:
 
 class TestLiveParentProperty:
     def test_parent_returns_none_when_no_ref(self):
-        r = FsRecord(id="orphan")
+        r = Record(id="orphan")
         assert r.parent is None
 
     def test_parent_returns_none_when_no_record_path(self):
-        r = FsRecord(id="child", parent_ref=FsRecordRef(id="p", type="task"))
+        r = Record(id="child", parent_ref=RecordRef(id="p", type="task"))
         assert r.parent is None
 
     def test_parent_returns_none_when_file_missing(self):
-        r = FsRecord(
+        r = Record(
             id="child",
-            parent_ref=FsRecordRef(id="p", type="task", record_path="/nonexistent/p.json"),
+            parent_ref=RecordRef(id="p", type="task", record_path="/nonexistent/p.json"),
         )
         assert r.parent is None
 
     def test_parent_loads_from_disk(self, tmp_path):
         # Save parent in one folder
         parent_fp = tmp_path / "folder_a" / "parent.json"
-        parent = FsRecord(id="p", type="task", name="Parent Task")
+        parent = Record(id="p", type="task", name="Parent Task")
         parent.save_record_json(parent_fp)
 
         # Child in a different folder points to parent via record_path
-        child = FsRecord(
+        child = Record(
             id="c",
             type="process",
-            parent_ref=FsRecordRef(id="p", type="task", record_path=str(parent_fp)),
+            parent_ref=RecordRef(id="p", type="task", record_path=str(parent_fp)),
         )
 
         loaded_parent = child.parent
@@ -209,18 +209,18 @@ class TestLiveParentProperty:
         parent_fp = tmp_path / "projects" / "alpha" / "task.json"
         child_fp = tmp_path / "workers" / "beta" / "process.json"
 
-        parent = FsRecord(id="task-1", type="task", name="Alpha Task")
+        parent = Record(id="task-1", type="task", name="Alpha Task")
         parent.save_record_json(parent_fp)
 
-        child = FsRecord(
+        child = Record(
             id="proc-1",
             type="process",
-            parent_ref=FsRecordRef(id="task-1", type="task", record_path=str(parent_fp)),
+            parent_ref=RecordRef(id="task-1", type="task", record_path=str(parent_fp)),
         )
         child.save_record_json(child_fp)
 
         # Reload child from disk, then resolve parent
-        reloaded = FsRecord.init_record(child_fp)
+        reloaded = Record.init_record(child_fp)
         live_parent = reloaded.parent
         assert live_parent is not None
         assert live_parent.id == "task-1"
@@ -229,21 +229,21 @@ class TestLiveParentProperty:
 
 class TestLiveChildrenProperty:
     def test_children_empty_when_no_refs(self):
-        r = FsRecord(id="leaf")
+        r = Record(id="leaf")
         assert r.children == []
 
     def test_children_skips_refs_without_record_path(self):
-        r = FsRecord(
+        r = Record(
             id="p",
-            children_refs=[FsRecordRef(id="c1", type="step")],
+            children_refs=[RecordRef(id="c1", type="step")],
         )
         assert r.children == []
 
     def test_children_skips_missing_files(self):
-        r = FsRecord(
+        r = Record(
             id="p",
             children_refs=[
-                FsRecordRef(id="c1", type="step", record_path="/nonexistent/c1.json"),
+                RecordRef(id="c1", type="step", record_path="/nonexistent/c1.json"),
             ],
         )
         assert r.children == []
@@ -252,15 +252,15 @@ class TestLiveChildrenProperty:
         # Save two children in separate folders
         c1_fp = tmp_path / "steps" / "c1.json"
         c2_fp = tmp_path / "steps" / "c2.json"
-        FsRecord(id="c1", type="step", name="Step One").save_record_json(c1_fp)
-        FsRecord(id="c2", type="step", name="Step Two").save_record_json(c2_fp)
+        Record(id="c1", type="step", name="Step One").save_record_json(c1_fp)
+        Record(id="c2", type="step", name="Step Two").save_record_json(c2_fp)
 
-        parent = FsRecord(
+        parent = Record(
             id="p",
             type="session",
             children_refs=[
-                FsRecordRef(id="c1", type="step", record_path=str(c1_fp)),
-                FsRecordRef(id="c2", type="step", record_path=str(c2_fp)),
+                RecordRef(id="c1", type="step", record_path=str(c1_fp)),
+                RecordRef(id="c2", type="step", record_path=str(c2_fp)),
             ],
         )
 
@@ -274,22 +274,22 @@ class TestLiveChildrenProperty:
         """Each child record lives in a completely different directory tree."""
         c1_fp = tmp_path / "region_us" / "worker_a" / "step.json"
         c2_fp = tmp_path / "region_eu" / "worker_b" / "step.json"
-        FsRecord(id="c1", type="step", name="US Step").save_record_json(c1_fp)
-        FsRecord(id="c2", type="step", name="EU Step").save_record_json(c2_fp)
+        Record(id="c1", type="step", name="US Step").save_record_json(c1_fp)
+        Record(id="c2", type="step", name="EU Step").save_record_json(c2_fp)
 
         parent_fp = tmp_path / "orchestrator" / "session.json"
-        parent = FsRecord(
+        parent = Record(
             id="sess",
             type="session",
             children_refs=[
-                FsRecordRef(id="c1", type="step", record_path=str(c1_fp)),
-                FsRecordRef(id="c2", type="step", record_path=str(c2_fp)),
+                RecordRef(id="c1", type="step", record_path=str(c1_fp)),
+                RecordRef(id="c2", type="step", record_path=str(c2_fp)),
             ],
         )
         parent.save_record_json(parent_fp)
 
         # Reload parent from disk, then resolve children
-        reloaded = FsRecord.init_record(parent_fp)
+        reloaded = Record.init_record(parent_fp)
         kids = reloaded.children
         assert len(kids) == 2
         assert {k.name for k in kids} == {"US Step", "EU Step"}
@@ -297,14 +297,14 @@ class TestLiveChildrenProperty:
     def test_children_skips_missing_but_loads_existing(self, tmp_path):
         """Partial resolution: one child exists on disk, another doesn't."""
         c1_fp = tmp_path / "c1.json"
-        FsRecord(id="c1", type="step", name="Exists").save_record_json(c1_fp)
+        Record(id="c1", type="step", name="Exists").save_record_json(c1_fp)
 
-        parent = FsRecord(
+        parent = Record(
             id="p",
             children_refs=[
-                FsRecordRef(id="c1", type="step", record_path=str(c1_fp)),
-                FsRecordRef(id="c2", type="step", record_path="/gone/c2.json"),
-                FsRecordRef(id="c3", type="step"),  # no record_path
+                RecordRef(id="c1", type="step", record_path=str(c1_fp)),
+                RecordRef(id="c2", type="step", record_path="/gone/c2.json"),
+                RecordRef(id="c3", type="step"),  # no record_path
             ],
         )
 
@@ -315,14 +315,14 @@ class TestLiveChildrenProperty:
     def test_get_children_by_type_filters_children(self, tmp_path):
         c1_fp = tmp_path / "step.json"
         c2_fp = tmp_path / "process.json"
-        FsRecord(id="c1", type="step", name="Step One").save_record_json(c1_fp)
-        FsRecord(id="c2", type="process", name="Process One").save_record_json(c2_fp)
+        Record(id="c1", type="step", name="Step One").save_record_json(c1_fp)
+        Record(id="c2", type="process", name="Process One").save_record_json(c2_fp)
 
-        parent = FsRecord(
+        parent = Record(
             id="p",
             children_refs=[
-                FsRecordRef(id="c1", type="step", record_path=str(c1_fp)),
-                FsRecordRef(id="c2", type="process", record_path=str(c2_fp)),
+                RecordRef(id="c1", type="step", record_path=str(c1_fp)),
+                RecordRef(id="c2", type="process", record_path=str(c2_fp)),
             ],
         )
 
@@ -332,11 +332,11 @@ class TestLiveChildrenProperty:
 
     def test_get_children_by_type_returns_empty_when_no_matches(self, tmp_path):
         c1_fp = tmp_path / "step.json"
-        FsRecord(id="c1", type="step").save_record_json(c1_fp)
+        Record(id="c1", type="step").save_record_json(c1_fp)
 
-        parent = FsRecord(
+        parent = Record(
             id="p",
-            children_refs=[FsRecordRef(id="c1", type="step", record_path=str(c1_fp))],
+            children_refs=[RecordRef(id="c1", type="step", record_path=str(c1_fp))],
         )
 
         assert parent.get_children_by_type("process") == []
@@ -345,13 +345,13 @@ class TestLiveChildrenProperty:
 class TestAddChild:
     def test_add_child_from_record_adds_ref_and_resolves_child(self, tmp_path):
         child_fp = tmp_path / "workers" / "a" / "child.json"
-        child = FsRecord(id="c1", type="step", name="Child One")
+        child = Record(id="c1", type="step", name="Child One")
         child.save_record_json(child_fp)
 
-        parent = FsRecord(id="p", type="session")
+        parent = Record(id="p", type="session")
         added_ref = parent.add_child(child)
 
-        assert isinstance(added_ref, FsRecordRef)
+        assert isinstance(added_ref, RecordRef)
         assert len(parent.children_refs) == 1
         assert parent.children_refs[0].id == "c1"
         assert parent.children_refs[0].record_path == str(child_fp)
@@ -363,9 +363,9 @@ class TestAddChild:
 
     def test_add_child_from_ref_keeps_ref_only_and_does_not_create_child_file(self, tmp_path):
         missing_child_fp = tmp_path / "missing" / "child.json"
-        parent = FsRecord(id="p", type="session")
+        parent = Record(id="p", type="session")
 
-        parent.add_child(FsRecordRef(id="ghost", type="step", record_path=str(missing_child_fp)))
+        parent.add_child(RecordRef(id="ghost", type="step", record_path=str(missing_child_fp)))
 
         assert len(parent.children_refs) == 1
         assert parent.children_refs[0].id == "ghost"
@@ -374,29 +374,29 @@ class TestAddChild:
 
     def test_add_child_dedupes_same_child_by_id_and_type(self, tmp_path):
         child_fp = tmp_path / "child.json"
-        child = FsRecord(id="c1", type="step")
+        child = Record(id="c1", type="step")
         child.save_record_json(child_fp)
 
-        parent = FsRecord(id="p", type="session")
+        parent = Record(id="p", type="session")
         parent.add_child(child)
         parent.add_child(child)
-        parent.add_child(FsRecordRef(id="c1", type="step", record_path="/other/path.json"))
+        parent.add_child(RecordRef(id="c1", type="step", record_path="/other/path.json"))
 
         assert len(parent.children_refs) == 1
         assert parent.children_refs[0].record_path == str(child_fp)
 
     def test_add_child_persists_parent_when_parent_has_source_file(self, tmp_path):
         parent_fp = tmp_path / "orchestrator" / "session.json"
-        parent = FsRecord(id="p", type="session")
+        parent = Record(id="p", type="session")
         parent.save_record_json(parent_fp)
 
         child_fp = tmp_path / "steps" / "step.json"
-        child = FsRecord(id="c1", type="step")
+        child = Record(id="c1", type="step")
         child.save_record_json(child_fp)
 
         parent.add_child(child)
 
-        reloaded_parent = FsRecord.init_record(parent_fp)
+        reloaded_parent = Record.init_record(parent_fp)
         assert len(reloaded_parent.children_refs) == 1
         assert reloaded_parent.children_refs[0].id == "c1"
         assert reloaded_parent.children_refs[0].record_path == str(child_fp)
@@ -404,17 +404,17 @@ class TestAddChild:
     def test_add_child_with_children_all_over_folders(self, tmp_path):
         c1_fp = tmp_path / "region_us" / "worker_a" / "step.json"
         c2_fp = tmp_path / "region_eu" / "worker_b" / "step.json"
-        FsRecord(id="c1", type="step", name="US Step").save_record_json(c1_fp)
-        FsRecord(id="c2", type="step", name="EU Step").save_record_json(c2_fp)
+        Record(id="c1", type="step", name="US Step").save_record_json(c1_fp)
+        Record(id="c2", type="step", name="EU Step").save_record_json(c2_fp)
 
         parent_fp = tmp_path / "orchestrator" / "session.json"
-        parent = FsRecord(id="sess", type="session")
+        parent = Record(id="sess", type="session")
         parent.save_record_json(parent_fp)
 
-        parent.add_child(FsRecord.init_record(c1_fp))
-        parent.add_child(FsRecord.init_record(c2_fp))
+        parent.add_child(Record.init_record(c1_fp))
+        parent.add_child(Record.init_record(c2_fp))
 
-        reloaded_parent = FsRecord.init_record(parent_fp)
+        reloaded_parent = Record.init_record(parent_fp)
         kids = reloaded_parent.children
         assert len(kids) == 2
         assert {k.name for k in kids} == {"US Step", "EU Step"}
@@ -428,24 +428,24 @@ class TestLiveRoundTrip:
         child_fp = tmp_path / "processes" / "proc.json"
 
         # Create and save child first (so we know its path for the ref)
-        child = FsRecord(id="proc-1", type="process", name="Worker")
+        child = Record(id="proc-1", type="process", name="Worker")
         child.save_record_json(child_fp)
 
         # Create parent with ref pointing to saved child
-        parent = FsRecord(
+        parent = Record(
             id="task-1",
             type="task",
             name="Analysis",
-            children_refs=[FsRecordRef(id="proc-1", type="process", record_path=str(child_fp))],
+            children_refs=[RecordRef(id="proc-1", type="process", record_path=str(child_fp))],
         )
         parent.save_record_json(parent_fp)
 
         # Update child with ref pointing back to parent
-        child.parent_ref = FsRecordRef(id="task-1", type="task", record_path=str(parent_fp))
+        child.parent_ref = RecordRef(id="task-1", type="task", record_path=str(parent_fp))
         child.save_record_json()
 
         # Now verify: load parent → resolve children → from child resolve parent
-        loaded_parent = FsRecord.init_record(parent_fp)
+        loaded_parent = Record.init_record(parent_fp)
         kids = loaded_parent.children
         assert len(kids) == 1
         assert kids[0].id == "proc-1"

@@ -2,27 +2,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from typing import Any, ClassVar
 
-from flow_sdk.fs_store import FsRecord, SkillitRecordType
+from flow_sdk.fs_store import Record, SkillitRecordType
 
 
-@dataclass
-class SkillitSession(FsRecord):
-    """An agent session backed by FsRecord.
+class SkillitSession(Record):
+    """An agent session backed by Record.
 
     Each session is stored as
     ``~/.flow/records/skillit_session/skillit_session-@<id>/record.json``
     using the FOLDER storage layout.
     """
 
-    session_id: str = ""
-    cwd: str = ""
+    _record_type: ClassVar[str] = str(SkillitRecordType.SKILLIT_SESSION)
 
-    def __post_init__(self):
-        if not self.type:
-            self.type = SkillitRecordType.SKILLIT_SESSION
-        if self.session_id:
-            self.id = self.session_id
-            if not self.name:
-                self.name = self.session_id
+    def __init__(self, **kwargs: Any):
+        session_id = kwargs.get("session_id", "")
+        kwargs.setdefault("type", SkillitRecordType.SKILLIT_SESSION)
+        if session_id:
+            kwargs.setdefault("id", session_id)
+            kwargs.setdefault("name", session_id)
+        super().__init__(**kwargs)

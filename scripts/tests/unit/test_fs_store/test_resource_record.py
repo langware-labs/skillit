@@ -1,4 +1,4 @@
-"""Tests for ResourceRecord – pure data contract: serialization, uid, key-value access, naming, children."""
+"""Tests for Record – pure data contract: serialization, uid, key-value access, naming, children."""
 
 import uuid
 from dataclasses import dataclass, field
@@ -6,8 +6,8 @@ from datetime import datetime
 
 import pytest
 
-from flow_sdk.fs_store import FsRecordRef, ResourceRecord, Scope
-from flow_sdk.fs_store.resource_record import parse_record_stem, record_stem
+from flow_sdk.fs_store import RecordRef, Record, Scope
+from flow_sdk.fs_store import parse_record_stem, record_stem
 
 
 # ---------------------------------------------------------------------------
@@ -15,7 +15,7 @@ from flow_sdk.fs_store.resource_record import parse_record_stem, record_stem
 # ---------------------------------------------------------------------------
 
 @dataclass
-class CloudRecord(ResourceRecord):
+class CloudRecord(Record):
     uid_field_name = "entity_id"
     entity_id: str = field(default_factory=lambda: f"cloud-{uuid.uuid4().hex[:6]}")
 
@@ -26,7 +26,7 @@ class CloudRecord(ResourceRecord):
 
 class TestUid:
     def test_default_uid_is_id(self):
-        r = ResourceRecord(id="abc")
+        r = Record(id="abc")
         assert r.uid == "abc"
         assert r.uid_field_name == "id"
 
@@ -36,7 +36,7 @@ class TestUid:
         assert cr.uid == "eid-42"
 
     def test_uid_reflects_field_value(self):
-        r = ResourceRecord()
+        r = Record()
         original = r.uid
         r.id = "changed"
         assert r.uid == "changed"
@@ -66,7 +66,7 @@ class TestStemNaming:
             parse_record_stem("no_separator_here")
 
     def test_stem_property(self):
-        r = ResourceRecord(id="xyz", type="hook")
+        r = Record(id="xyz", type="hook")
         assert r.stem == "hook-@xyz"
 
     def test_stem_custom_uid(self):
@@ -80,7 +80,7 @@ class TestStemNaming:
 
 class TestSerialization:
     def test_to_dict_basic(self):
-        r = ResourceRecord(id="1", type="t", name="n")
+        r = Record(id="1", type="t", name="n")
         d = r.to_dict()
         assert d["id"] == "1"
         assert d["type"] == "t"
@@ -89,49 +89,49 @@ class TestSerialization:
 
     def test_to_dict_datetime_iso(self):
         dt = datetime(2025, 1, 15, 12, 0, 0)
-        r = ResourceRecord(created_at=dt)
+        r = Record(created_at=dt)
         d = r.to_dict()
         assert d["created_at"] == "2025-01-15T12:00:00"
 
     def test_to_dict_scope_enum_value(self):
-        r = ResourceRecord(scope=Scope.PROJECT)
+        r = Record(scope=Scope.PROJECT)
         assert r.to_dict()["scope"] == "project"
 
     def test_to_dict_raw_json_merged(self):
-        r = ResourceRecord(raw_json={"custom": 42})
+        r = Record(raw_json={"custom": 42})
         d = r.to_dict()
         assert d["custom"] == 42
         assert "raw_json" not in d
 
     def test_from_dict_round_trip(self):
-        r = ResourceRecord(
+        r = Record(
             id="1", type="t", name="n",
             scope=Scope.PROJECT,
             created_at=datetime(2025, 6, 1),
             raw_json={"tag": "v"},
         )
         d = r.to_dict()
-        r2 = ResourceRecord.from_dict(d)
+        r2 = Record.from_dict(d)
         assert r2.id == "1"
         assert r2.scope == Scope.PROJECT
         assert isinstance(r2.created_at, datetime)
         assert r2.raw_json["tag"] == "v"
 
     def test_from_dict_unknown_keys_to_raw_json(self):
-        r = ResourceRecord.from_dict({"name": "x", "foo": "bar", "baz": 1})
+        r = Record.from_dict({"name": "x", "foo": "bar", "baz": 1})
         assert r.name == "x"
         assert r.raw_json == {"foo": "bar", "baz": 1}
 
     def test_from_dict_scope_coercion(self):
-        r = ResourceRecord.from_dict({"scope": "local"})
+        r = Record.from_dict({"scope": "local"})
         assert r.scope == Scope.LOCAL
 
     def test_from_dict_scope_unknown_string(self):
-        r = ResourceRecord.from_dict({"scope": "custom_scope"})
+        r = Record.from_dict({"scope": "custom_scope"})
         assert r.scope == "custom_scope"
 
     def test_from_dict_datetime_string_coercion(self):
-        r = ResourceRecord.from_dict({"created_at": "2025-03-01T10:00:00"})
+        r = Record.from_dict({"created_at": "2025-03-01T10:00:00"})
         assert isinstance(r.created_at, datetime)
         assert r.created_at.year == 2025
 
@@ -147,50 +147,50 @@ class TestSerialization:
 
 class TestKeyValueAccess:
     def test_getitem_known_field(self):
-        r = ResourceRecord(name="hello")
+        r = Record(name="hello")
         assert r["name"] == "hello"
 
     def test_getitem_raw_json(self):
-        r = ResourceRecord(raw_json={"custom": 99})
+        r = Record(raw_json={"custom": 99})
         assert r["custom"] == 99
 
     def test_getitem_missing_raises(self):
-        r = ResourceRecord()
+        r = Record()
         with pytest.raises(KeyError):
             r["nonexistent"]
 
     def test_setitem_known_field(self):
-        r = ResourceRecord()
+        r = Record()
         r["name"] = "updated"
         assert r.name == "updated"
 
     def test_setitem_raw_json(self):
-        r = ResourceRecord()
+        r = Record()
         r["custom_key"] = "custom_val"
         assert r.raw_json["custom_key"] == "custom_val"
 
     def test_delitem(self):
-        r = ResourceRecord(raw_json={"k": "v"})
+        r = Record(raw_json={"k": "v"})
         del r["k"]
         assert "k" not in r.raw_json
 
     def test_delitem_known_field_raises(self):
-        r = ResourceRecord()
+        r = Record()
         with pytest.raises(KeyError):
             del r["name"]
 
     def test_contains_known(self):
-        r = ResourceRecord()
+        r = Record()
         assert "name" in r
         assert "id" in r
 
     def test_contains_raw_json(self):
-        r = ResourceRecord(raw_json={"tag": 1})
+        r = Record(raw_json={"tag": 1})
         assert "tag" in r
         assert "missing" not in r
 
     def test_keys(self):
-        r = ResourceRecord(raw_json={"x": 1, "y": 2})
+        r = Record(raw_json={"x": 1, "y": 2})
         k = r.keys()
         assert "id" in k
         assert "name" in k
@@ -200,33 +200,33 @@ class TestKeyValueAccess:
 
 
 # ---------------------------------------------------------------------------
-# Children refs (FsRecordRef list)
+# Children refs (RecordRef list)
 # ---------------------------------------------------------------------------
 
 class TestChildrenRefs:
     def test_no_children_by_default(self):
-        r = ResourceRecord()
+        r = Record()
         assert r.children_refs == []
 
     def test_add_children_refs(self):
-        parent = ResourceRecord(id="p", type="folder", name="parent")
+        parent = Record(id="p", type="folder", name="parent")
         parent.children_refs = [
-            FsRecordRef(id="c1", type="file"),
-            FsRecordRef(id="c2", type="file"),
+            RecordRef(id="c1", type="file"),
+            RecordRef(id="c2", type="file"),
         ]
         assert len(parent.children_refs) == 2
         assert parent.children_refs[0].id == "c1"
 
     def test_to_dict_excludes_empty_children(self):
-        r = ResourceRecord(id="no-kids")
+        r = Record(id="no-kids")
         d = r.to_dict()
         assert "children" not in d
 
     def test_to_dict_includes_children(self):
-        parent = ResourceRecord(id="p", type="folder")
+        parent = Record(id="p", type="folder")
         parent.children_refs = [
-            FsRecordRef(id="c1", type="file"),
-            FsRecordRef(id="c2", type="file"),
+            RecordRef(id="c1", type="file"),
+            RecordRef(id="c2", type="file"),
         ]
         d = parent.to_dict()
         assert "children" in d
@@ -242,79 +242,79 @@ class TestChildrenRefs:
                 {"id": "c2", "type": "file"},
             ],
         }
-        r = ResourceRecord.from_dict(data)
+        r = Record.from_dict(data)
         assert len(r.children_refs) == 2
-        assert isinstance(r.children_refs[0], FsRecordRef)
+        assert isinstance(r.children_refs[0], RecordRef)
         assert r.children_refs[0].id == "c1"
 
     def test_from_dict_no_children_key(self):
-        r = ResourceRecord.from_dict({"id": "solo"})
+        r = Record.from_dict({"id": "solo"})
         assert r.children_refs == []
 
     def test_children_round_trip(self):
-        parent = ResourceRecord(id="p", type="folder", scope=Scope.PROJECT)
+        parent = Record(id="p", type="folder", scope=Scope.PROJECT)
         parent.children_refs = [
-            FsRecordRef(id="c1", type="file", record_path="/tmp/c1.json"),
+            RecordRef(id="c1", type="file", record_path="/tmp/c1.json"),
         ]
         d = parent.to_dict()
-        r2 = ResourceRecord.from_dict(d)
+        r2 = Record.from_dict(d)
         assert len(r2.children_refs) == 1
         c = r2.children_refs[0]
-        assert isinstance(c, FsRecordRef)
+        assert isinstance(c, RecordRef)
         assert c.id == "c1"
         assert c.record_path == "/tmp/c1.json"
 
     def test_children_refs_are_flat(self):
-        """Children are FsRecordRef — they don't embed full record data."""
-        parent = ResourceRecord(id="p", type="folder")
-        parent.children_refs = [FsRecordRef(id="c", type="file")]
+        """Children are RecordRef — they don't embed full record data."""
+        parent = Record(id="p", type="folder")
+        parent.children_refs = [RecordRef(id="c", type="file")]
         d = parent.to_dict()
         child_dict = d["children"][0]
         assert set(child_dict.keys()) == {"id", "type"}
 
     def test_children_with_record_path(self):
-        ref = FsRecordRef(id="c", type="file", record_path="/data/c.json")
-        parent = ResourceRecord(id="p", children_refs=[ref])
+        ref = RecordRef(id="c", type="file", record_path="/data/c.json")
+        parent = Record(id="p", children_refs=[ref])
         d = parent.to_dict()
         assert d["children"][0]["record_path"] == "/data/c.json"
 
 
 # ---------------------------------------------------------------------------
-# Parent ref (FsRecordRef)
+# Parent ref (RecordRef)
 # ---------------------------------------------------------------------------
 
 class TestParentRef:
     def test_parent_ref_defaults_to_none(self):
-        r = ResourceRecord()
+        r = Record()
         assert r.parent_ref is None
 
     def test_parent_ref_round_trip(self):
-        r = ResourceRecord(id="child-1", parent_ref=FsRecordRef(id="parent-1", type="task"))
+        r = Record(id="child-1", parent_ref=RecordRef(id="parent-1", type="task"))
         d = r.to_dict()
         assert d["parent"] == {"id": "parent-1", "type": "task"}
-        r2 = ResourceRecord.from_dict(d)
-        assert isinstance(r2.parent_ref, FsRecordRef)
+        r2 = Record.from_dict(d)
+        assert isinstance(r2.parent_ref, RecordRef)
         assert r2.parent_ref.id == "parent-1"
         assert r2.parent_ref.type == "task"
 
     def test_parent_ref_coexists_with_children_refs(self):
-        r = ResourceRecord(
+        r = Record(
             id="mid",
             type="node",
-            parent_ref=FsRecordRef(id="root", type="root"),
-            children_refs=[FsRecordRef(id="leaf", type="leaf")],
+            parent_ref=RecordRef(id="root", type="root"),
+            children_refs=[RecordRef(id="leaf", type="leaf")],
         )
         d = r.to_dict()
         assert d["parent"]["id"] == "root"
         assert len(d["children"]) == 1
-        r2 = ResourceRecord.from_dict(d)
+        r2 = Record.from_dict(d)
         assert r2.parent_ref.id == "root"
         assert r2.children_refs[0].id == "leaf"
 
     def test_backward_compat_parent_id_string(self):
-        """Old serialized data with parent_id string should deserialize to FsRecordRef."""
+        """Old serialized data with parent_id string should deserialize to RecordRef."""
         data = {"id": "child-1", "parent_id": "parent-1"}
-        r = ResourceRecord.from_dict(data)
-        assert isinstance(r.parent_ref, FsRecordRef)
+        r = Record.from_dict(data)
+        assert isinstance(r.parent_ref, RecordRef)
         assert r.parent_ref.id == "parent-1"
         assert r.parent_ref.type == ""

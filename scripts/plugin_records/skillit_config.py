@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from typing import Any, ClassVar
 
-from flow_sdk.fs_store import FsRecord, SkillitRecordType
+from flow_sdk.fs_store import Record, SkillitRecordType
 
 
-@dataclass
-class SkillitConfig(FsRecord):
+class SkillitConfig(Record):
     """Persistent configuration record.
 
     Stored at ``~/.flow/records/skillit_config/record.json``.
     """
 
-    user_rules_enabled: bool = True
+    _record_type: ClassVar[str] = str(SkillitRecordType.SKILLIT_CONFIG)
 
-    def __post_init__(self):
-        if not self.type:
-            self.type = SkillitRecordType.SKILLIT_CONFIG
-        if not self.name:
-            self.name = "skillit_config"
+    def __init__(self, **kwargs: Any):
+        kwargs.setdefault("type", SkillitRecordType.SKILLIT_CONFIG)
+        kwargs.setdefault("name", "skillit_config")
+        kwargs.setdefault("user_rules_enabled", True)
+        super().__init__(**kwargs)

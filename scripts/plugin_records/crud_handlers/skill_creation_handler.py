@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from flow_sdk.fs_store import FsRecordRef, ResourceStatus, ResourceType, SyncOperation
+from flow_sdk.fs_store import RecordRef, RecordStatus, ResourceType, SyncOperation
 from flow_sdk.fs_store.record_types import RecordType
 from flow_sdk.discovery.notify import send_entity_sync
 from flow_sdk.fs_records import (
@@ -62,11 +62,11 @@ class SkillCreationHandler:
         process = AgenticProcess(
             state=ProcessorStatus.RUNNING,
             worker_id=session_id,
-            parent_ref=FsRecordRef(id=task_id, type=RecordType.TASK),
+            parent_ref=RecordRef(id=task_id, type=RecordType.TASK),
         )
-        child_ref = FsRecordRef.from_record(process)
+        child_ref = RecordRef.from_record(process)
         relationship = RelationshipRecord.child(
-            from_ref=FsRecordRef(id=task_id, type=RecordType.TASK),
+            from_ref=RecordRef(id=task_id, type=RecordType.TASK),
             to_ref=child_ref,
         )
 
@@ -75,8 +75,8 @@ class SkillCreationHandler:
 
         # Also save process and relationship to session record
         session_record = session.record_dir / "record.json"
-        from flow_sdk.fs_store import FsRecord
-        rec = FsRecord.init_record(session_record)
+        from flow_sdk.fs_store import Record
+        rec = Record.init_record(session_record)
         # Save task under a skill-specific key so multiple skills per session don't collide
         task_key = f"task:{folder_name}"
         rec[task_key] = task.to_dict()
@@ -98,7 +98,7 @@ class SkillCreationHandler:
         dispatched via entity_crud to avoid duplicate invocations.
         """
         skill_log(f"SkillCreationHandler on_update called for session {session_id}, record_type {record_type}, status {entity.get('status')}")
-        if entity.get("status") != ResourceStatus.NEW:
+        if entity.get("status") != RecordStatus.NEW:
             skill_log(f"on_update: status is {entity.get('status')!r}, not 'new' — skipping")
             return
 
@@ -110,9 +110,9 @@ class SkillCreationHandler:
         task_key = f"task:{folder_name}"
 
         try:
-            from flow_sdk.fs_store import FsRecord
+            from flow_sdk.fs_store import Record
 
-            session_record = FsRecord.init_record(session.record_dir / "record.json")
+            session_record = Record.init_record(session.record_dir / "record.json")
             if task_key not in session_record:
                 skill_log(f"on_update: '{task_key}' not found in session record — skipping")
                 return

@@ -1,13 +1,13 @@
 """Tests for RelationshipRecord."""
 
-from flow_sdk.fs_store import FsRecordRef
+from flow_sdk.fs_store import RecordRef
 from flow_sdk.fs_records import RelationshipRecord, RelationshipType
 
 
 class TestRelationshipRecord:
     def test_child_factory_sets_type_and_id(self):
-        from_ref = FsRecordRef(id="task-1", type="task")
-        to_ref = FsRecordRef(id="proc-1", type="agentic_process")
+        from_ref = RecordRef(id="task-1", type="task")
+        to_ref = RecordRef(id="proc-1", type="agentic_process")
 
         rel = RelationshipRecord.child(from_ref=from_ref, to_ref=to_ref)
 
@@ -20,8 +20,8 @@ class TestRelationshipRecord:
         rel = RelationshipRecord(
             id="r1",
             type=RelationshipType.CHILD,
-            from_ref=FsRecordRef(id="task-1", type="task"),
-            to_ref=FsRecordRef(id="proc-1", type="agentic_process"),
+            from_ref=RecordRef(id="task-1", type="task"),
+            to_ref=RecordRef(id="proc-1", type="agentic_process"),
         )
 
         data = rel.to_dict()
@@ -38,7 +38,7 @@ class TestRelationshipRecord:
         }
 
         rel = RelationshipRecord.from_dict(data)
-        assert isinstance(rel.from_ref, FsRecordRef)
-        assert isinstance(rel.to_ref, FsRecordRef)
+        assert isinstance(rel.from_ref, RecordRef)
+        assert isinstance(rel.to_ref, RecordRef)
         assert rel.from_ref.id == "task-1"
         assert rel.to_ref.id == "proc-1"

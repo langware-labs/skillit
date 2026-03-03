@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from flow_sdk.fs_store import FsRecord, ResourceRecordList, StorageLayout
+from flow_sdk.fs_store import Record, ResourceRecordList, StorageLayout
 
 
 # ---------------------------------------------------------------------------
@@ -13,7 +13,7 @@ from flow_sdk.fs_store import FsRecord, ResourceRecordList, StorageLayout
 # ---------------------------------------------------------------------------
 
 @dataclass
-class TestRecord(FsRecord):
+class TestRecord(Record):
     """Minimal typed record for tests."""
     def __post_init__(self):
         if not self.type:
@@ -21,7 +21,7 @@ class TestRecord(FsRecord):
 
 
 @dataclass
-class TaggedRecord(FsRecord):
+class TaggedRecord(Record):
     """Record with a custom uid field."""
     uid_field_name = "tag_id"
     tag_id: str = field(default="")

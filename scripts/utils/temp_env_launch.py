@@ -2,20 +2,20 @@
 
 from tests.test_utils.hook_environment import TestPluginProjectEnvironment, SKILLIT_ROOT
 
-SKILLIT_AGENT = SKILLIT_ROOT / "agents" / "skillit-agent.md"
+SKILLIT_ANALYZER = SKILLIT_ROOT / "agents" / "skillit-analyzer.md"
 
 
 def simple_terminal_launch():
     """Launch a terminal in a temporary HookTestEnvironment."""
     env = TestPluginProjectEnvironment()
-    env.load_agent("skillit-agent")
+    env.load_agent("skillit-analyzer")
     result = env.launch_claude("What agents do I have loaded?", False)
-    assert result == SKILLIT_AGENT
+    assert result == SKILLIT_ANALYZER
 
 def claude_system_prompt():
-    """Launch a terminal with the skillit agent as CLAUDE.md system prompt."""
+    """Launch a terminal with the skillit analyzer agent as CLAUDE.md system prompt."""
     env = TestPluginProjectEnvironment()
-    env.load_system_prompt(SKILLIT_AGENT)
+    env.load_system_prompt(SKILLIT_ANALYZER)
     print(f"Environment set up at: {env.path}")
     env.open_terminal()
 
@@ -46,4 +46,4 @@ def run_last_activation():
 
 if __name__ == "__main__":
     # print(full_env_launch_claude("List my jira tickets", terminal=False))
-    simple_terminal_launch()
+    full_env_launch()
