@@ -30,7 +30,7 @@ def test_mcp_connect():
         capture_output=True,
         text=True,
         timeout=60,
-        env=env._build_env(),
+        env=env.build_env(),
     )
 
     print(f"\nExit code: {result.returncode}")
@@ -68,7 +68,7 @@ def test_mcp_interactive():
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        env=env._build_env(),
+        env=env.build_env(),
     )
 
     stdout_parts = []

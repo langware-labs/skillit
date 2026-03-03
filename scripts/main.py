@@ -50,8 +50,8 @@ def _emit_hook_output(output: dict) -> None:
 
 
 def _dump_stdin(raw: str) -> None:
-    """Write raw stdin content to the path specified by SKILLIT_DUMP_STDIN."""
-    dump_path = os.environ.get("SKILLIT_DUMP_STDIN")
+    """Write raw stdin content to the dump path env var."""
+    dump_path = os.environ.get("CLAUDE_PLUGIN_DUMP_STDIN") or os.environ.get("SKILLIT_DUMP_STDIN")
     if not dump_path:
         return
     try:
