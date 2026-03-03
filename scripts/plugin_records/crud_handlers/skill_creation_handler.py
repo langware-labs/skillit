@@ -158,6 +158,7 @@ class SkillCreationHandler:
                 skill_log(f"  checking {child.name}: is_dir={child.is_dir()}, has_SKILL.md={has_skill_md}")
                 if has_skill_md:
                     skill = SkillRecord.init_record(child)
+                    skill_log(f"  skill.name={skill.name!r}, skill.id={skill.id!r}, folder={child.name!r}")
                     if scope == "project" and session.cwd:
                         dest = skill.copy_to_project(session.cwd)
                     else:
@@ -171,7 +172,8 @@ class SkillCreationHandler:
 
             skill_log(f"Completed skill creation task for session {session_id}")
         except Exception as e:
-            skill_log(f"Failed to complete skill creation task: {e}")
+            import traceback
+            skill_log(f"Failed to complete skill creation task: {e}\n{traceback.format_exc()}")
 
 
 skill_creation_handler = SkillCreationHandler()

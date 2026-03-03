@@ -40,7 +40,9 @@ def handle(data: dict, rules_output: dict) -> dict | None:
         return rules_output or None
 
     output_dir = session.output_dir
+    skill_log(f"subagent_stop: output_dir={output_dir}, exists={output_dir.exists()}")
     skill_folders = _get_ready_skill_folders(output_dir)
+    skill_log(f"subagent_stop: found skill folders: {skill_folders}")
     if not skill_folders:
         skill_log(f"subagent_stop: no ready skills in {output_dir}, skipping (agent likely still in progress)")
         return rules_output or None
