@@ -9,6 +9,15 @@ from .hook_environment import (
     make_env,
 )
 
+from .cli_flow_helpers import (
+    TRANSCRIPT_PATH,
+    ACLI_SESSION_ID,
+    LONG_SESSION_ID,
+    LONG_SESSION_ANAYSIS_ID,
+    analyze_hook,
+    create_skill,
+)
+
 __all__ = [
     "TestPluginProjectEnvironment",
     "LaunchMode",
@@ -16,4 +25,10 @@ __all__ = [
     "RulesPackage",
     "ClaudeTranscript",
     "make_env",
+    "TRANSCRIPT_PATH",
+    "ACLI_SESSION_ID",
+    "LONG_SESSION_ID",
+    "LONG_SESSION_ANAYSIS_ID",
+    "analyze_hook",
+    "create_skill",
 ]

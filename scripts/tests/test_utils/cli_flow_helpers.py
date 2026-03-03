@@ -1,4 +1,8 @@
-"""Shared constants and helpers for CLI tests."""
+"""Shared constants and helpers for CLI integration tests.
+
+Provides test transcript paths, session IDs, and orchestration helpers
+(analyze_hook, create_skill) used across CLI test modules.
+"""
 
 from pathlib import Path
 

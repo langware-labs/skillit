@@ -8,7 +8,7 @@ from subagents.agent_manager import SubAgent, get_subagent_launch_prompt
 from utils.log import skill_log_print
 from flow_sdk.fs_records import TaskStatus
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
-from tests.cli.shared import TRANSCRIPT_PATH, ACLI_SESSION_ID, analyze_hook, create_skill, LONG_SESSION_ID
+from tests.test_utils import TRANSCRIPT_PATH, ACLI_SESSION_ID, analyze_hook, create_skill, LONG_SESSION_ID
 
 
 def analyze(session_id, env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str | None:

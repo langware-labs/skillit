@@ -1,6 +1,6 @@
 from flow_sdk.fs_records.claude import ClaudeRootFsRecord
 from scripts.tests.test_utils import make_env, LaunchMode
-from scripts.tests.cli.shared import ACLI_SESSION_ID
+from scripts.tests.test_utils import ACLI_SESSION_ID
 
 DEBUG_FILE = __import__("pathlib").Path(__file__).parent / "analyze_debug.log"
 
