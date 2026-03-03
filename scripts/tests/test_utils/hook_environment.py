@@ -96,7 +96,6 @@ class TestPluginProjectEnvironment(ClaudeProjectEnvManager):
 def make_env() -> TestPluginProjectEnvironment:
     """Create a test environment with all required agents loaded."""
     env = TestPluginProjectEnvironment()
-    env.load_agent(SubAgent.MAIN_AGENT)
     env.load_agent(SubAgent.ANALYZE)
     skill_log_clear()
     return env

@@ -1,29 +1,29 @@
-"""Tests for FsRecord fs_sync — auto-persist on attribute/item changes."""
+"""Tests for Record fs_sync — auto-persist on attribute/item changes."""
 
 import json
 
-from flow_sdk.fs_store import FsRecord
+from flow_sdk.fs_store import Record
 
 
 class TestFsSyncDefault:
     def test_fs_sync_defaults_to_false(self):
-        r = FsRecord(id="x")
+        r = Record(id="x")
         assert r.fs_sync is False
 
     def test_fs_sync_false_does_not_persist(self, tmp_path):
         fp = tmp_path / "rec.json"
-        r = FsRecord.init_record(fp)
+        r = Record.init_record(fp)
         r.name = "changed"
         assert not fp.exists()
 
     def test_fs_sync_excluded_from_to_dict(self):
-        r = FsRecord(id="x", fs_sync=True)
+        r = Record(id="x", fs_sync=True)
         d = r.to_dict()
         assert "fs_sync" not in d
 
     def test_fs_sync_excluded_from_json_output(self, tmp_path):
         fp = tmp_path / "rec.json"
-        r = FsRecord(id="x")
+        r = Record(id="x")
         r.save_record_json(fp)
         r.fs_sync = True
         r.name = "trigger"
@@ -34,7 +34,7 @@ class TestFsSyncDefault:
 class TestFsSyncAutoSave:
     def test_setattr_triggers_persist(self, tmp_path):
         fp = tmp_path / "rec.json"
-        r = FsRecord.init_record(fp)
+        r = Record.init_record(fp)
         r.save_record_json(fp)
         r.fs_sync = True
         r.name = "auto-saved"
@@ -43,7 +43,7 @@ class TestFsSyncAutoSave:
 
     def test_setitem_raw_json_triggers_persist(self, tmp_path):
         fp = tmp_path / "rec.json"
-        r = FsRecord.init_record(fp)
+        r = Record.init_record(fp)
         r.save_record_json(fp)
         r.fs_sync = True
         r["custom_key"] = "custom_val"
@@ -51,7 +51,7 @@ class TestFsSyncAutoSave:
         assert data["custom_key"] == "custom_val"
 
     def test_no_persist_without_source_file(self, tmp_path):
-        r = FsRecord(id="no-file")
+        r = Record(id="no-file")
         r.fs_sync = True
         r.source_file = None
         # Should not raise — just skip persist
@@ -59,7 +59,7 @@ class TestFsSyncAutoSave:
 
     def test_source_file_change_does_not_trigger_persist(self, tmp_path):
         fp = tmp_path / "rec.json"
-        r = FsRecord(id="x")
+        r = Record(id="x")
         r.save_record_json(fp)
         r.fs_sync = True
         # Changing source_file itself should not re-persist
@@ -68,7 +68,7 @@ class TestFsSyncAutoSave:
 
     def test_path_change_does_not_trigger_persist(self, tmp_path):
         fp = tmp_path / "rec.json"
-        r = FsRecord.init_record(fp)
+        r = Record.init_record(fp)
         r.save_record_json(fp)
         original = fp.read_text()
         r.fs_sync = True
@@ -77,7 +77,7 @@ class TestFsSyncAutoSave:
 
     def test_private_attrs_do_not_trigger_persist(self, tmp_path):
         fp = tmp_path / "rec.json"
-        r = FsRecord.init_record(fp)
+        r = Record.init_record(fp)
         r.save_record_json(fp)
         original = fp.read_text()
         r.fs_sync = True
@@ -86,7 +86,7 @@ class TestFsSyncAutoSave:
 
     def test_multiple_changes_persist_each(self, tmp_path):
         fp = tmp_path / "rec.json"
-        r = FsRecord.init_record(fp)
+        r = Record.init_record(fp)
         r.save_record_json(fp)
         r.fs_sync = True
         r.name = "first"

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import plugin_records
-from flow_sdk.fs_store import FsRecordRef, ResourceType, SyncOperation
+from flow_sdk.fs_store import RecordRef, ResourceType, SyncOperation
 from flow_sdk.fs_store.record_types import RecordType
 from plugin_records import skillit_records
 from utils.log import skill_log
@@ -63,11 +63,11 @@ def start_new_analysis(session_id: str) -> AnalysisResources | None:
     process = AgenticProcess(
         state=ProcessorStatus.RUNNING,
         worker_id=session_id,
-        parent_ref=FsRecordRef(id=task_id, type=RecordType.TASK),
+        parent_ref=RecordRef(id=task_id, type=RecordType.TASK),
     )
-    child_ref = FsRecordRef.from_record(process)
+    child_ref = RecordRef.from_record(process)
     relationship = RelationshipRecord.child(
-        from_ref=FsRecordRef(id=task_id, type=RecordType.TASK),
+        from_ref=RecordRef(id=task_id, type=RecordType.TASK),
         to_ref=child_ref,
     )
 
