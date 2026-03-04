@@ -8,7 +8,7 @@ from subagents.agent_manager import SubAgent, get_subagent_launch_prompt
 from utils.log import skill_log_print
 from flow_sdk.fs_records import TaskStatus
 from tests.test_utils import TestPluginProjectEnvironment, ClaudeTranscript, LaunchMode, make_env
-from tests.cli.shared import TRANSCRIPT_PATH, ACLI_SESSION_ID, analyze_hook, create_skill, LONG_SESSION_ID
+from tests.test_utils import TRANSCRIPT_PATH, ACLI_SESSION_ID, analyze_hook, create_skill, LONG_SESSION_ID
 
 
 def analyze(session_id, env: TestPluginProjectEnvironment, mode: LaunchMode = LaunchMode.HEADLESS) -> str | None:
@@ -103,10 +103,10 @@ def test_create_skill_stub():
     skill_creation_handler.on_update(session_id, session, "skill", {"status": "new", "folder_name": skill_name})
     # Task completion is verified by loading from disk
     from flow_sdk.fs_records import TaskResource
-    from flow_sdk.fs_store import FsRecord
+    from flow_sdk.fs_store import Record
 
     task_key = f"task:{skill_name}"
-    session_record = FsRecord.init_record(session.record_dir / "record.json")
+    session_record = Record.init_record(session.record_dir / "record.json")
     task_data = session_record[task_key] if task_key in session_record else None
     assert task_data is not None, "Task data not found in session record"
 
@@ -190,9 +190,9 @@ def test_skill_creation_via_entity_crud():
     time.sleep(2)  # give FlowPad time to render
 
     # Verify task was created
-    from flow_sdk.fs_store import FsRecord
+    from flow_sdk.fs_store import Record
     from flow_sdk.fs_records import TaskResource
-    session_record = FsRecord.init_record(session.record_dir / "record.json")
+    session_record = Record.init_record(session.record_dir / "record.json")
     task_data = session_record["task"] if "task" in session_record else None
     assert task_data is not None, "Task should be created when skill entity is created"
 
@@ -212,7 +212,7 @@ def test_skill_creation_via_entity_crud():
     time.sleep(1)
 
     # Verify task was completed
-    session_record = FsRecord.init_record(session.record_dir / "record.json")
+    session_record = Record.init_record(session.record_dir / "record.json")
     task_data = session_record["task"]
     task = TaskResource.from_dict(task_data)
     assert task.status == TaskStatus.DONE

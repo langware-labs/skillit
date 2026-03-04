@@ -4,7 +4,7 @@ from hook_handlers.analysis import start_new_analysis, complete_analysis
 from utils.log import skill_log_print, skill_log_clear
 from plugin_records.skillit_records import skillit_records
 from tests.test_utils import LaunchMode, make_env
-from tests.cli.shared import analyze_hook
+from tests.test_utils import analyze_hook
 
 
 def test_mcp_session_id_injection():

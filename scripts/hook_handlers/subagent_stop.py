@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from flow_sdk.fs_store import ResourceStatus
+from flow_sdk.fs_store import RecordStatus
 from flow_sdk.fs_store.record_types import RecordType
 from plugin_records.crud_handlers.skill_creation_handler import SkillCreationHandler
 from plugin_records.skillit_records import skillit_records
@@ -40,13 +40,15 @@ def handle(data: dict, rules_output: dict) -> dict | None:
         return rules_output or None
 
     output_dir = session.output_dir
+    skill_log(f"subagent_stop: output_dir={output_dir}, exists={output_dir.exists()}")
     skill_folders = _get_ready_skill_folders(output_dir)
+    skill_log(f"subagent_stop: found skill folders: {skill_folders}")
     if not skill_folders:
         skill_log(f"subagent_stop: no ready skills in {output_dir}, skipping (agent likely still in progress)")
         return rules_output or None
 
     for folder_name in skill_folders:
-        entity = {"type": RecordType.SKILL, "status": ResourceStatus.NEW, "folder_name": folder_name}
+        entity = {"type": RecordType.SKILL, "status": RecordStatus.NEW, "folder_name": folder_name}
         SkillCreationHandler.on_update(session_id, session, RecordType.SKILL, entity)
 
     return rules_output or None
