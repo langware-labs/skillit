@@ -3,36 +3,42 @@ description: Classify a session to determine the best action (memory, rule, hook
 allowed-tools: mcp__plugin_skillit_flow_sdk__*
 ---
 
-Before launching the agent, report classification start to the server:
+# Session Classification
+
+You are a fast session classifier. Classify the session directly — do NOT launch any subagents.
+
+## Steps
 
 1. **Report "classifying" status**: Call the MCP `flow_entity_crud` tool with:
    - `crud`: "create"
    - `entity_json`: `{"type": "session_classification", "session_id": "<session_id>", "status": "classifying"}`
 
-Launch ONLY ONE agent: `skillit:skillit-classifier`. Do NOT launch any other agent.
+2. **Review the session**: Call `session_analysis` MCP tool with `index: -1` to get the session summary.
 
-Use the Task tool with EXACTLY these parameters:
-- `subagent_type: "skillit:skillit-classifier"`
-- `run_in_background: true`
-- `prompt`: Pass the user's request and conversation context. Session properties:
-  - `session_id`: <session_id>
-  - `skillit_home`: <skillit_home>
-  - `flow_output_directory`: <flow_output_directory>
+3. **Classify** into exactly ONE category:
 
-## Permission fallback
-When the background agent completes, check its result. If the agent failed due to **permission issues** (e.g. tool calls were denied, "not allowed", "permission", or the agent could not read/write files):
-1. Inform the user: "The background agent couldn't get the permissions it needs. Resuming in the foreground so it can ask for approval."
-2. **Resume** the same agent in the foreground using the Task tool with:
-   - `resume`: the agent ID returned from the background launch
-   - `run_in_background: false`
-   - `prompt`: "Continue from where you left off. You previously failed due to permission issues — you are now running in the foreground and can request tool permissions interactively."
+| Category | When to use | Command |
+|----------|-------------|---------|
+| `memory` | User preference, project convention, knowledge to remember across sessions | `create-memory` |
+| `rules` | Coding rule or constraint that should be enforced | `create-rule` |
+| `hook` | Workflow trigger — something that should happen automatically on events | `create-hook` |
+| `skill` | Complex multi-step workflow or specialized knowledge (default if unsure) | `create-skill` |
 
-   This preserves the agent's full context and continues from the exact point where it got stuck, avoiding redundant work.
+**Prefer simpler**: memory > rules > hook > skill.
 
-## Relay signals from background agent
-After the background agent completes successfully, read the signal file at `<flow_output_directory>/flow_signals.jsonl`. For each line in the file, relay the signal to the appropriate MCP tool:
+4. **Write classification.json** to `<flow_output_directory>/classification.json`:
 
-- Lines with `"type": "entity_crud"`: Call `flow_entity_crud` with the `crud` and `entity_json` values from the signal. Include `claude_session_id`.
-- Lines with `"type": "flow_tag"`: Call `flow_tag` with the `xml` value as `flow_tag_xml`. Include `claude_session_id`.
+```json
+{
+  "session_id": "<session_id>",
+  "category": "memory|rules|hook|skill",
+  "label": "<human-readable description, max 80 chars>",
+  "command": "create-memory|create-rule|create-hook|create-skill",
+  "confidence": 0.85,
+  "reasoning": "<1-2 sentence explanation>"
+}
+```
 
-This is necessary because the background agent cannot call MCP tools directly. The parent (foreground) agent acts as the relay.
+5. **Report completion** via `flow_entity_crud`:
+   - `crud`: "update"
+   - `entity_json`: `{"type": "session_classification", "session_id": "<session_id>", "status": "complete", "category": "<category>", "label": "<label>", "command": "<command>", "confidence": <confidence>}`
