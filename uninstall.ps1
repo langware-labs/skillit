@@ -23,7 +23,7 @@ if (-not $PluginName) {
     exit 1
 }
 
-$MarketplaceName = "local-dev"
+$MarketplaceName = (Get-Content (Join-Path $PluginDir ".claude-plugin\marketplace.json") -Raw | ConvertFrom-Json).name
 $CacheDir = Join-Path $env:USERPROFILE ".claude\plugins\cache\$MarketplaceName\$PluginName"
 
 Write-Host "Uninstalling plugin: $PluginName"

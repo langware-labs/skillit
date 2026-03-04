@@ -4,7 +4,7 @@ $ErrorActionPreference = "Stop"
 
 $Repo        = "langware-labs/skillit"
 $Plugin      = "skillit"
-$Marketplace = "flowpad-ai"
+$Marketplace = "langware-ai"
 
 # ---------- helpers ----------
 function Info  { param($Msg) Write-Host "[skillit] $Msg" -ForegroundColor Cyan }

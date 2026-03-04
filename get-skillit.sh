@@ -5,7 +5,7 @@ set -e
 
 REPO="langware-labs/skillit"
 PLUGIN="skillit"
-MARKETPLACE="flowpad-ai"
+MARKETPLACE="langware-ai"
 
 # ---------- helpers ----------
 info()  { printf '\033[1;34m[skillit]\033[0m %s\n' "$*"; }
