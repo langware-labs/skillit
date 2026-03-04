@@ -55,7 +55,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/lan
 claude plugin marketplace add langware-labs/skillit
 
 # Install the plugin
-claude plugin install skillit@flowpad-ai --scope user
+claude plugin install skillit@langware-ai --scope user
 ```
 
 ### Verify Installation
@@ -70,14 +70,14 @@ You should see `skillit` in the list of installed plugins.
 
 - `claude /plugin` to open the plugin manager
 - Navigate to `Marketplaces`
-- Select `flowpad-ai` marketplace
+- Select `langware-ai` marketplace
 - Choose `Enable auto-update`
 
 ### Manual Update
 
 ```bash
-claude plugin marketplace update flowpad-ai
-claude plugin update skillit@flowpad-ai
+claude plugin marketplace update langware-ai
+claude plugin update skillit@langware-ai
 ```
 
 ### Alternative: Local Development Install
@@ -141,20 +141,31 @@ Both commands launch their respective agents as background tasks, so you can con
 ```
 skillit/
 ├── agents/              # Built agent definitions (generated from templates)
+│   ├── skillit-analyzer.md
+│   └── skillit-creator.md
 ├── commands/            # Slash command definitions
 │   ├── create-skill.md  # /skillit:create-skill command
 │   └── analyze.md       # /skillit:analyze command
 ├── templates/           # Agent templates (source of truth)
-│   ├── skillit-creator.md
+│   ├── agent_common.md
 │   ├── skillit-analyzer.md
-│   ├── skillit-classifier.md
-│   └── skillit-agent.md
-├── hooks/               # Claude Code hooks (SessionStart, UserPromptSubmit)
-├── scripts/             # Build system and utilities
-│   └── utils/           # Plugin manager, build tools
+│   ├── skillit-creator.md
+│   ├── rule_template/   # Template for new activation rules
+│   └── skill_template/  # Template for new skills
+├── hooks/               # Claude Code hook definitions
+│   └── hooks.json       # SessionStart, UserPromptSubmit, PreToolUse, SubagentStop
+├── scripts/             # Hook handlers, build system, and utilities
+│   ├── main.py          # Hook dispatcher (entry point)
+│   ├── hook_handlers/   # Per-event hook handlers
+│   ├── plugin_records/  # Plugin record management
+│   ├── subagents/       # Agent launcher
+│   └── utils/           # Plugin manager, build tools, config
 ├── .claude-plugin/      # Plugin metadata and marketplace config
-├── install.sh           # Installation script
-├── uninstall.sh         # Uninstallation script
+├── bin/                 # CLI launcher for hook execution
+├── install.sh           # Installation script (macOS/Linux)
+├── install.ps1          # Installation script (Windows)
+├── uninstall.sh         # Uninstallation script (macOS/Linux)
+├── uninstall.ps1        # Uninstallation script (Windows)
 └── README.md
 ```
 
@@ -203,7 +214,7 @@ This will:
 
 ## How It Works
 
-1. **Hooks**: Skillit registers `SessionStart` and `UserPromptSubmit` hooks that run on each session/prompt
+1. **Hooks**: Skillit registers `SessionStart`, `UserPromptSubmit`, `PreToolUse`, and `SubagentStop` hooks
 2. **Commands**: Slash commands (`/skillit:analyze`, `/skillit:create-skill`) launch specialized agents as background tasks
 3. **Analysis**: The analyzer agent reviews conversation transcripts and identifies issues
 4. **Classification**: Issues are classified as new or known against existing rules
