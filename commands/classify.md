@@ -32,7 +32,7 @@ You are a fast session classifier. Classify the session directly — do NOT laun
 {
   "session_id": "<session_id>",
   "category": "memory|rules|hook|skill",
-  "label": "<human-readable description, max 80 chars>",
+  "title": "<3 valuable words summarizing the session>",
   "command": "create-memory|create-rule|create-hook|create-skill",
   "confidence": 0.85,
   "reasoning": "<1-2 sentence explanation>"
@@ -41,4 +41,4 @@ You are a fast session classifier. Classify the session directly — do NOT laun
 
 5. **Report completion** via `flow_entity_crud`:
    - `crud`: "update"
-   - `entity_json`: `{"type": "session_classification", "session_id": "<session_id>", "status": "complete", "category": "<category>", "label": "<label>", "command": "<command>", "confidence": <confidence>}`
+   - `entity_json`: `{"type": "session_classification", "session_id": "<session_id>", "status": "complete", "category": "<category>", "title": "<title>", "command": "<command>", "confidence": <confidence>}`
