@@ -55,7 +55,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/lan
 claude plugin marketplace add langware-labs/skillit
 
 # Install the plugin
-claude plugin install skillit@langware-ai --scope user
+claude plugin install skillit@flowpad-ai --scope user
 ```
 
 ### Verify Installation
@@ -70,14 +70,14 @@ You should see `skillit` in the list of installed plugins.
 
 - `claude /plugin` to open the plugin manager
 - Navigate to `Marketplaces`
-- Select `langware-ai` marketplace
+- Select `flowpad-ai` marketplace
 - Choose `Enable auto-update`
 
 ### Manual Update
 
 ```bash
-claude plugin marketplace update langware-ai
-claude plugin update skillit@langware-ai
+claude plugin marketplace update flowpad-ai
+claude plugin update skillit@flowpad-ai
 ```
 
 ### Alternative: Local Development Install
