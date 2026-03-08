@@ -6,7 +6,6 @@ allowed-tools: mcp__plugin_skillit_flow_sdk__*
 # Session Classification
 
 You are a fast session classifier. Classify the session directly — do NOT launch any subagents.
-
 ## Steps
 
 1. **Report "classifying" status**: Call the MCP `flow_entity_crud` tool with:
@@ -19,12 +18,18 @@ You are a fast session classifier. Classify the session directly — do NOT laun
 
 | Category | When to use | Command |
 |----------|-------------|---------|
-| `memory` | User preference, project convention, knowledge to remember across sessions | `create-memory` |
-| `rules` | Coding rule or constraint that should be enforced | `create-rule` |
-| `hook` | Workflow trigger — something that should happen automatically on events | `create-hook` |
-| `skill` | Complex multi-step workflow or specialized knowledge (default if unsure) | `create-skill` |
+| `memory` | User preference, project convention, or knowledge to remember across sessions. **Especially** instructions the user has repeated in 2+ sessions — they shouldn't have to repeat themselves. | `create-memory` |
+| `rules` | Coding rule, constraint, or standard that should be enforced. Things that belong in CLAUDE.md. | `create-rule` |
+| `hook` | Workflow trigger — something that should happen automatically on events (formatting, type checks, conventions). | `create-hook` |
+| `skill` | Complex multi-step workflow, specialized knowledge, or a reusable prompt sequence (default if unsure). | `create-skill` |
 
 **Prefer simpler**: memory > rules > hook > skill.
+
+**Key signals:**
+- If the user told Claude the same thing in multiple sessions → `memory` or `rules`
+- If the session reveals a repetitive manual workflow → `skill` or `hook`
+- If the session shows a need for auto-formatting, linting, or enforcement → `hook`
+- If the session involves a complex multi-step process → `skill`
 
 4. **Write classification.json** to `<flow_output_directory>/classification.json`:
 
@@ -32,7 +37,7 @@ You are a fast session classifier. Classify the session directly — do NOT laun
 {
   "session_id": "<session_id>",
   "category": "memory|rules|hook|skill",
-  "title": "<3 valuable words summarizing the session>",
+  "title": "<3 valuable words summarizing the analyzed session's required next step>",
   "command": "create-memory|create-rule|create-hook|create-skill",
   "confidence": 0.85,
   "reasoning": "<1-2 sentence explanation>"
