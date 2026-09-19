@@ -1,11 +1,11 @@
 """Skillit - Central path configuration."""
 
 import sys
-from enum import StrEnum
+from enum import Enum
 from pathlib import Path
 
 
-class Platform(StrEnum):
+class Platform(str, Enum):
     WINDOWS = "win32"
     MACOS = "darwin"
     LINUX = "linux"

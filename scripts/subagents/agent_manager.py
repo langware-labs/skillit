@@ -1,10 +1,10 @@
 """Manage skillit subagents and their prompt generation."""
 
 import json
-from enum import StrEnum
+from enum import Enum
 
 
-class SubAgent(StrEnum):
+class SubAgent(str, Enum):
     """Available skillit subagents."""
 
     ANALYZE = "skillit-analyzer"
@@ -15,7 +15,7 @@ class SubAgent(StrEnum):
 
 def get_subagent_launch_prompt(agent: SubAgent, prompt: str, data: dict) -> str:
     data_json = json.dumps(data, indent=2)
-    return f"""\nLaunch the "{agent}" subagent with the following context:
+    return f"""\nLaunch the "{agent.value}" subagent with the following context:
 
 **Instruction:**
 {prompt}
